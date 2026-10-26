@@ -22,7 +22,7 @@ initLogFile(config.dataDir);
 const log = logger('bot');
 const COOLDOWN_MS = 3000;
 // Commands whose replies only the person who used them sees.
-const PRIVATE_COMMANDS = new Set(['item']);
+const PRIVATE_COMMANDS = new Set(['item', 'help', 'system']);
 
 const client = new Client({
     intents: [
@@ -119,7 +119,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     try {
         // Lookups can take a few seconds; Discord wants an answer within 3.
-        // Admin replies and item lookups are only shown to whoever asked.
+        // Admin replies, /item, /help and /system are only shown to whoever asked.
         const private_ = admin || PRIVATE_COMMANDS.has(interaction.commandName);
         await interaction.deferReply(private_ ? { flags: MessageFlags.Ephemeral } : {});
         const { reply, menu, confirm, working } = await run(interaction, ctx);
