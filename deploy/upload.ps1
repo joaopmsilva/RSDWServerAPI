@@ -6,19 +6,27 @@
 #   .\deploy\upload.ps1 -Bot -Mod    both
 #   .\deploy\upload.ps1 -Mod -Restart   build the mod, warn players, restart in 2 minutes
 #
-# Without -Restart the new mod loads at the next server start (the 05:00 restart).
+# Without -Restart the new mod loads at the next server start (for example a daily restart from cron).
 #
-# Uses your SSH key if you've set one up (see DEPLOY.md), otherwise asks for the password.
+# The server to upload to comes from -Target, or deploy\vps.txt (one line, e.g.
+# ubuntu@203.0.113.10 - git ignores the file). Uses your SSH key if you've set
+# one up (see DEPLOY.md), otherwise asks for the password.
 
 param(
     [switch]$Bot,
     [switch]$Mod,
     [switch]$Restart,
-    [string]$Target = 'user@your-vps-ip'
+    [string]$Target
 )
 
 $ErrorActionPreference = 'Stop'
 if ($Restart -and -not $Mod) { throw '-Restart goes with -Mod (to restart without a new mod, use /server restart)' }
+
+$targetFile = Join-Path $PSScriptRoot 'vps.txt'
+if (-not $Target -and (Test-Path $targetFile)) { $Target = (Get-Content $targetFile -TotalCount 1).Trim() }
+if (-not $Target) {
+    throw "Which server? Put 'user@your-vps-ip' in $targetFile, or pass -Target user@your-vps-ip"
+}
 
 $repo = Split-Path $PSScriptRoot -Parent
 $parent = Split-Path $repo -Parent

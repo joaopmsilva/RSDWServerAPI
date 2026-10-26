@@ -3,3 +3,4 @@ build/
 src/**/*.o
 src/*.o
 RSDWSDK/
+deploy/vps.txt

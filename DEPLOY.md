@@ -34,10 +34,11 @@ application:
 
 ## 2. Copy the project to the VPS
 
-From PowerShell on your PC (replace `USER` and `VPS_IP`):
+From PowerShell on your PC, in the folder that contains `RSDWServerAPI` (replace `USER` and
+`VPS_IP`). After the first time, `deploy\upload.ps1` does this for you - see [Updating](#updating).
 
 ```powershell
-cd C:\Users\parad\Desktop\rsdwapi
+cd path\to\folder-containing-RSDWServerAPI
 tar --exclude=node_modules --exclude=.git --exclude=bot/data --exclude=bot/.env -czf rsdw.tgz RSDWServerAPI
 scp rsdw.tgz USER@VPS_IP:/tmp/
 ```
@@ -121,6 +122,20 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 If there is no `0.3.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
+**Run it as a service.** `/server` in Discord and the cron scripts start and stop the server
+through a systemd service called `dragonwilds`. If you don't have one yet,
+[`deploy/dragonwilds.service`](deploy/dragonwilds.service) is ready to use - check the paths,
+then:
+
+```bash
+sudo cp ~/RSDWServerAPI/deploy/dragonwilds.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dragonwilds
+```
+
+From then on use `sudo systemctl start|stop|restart dragonwilds`, and `journalctl -u dragonwilds`
+for the server's own output.
+
 ## 7. Install the bot
 
 ```bash
@@ -187,27 +202,36 @@ tail -f /home/dragonwilds/rsdw-bot/data/bot.log
 sudo systemctl restart rsdw-bot        # after editing .env
 ```
 
-## 10. Notices from your cron scripts
+## 10. Optional: backups and a daily update from cron
 
 The bot sees by itself when the server goes offline, restarts and comes back. Backups and
-planned restarts it can't see, so the cron scripts announce them. Updated copies of
-`backup.sh` and `update-and-restart.sh` are in `/home/dragonwilds/rsdw-bot/deploy/scripts/`:
+planned restarts it can't see, so scripts announce them. Two ready-made scripts are in
+[`bot/deploy/scripts/`](bot/deploy/scripts/) - check the paths at the top of each:
 
+- `backup.sh` copies the world saves with a timestamp, keeps the newest 10, and posts
+  "💾 Backup complete" (`BACKUP_NOTICES=false` in the bot's `.env` keeps that quiet).
 - `update-and-restart.sh` warns on Discord and in game 5 minutes before (and in game again 1
-  minute before), then updates and restarts as before. Once the server is back the bot posts
-  "🟢 Server is online - Restart complete". Set `WARN_MINUTES=0` at the top to skip the wait.
-- `backup.sh` posts "💾 Backup complete" after each backup. To stop those messages, set
-  `BACKUP_NOTICES=false` in the bot's `.env` (backups keep running and logging).
+  minute before), stops the server, updates it with steamcmd and starts it again. Once it's
+  back the bot posts "🟢 Server is online - Restart complete". `WARN_MINUTES=0` skips the
+  wait. It stops and starts the `dragonwilds` service with `sudo`, so it needs the sudoers line
+  from step 11.
 
 ```bash
-cd /home/dragonwilds/scripts
-cp backup.sh backup.sh.old && cp update-and-restart.sh update-and-restart.sh.old
+mkdir -p /home/dragonwilds/scripts && cd /home/dragonwilds/scripts
 cp /home/dragonwilds/rsdw-bot/deploy/scripts/*.sh .
 chmod +x *.sh
+crontab -e
 ```
 
-The crontab stays as it is. Both scripts call `/usr/bin/node`; if `which node` says
-otherwise, change `ANNOUNCE=` at the top of each. To test without waiting for cron:
+and add, for an hourly backup and an update at 05:00 every day:
+
+```cron
+0 * * * * /home/dragonwilds/scripts/backup.sh
+0 5 * * * /home/dragonwilds/scripts/update-and-restart.sh
+```
+
+Both scripts call `/usr/bin/node`; if `which node` says otherwise, change `ANNOUNCE=` at the
+top of each. To test the notices without waiting for cron:
 
 ```bash
 /usr/bin/node /home/dragonwilds/rsdw-bot/src/announce.js say "Testing notices"
@@ -272,7 +296,7 @@ Three scripts do the work:
 
 The bot is separate from the game server, so updating it never needs a server restart.
 The mod is loaded when the server starts, so a new build takes effect at the next restart -
-the daily one at 05:00, or now with `--restart`.
+a daily one from cron (step 10), `/server restart`, or straight away with `-Restart`.
 
 ### One-time: log in with a key instead of a password
 
@@ -286,28 +310,37 @@ Press Enter at every question. Then copy the key to the VPS (this asks for the p
 last time):
 
 ```powershell
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ubuntu@VPS_IP "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh USER@VPS_IP "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
 ```
 
-`ssh ubuntu@VPS_IP` should now log in without asking. Windows may block running downloaded
+`ssh USER@VPS_IP` should now log in without asking. Windows may block running downloaded
 scripts; allow your own with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, once.
 
 ### Every update
 
-From PowerShell, in the project folder:
+Tell the script where your server is, once - one line, git ignores the file:
 
 ```powershell
-cd C:\Users\parad\Desktop\rsdwapi\RSDWServerAPI
+"USER@VPS_IP" | Set-Content deploy\vps.txt
+```
+
+Then from PowerShell, in the project folder:
+
+```powershell
+cd path\to\RSDWServerAPI
 .\deploy\upload.ps1 -Bot          # bot changes: live in a few seconds
-.\deploy\upload.ps1 -Mod          # mod changes: built now, loaded at the 05:00 restart
+.\deploy\upload.ps1 -Mod          # mod changes: built now, loaded at the next server restart
 .\deploy\upload.ps1 -Bot -Mod     # both
 .\deploy\upload.ps1 -Mod -Restart # mod now: build, warn players, restart in 2 minutes
 ```
 
-A new mod only loads when the server starts. Without `-Restart` that's the 05:00 restart; you
-can also restart any time with `/server restart` in Discord.
+A new mod only loads when the server starts. Without `-Restart` that's your next restart; you
+can also restart any time with `/server restart` in Discord. `-Target USER@VPS_IP` overrides
+`vps.txt` for one run.
 
-The VPS address is at the top of `upload.ps1` (`-Target`).
+The scripts assume the layout at the top of this guide and that your SSH user can `sudo`. If
+your paths differ, change the variables at the top of `deploy/update-bot.sh` and
+`deploy/update-mod.sh`.
 
 On the VPS, after uploading, the mod script also takes:
 

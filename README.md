@@ -106,6 +106,13 @@ Updating the bot never needs a server restart. A new mod build is picked up at t
 > The step-by-step guide for a plain Steam install on a VPS - Discord setup, building,
 > installing, systemd, cron and updating - is in **[DEPLOY.md](DEPLOY.md)**.
 
+#### 📋 You need
+
+| | |
+| - | - |
+| 🐧 **A Linux server** running the Dragonwilds dedicated server (a manual Steam install is fine; tested on Ubuntu) | 🛠️ `build-essential` to build the mod |
+| 🟢 **Node.js 18.17+** for the bot | 🤖 **A Discord application** with a bot token and *Message Content Intent* on |
+
 **1. Build the mod** on the server's machine:
 
 ```bash
@@ -127,11 +134,34 @@ cp .env.example .env && nano .env   # Discord token, API token, channel IDs
 npm start
 ```
 
-**4. Update later** with one command from your PC:
+**4. Update later** with one command from a Windows PC (put `user@your-vps` in `deploy\vps.txt` first):
 
 ```powershell
 .\deploy\upload.ps1 -Bot -Mod      # add -Restart to load the new mod straight away
 ```
+
+---
+
+## 🧪 Compatibility
+
+Built against the Dragonwilds **Patch 1.0** Linux dedicated server. The mod reads the game's
+memory, so a game update can move things it depends on. When that happens it says so instead of
+guessing: affected endpoints answer `503`, the log names what failed, `/api/diagnostics` (and the
+bot's private alert to admins) lists the broken checks, and some lookups fall back to scanning
+for where things moved. The bot keeps working with saved data either way.
+
+## 🔐 Security
+
+- Keep the API on `BindAddress=127.0.0.1` when the bot runs on the same machine - nothing else
+  needs to reach it.
+- Never commit `bot/.env` or `rsdwapi/settings.ini`: they hold the Discord token, the API bearer
+  token and the RCON password. Both are git-ignored or outside the repository.
+- Admin commands only answer the Discord user IDs in `ADMIN_USER_IDS`, and the bot can only
+  start, stop and restart the game service through the narrow sudoers rule in DEPLOY.md.
+- If a token leaks, replace it: reset the Discord token in the Developer Portal; for the API, put
+  a new long random `BearerToken` (and `Password` for RCON) in `settings.ini` while the server is
+  stopped, and the same token in the bot's `API_TOKEN`. Clearing `BearerToken` turns authentication
+  off rather than making a new one.
 
 ---
 
@@ -520,9 +550,17 @@ repository. Every offset the mod uses carries a `// Source:` comment naming the 
 so they can be re-verified against a fresh dump after a game patch - and `/api/diagnostics`
 tells you when that's needed.
 
+## 🤝 Contributing
+
+Issues and pull requests are welcome - especially after a game patch. If something stops
+working, include the output of `/api/diagnostics` and the start of `rsdwapi/logs/api.log` (the
+engine discovery lines), with tokens removed.
+
 ## 📄 License
 
 Released under the MIT License - see [LICENSE](LICENSE).
 
-Based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI). Provided as is, without
-warranty of any kind. Use it at your own risk.
+The mod is based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI) by Kozejin;
+the Discord bot, event feed and the rest were added on top. Not affiliated with Jagex.
+*RuneScape: Dragonwilds* is a trademark of Jagex Ltd. Provided as is, without warranty of any
+kind - use it at your own risk.

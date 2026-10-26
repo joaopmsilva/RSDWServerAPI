@@ -41,7 +41,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | ❓ **`/help`** | All of the above |
 
 ```text
-📊 Skills · Smurfy (Paradox)
+📊 Skills · Mira (MiraPlays)
 🟢 Online now
 ❤️ Max health 120
 
@@ -84,8 +84,8 @@ Set `CHAT_CHANNEL_ID` and the channel becomes the game's chat:
 
 | | |
 | - | - |
-| **Game → Discord** | `💬 **Smurfy**: anyone got iron?` - and deaths as a small embed |
-| **Discord → game** | Players see `[Discord] Paradox: on my way!` |
+| **Game → Discord** | `💬 **Mira**: anyone got iron?` - and deaths as a small embed |
+| **Discord → game** | Players see `[Discord] Sam: on my way!` |
 
 - Mentions are never turned into pings, custom emoji become `:name:`, pictures `[image]`, and
   long messages are cut at `BRIDGE_MAX_LENGTH`.
@@ -101,11 +101,11 @@ Posted in the chat channel as small cards, the moment they happen:
 
 | Card | Looks like |
 | ---- | ---------- |
-| 🎉 **Level up** | In the skill's colour with its icon: **Smurfy** reached **Woodcutting 43** · `40 → 43 · +3 levels` · `▰▱▱▱▱` 6% to 44 · *Total level 178* |
-| ⭐ **Level 99** | Gold, with the skill icon: **Smurfy mastered Mining!** |
-| ➡️ **Join** | Green: **Bobby** joined the server · *👥 3/16 online* |
-| ⬅️ **Leave** | Grey: **Bobby** left · played 1h 20m · *👥 2/16 online* |
-| 💀 **Death** | Dark red: **Smurfy** has died · Drowned · *📍 location* |
+| 🎉 **Level up** | In the skill's colour with its icon: **Mira** reached **Woodcutting 43** · `40 → 43 · +3 levels` · *Total level 178* |
+| ⭐ **Level 99** | Gold, with the skill icon: **Mira mastered Mining!** |
+| ➡️ **Join** | Green: **Tobin** joined the server · *👥 3/16 online* |
+| ⬅️ **Leave** | Grey: **Tobin** left · played 1h 20m · *👥 2/16 online* |
+| 💀 **Death** | Dark red: **Mira** has died · Drowned · *📍 location* |
 
 Several at once (a few level-ups, people joining together) share one message.
 

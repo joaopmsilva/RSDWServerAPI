@@ -1,0 +1,28 @@
+# Example systemd unit for the game server with the mod loaded. /server in
+# Discord and the cron scripts start and stop it through this service.
+#
+#   sudo cp deploy/dragonwilds.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dragonwilds
+#
+# Change the paths, user and port to match your install.
+
+[Unit]
+Description=RuneScape: Dragonwilds dedicated server (with RSDWServerAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dragonwilds
+WorkingDirectory=/home/dragonwilds/rs_server
+Environment=LD_PRELOAD=/home/dragonwilds/rs_server/librsdwapi.so
+ExecStart=/home/dragonwilds/rs_server/RSDragonwildsServer.sh -log -port=7777
+# Come back after a crash; a stop through systemctl stays stopped.
+Restart=on-failure
+RestartSec=15
+# Give the world time to save on shutdown.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -226,7 +226,6 @@ export function levelUpEmbed(u) {
     const s = u.skill;
     const lines = [`**${escapeMarkdown(u.name)}** reached **${s.name} ${s.info.level}**`];
     if (s.info.level - u.from > 1) lines.push(`${u.from} → ${s.info.level} · +${s.info.level - u.from} levels`);
-    if (!s.info.maxed) lines.push(`\`${progressBar(s.info.progress, 10)}\` ${pct(s.info.progress)}% to ${s.info.level + 1}`);
 
     const embed = new EmbedBuilder()
         .setColor(s.category.color)

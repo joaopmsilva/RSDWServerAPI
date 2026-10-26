@@ -53,5 +53,5 @@ if [ "${1:-}" = "--restart" ]; then
     echo "== Restarted. In a minute or two, check the log:"
     echo "   sudo grep -E 'loaded|PlayerChatComponent|engine ready' $SERVER_DIR/rsdwapi/logs/api.log"
 else
-    echo "== It loads at the next server start (the daily restart at 05:00)."
+    echo "== It loads at the next server start (for example a daily restart from cron)."
 fi
