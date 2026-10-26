@@ -91,6 +91,10 @@ With `CHAT_CHANNEL_ID` set:
   `BRIDGE_MAX_LENGTH`. If a message can't be delivered the bot reacts on it: 💤 when the
   server is down or nobody is online, ⚠️ for anything else (see the log).
 
+After a server restart the mod can only send into the game once the first player has
+joined (it learns how to call the game from that player's traffic), so until then messages
+get 💤.
+
 Set `BRIDGE_ROLE_ID` to let only one role talk into the game, or `BRIDGE_TO_GAME=false` to
 keep chat one way. The game has no "server" sender, so a Discord line shows in each player's
 chat box under that player's own name, with the `[Discord]` prefix in front.

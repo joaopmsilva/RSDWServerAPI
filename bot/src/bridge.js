@@ -80,8 +80,10 @@ export class Bridge {
             this.remember(line);
             log.info(`to game: ${line}`);
         } catch (err) {
-            // Nobody to deliver to is normal; anything else is worth a look.
-            const quiet = err.kind === 'offline' || err.kind === 'starting' || /no players/i.test(err.message);
+            // Nobody to deliver to is normal; anything else is worth a look. The mod
+            // also can't send until a player has joined since the server started.
+            const quiet =
+                err.kind === 'offline' || err.kind === 'starting' || /no players|ProcessEvent/i.test(err.message);
             if (quiet) log.debug(`not delivered (${err.message}): ${line}`);
             else log.warn(`not delivered (${err.message}): ${line}`);
             await message.react(quiet ? '💤' : '⚠️').catch(() => {});

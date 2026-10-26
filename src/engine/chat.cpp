@@ -441,10 +441,6 @@ bool Broadcast(const std::string& body, std::string& outError) {
         outError = "broadcast needs the game thread pump: " + GameThread::Status();
         return false;
     }
-    if (!GameThread::HasProcessEvent()) {
-        outError = "broadcast needs ProcessEvent, which has not been located yet";
-        return false;
-    }
     if (body.empty()) {
         outError = "message is empty";
         return false;
@@ -453,6 +449,14 @@ bool Broadcast(const std::string& body, std::string& outError) {
     std::vector<PlayerInfo> players = engine->GetAllPlayers();
     if (players.empty()) {
         outError = "no players to broadcast to";
+        return false;
+    }
+
+    // Without a ProcessEvent symbol it is learned from the first ServerUpdateCamera
+    // a client sends, i.e. shortly after the first player joins.
+    if (!GameThread::HasProcessEvent()) {
+        outError = "broadcast needs ProcessEvent, which is found once a player has been in "
+                   "game since the server started";
         return false;
     }
 
