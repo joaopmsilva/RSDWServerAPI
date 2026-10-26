@@ -36,13 +36,10 @@ function statusLine(profile) {
     return profile.lastSeen ? `⚫ **Offline** · last seen ${relative(profile.lastSeen)}` : '⚫ **Offline**';
 }
 
-// Live only - a saved snapshot's health would just be wrong.
+// Live for online players, from the saved snapshot otherwise.
 function healthLine(profile) {
-    const health = profile.online ? profile.player.health : null;
-    if (!health || !(health.max > 0)) return null;
-    if (health.isDead) return '💀 **Dead**';
-    const current = Math.max(0, Math.min(health.current, health.max));
-    return `❤️ **Health** \`${progressBar(current / health.max, 10)}\` **${fmt(current)}** / ${fmt(health.max)}`;
+    const max = profile.player.health?.max > 0 ? profile.player.health.max : profile.player.maxHealth;
+    return max > 0 ? `❤️ **Max health** \`${fmt(max)}\`` : null;
 }
 
 function playerEmbed(profile, color) {
@@ -240,7 +237,7 @@ export function helpEmbed() {
         .setTitle(`🐉 ${config.serverName} — Commands`)
         .setDescription('Type `/` and pick a command. Player and skill names fill in as you type.')
         .addFields(
-            { name: '/levels', value: 'Every skill for a player, with health while they are online.' },
+            { name: '/levels', value: 'Every skill for a player, total level and max health.' },
             { name: '/level', value: 'One skill in detail for a player, with a progress bar.' },
             { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
             { name: '/status', value: 'Is the server up, and who is on it.' },

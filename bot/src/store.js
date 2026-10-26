@@ -36,12 +36,15 @@ export class PlayerStore {
         // A player still loading in reports no skills - keep their previous snapshot.
         if (!player.skills?.length) return;
 
-        this.players[PlayerStore.key(player)] = {
+        const key = PlayerStore.key(player);
+        const maxHealth = player.health?.max > 0 ? player.health.max : this.players[key]?.maxHealth;
+        this.players[key] = {
             name: player.name,
             characterName: player.characterName,
             uniqueNetId: player.uniqueNetId,
             characterGuid: player.characterGuid,
             skills: player.skills.map(s => ({ skill: s.skill, currentXP: s.currentXP })),
+            ...(maxHealth ? { maxHealth } : {}),
             lastSeen: now,
         };
         this.dirty = true;

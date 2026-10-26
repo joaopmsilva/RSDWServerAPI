@@ -52,9 +52,9 @@ async function fetchLive(ctx) {
 
 // A player still loading in reports no skills; show their snapshot instead.
 function withStoredSkills(ctx, player) {
-    if (player.skills?.length) return player;
     const stored = ctx.store.get(player);
-    return stored ? { ...player, skills: stored.skills } : player;
+    if (!stored) return player;
+    return { ...player, skills: player.skills?.length ? player.skills : stored.skills, maxHealth: stored.maxHealth };
 }
 
 function buildProfile(player, online) {

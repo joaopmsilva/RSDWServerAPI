@@ -12,7 +12,7 @@ first (🟢), then everyone the bot has seen before (⚫).
 
 | Command | |
 | ------- | - |
-| `/levels player` | Every skill grouped by category, total level, and health while online |
+| `/levels player` | Every skill grouped by category, total level and max health |
 | `/level skill player` | One skill in detail, with a progress bar |
 | `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
 | `/status` | Online / starting / offline, players, uptime |
