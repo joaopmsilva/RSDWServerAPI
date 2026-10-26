@@ -1,11 +1,12 @@
 {
   "name": "rsdw-discord-bot",
-  "version": "0.1.0",
-  "description": "Discord bot for RSDWServerAPI - player levels, server status and online players",
+  "version": "0.3.0",
+  "description": "Discord bot for RSDWServerAPI - player levels, server status, two-way chat and server notices",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "announce": "node src/announce.js"
   },
   "engines": {
     "node": ">=18.17"

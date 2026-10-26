@@ -25,10 +25,12 @@ application:
 3. Make sure the bot has these permissions in the channels it should work in: *View
    Channels*, *Send Messages*, *Embed Links*, *Add Reactions*, *Read Message History*.
    *Manage Messages* is optional but makes reaction navigation smoother. To re-invite with
-   the right permissions: **OAuth2 → URL Generator**, scope `bot`, tick those permissions,
-   open the URL.
+   the right permissions: **OAuth2 → URL Generator**, scopes `bot` **and**
+   `applications.commands` (needed for the slash commands), tick those permissions, open the
+   URL. Re-inviting over the existing bot keeps its roles.
 4. In Discord, **User Settings → Advanced → Developer Mode** on. Right-click the channel for
-   in-game chat → **Copy Channel ID**, and the same for deaths if you want a separate one.
+   in-game chat → **Copy Channel ID**, and the same for deaths and server notices if you want
+   them in separate channels.
 
 ## 2. Copy the project to the VPS
 
@@ -136,10 +138,14 @@ Fill in at least:
 | ------- | ----- |
 | `DISCORD_TOKEN` | the bot token from step 1 |
 | `API_TOKEN` | `BearerToken` from `settings.ini` |
-| `SERVER_NAME` | your server's name, shown in `!status` |
+| `SERVER_NAME` | your server's name, shown in `/status` and notices |
 | `MAX_PLAYERS` | your server's max players |
 | `CHAT_CHANNEL_ID` | channel ID for in-game chat |
 | `DEATH_CHANNEL_ID` | channel ID for deaths, or leave empty to use the chat channel |
+| `STATUS_CHANNEL_ID` | channel ID for online / offline / restart / backup notices, or empty for the chat channel |
+
+Optional: `BRIDGE_ROLE_ID` to let only one role talk into the game. Everything else in
+`.env.example` has sensible defaults.
 
 Save with Ctrl+O, Enter, Ctrl+X.
 
@@ -149,9 +155,10 @@ Save with Ctrl+O, Enter, Ctrl+X.
 npm start
 ```
 
-Look for `logged in as ...` and `server is online`. In Discord try `!help`, `!status`,
-`!online`, `!levels <name>` and `!level wc <name>`, click the reactions, and say something in
-game chat to check the relay. Stop with Ctrl+C.
+Look for `logged in as ...`, `slash commands registered` and `server is online`. In Discord
+type `/` and try `/status`, `/online`, `/levels` and `/level` (names fill in as you type),
+click the reactions, say something in game chat to check it shows up in Discord, and type in
+the chat channel to check it shows up in game. Stop with Ctrl+C.
 
 ## 9. Run the bot permanently
 
@@ -180,13 +187,70 @@ tail -f /home/dragonwilds/rsdw-bot/data/bot.log
 sudo systemctl restart rsdw-bot        # after editing .env
 ```
 
-## Updating later
+## 10. Notices from your cron scripts
 
-Mod: copy the project over again (step 2), `make -j"$(nproc)"`, stop the server, copy
-`dist/librsdwapi.so` into place, start the server.
+The bot sees by itself when the server goes offline, restarts and comes back. Backups and
+planned restarts it can't see, so the cron scripts announce them. Updated copies of
+`backup.sh` and `update-and-restart.sh` are in `/home/dragonwilds/rsdw-bot/deploy/scripts/`:
 
-Bot: replace everything in `/home/dragonwilds/rsdw-bot` except `.env` and `data/`, then
-`npm install --omit=dev` and `sudo systemctl restart rsdw-bot`.
+- `update-and-restart.sh` warns on Discord and in game 5 minutes before (and in game again 1
+  minute before), then updates and restarts as before. Once the server is back the bot posts
+  "🟢 Server is online - Restart complete". Set `WARN_MINUTES=0` at the top to skip the wait.
+- `backup.sh` posts "💾 Backup complete" after each backup. Delete its last `if` block if
+  hourly messages are too much.
+
+```bash
+cd /home/dragonwilds/scripts
+cp backup.sh backup.sh.old && cp update-and-restart.sh update-and-restart.sh.old
+cp /home/dragonwilds/rsdw-bot/deploy/scripts/*.sh .
+chmod +x *.sh
+```
+
+The crontab stays as it is. Both scripts call `/usr/bin/node`; if `which node` says
+otherwise, change `ANNOUNCE=` at the top of each. To test without waiting for cron:
+
+```bash
+/usr/bin/node /home/dragonwilds/rsdw-bot/src/announce.js say "Testing notices"
+```
+
+## Updating the bot
+
+The bot is separate from the game server, so updating it never needs a server restart:
+players stay connected, and only the bot is gone for a couple of seconds.
+
+From PowerShell on your PC:
+
+```powershell
+cd C:\Users\parad\Desktop\rsdwapi
+tar --exclude=node_modules --exclude=.git --exclude=bot/data --exclude=bot/.env -czf rsdw.tgz RSDWServerAPI
+scp rsdw.tgz USER@VPS_IP:/tmp/
+```
+
+On the VPS:
+
+```bash
+cd ~ && rm -rf RSDWServerAPI && tar xzf /tmp/rsdw.tgz
+rsync -a --delete --exclude=.env --exclude=data/ --exclude=node_modules/ ~/RSDWServerAPI/bot/ /home/dragonwilds/rsdw-bot/
+cd /home/dragonwilds/rsdw-bot && npm install --omit=dev
+sudo systemctl restart rsdw-bot
+journalctl -u rsdw-bot -n 30 --no-pager
+```
+
+`rsync` replaces the code but leaves `.env` and `data/` (saved players, relay position, logs)
+alone. Then check `.env.example` for settings your `.env` doesn't have yet:
+
+```bash
+diff <(grep -o '^[A-Z_]*=' .env.example | sort) <(grep -o '^[A-Z_]*=' .env | sort)
+```
+
+Lines starting with `<` are new settings. Missing ones use their defaults, so adding them is
+only needed to change something.
+
+## Updating the mod
+
+Only needed when the mod itself changes. Copy the project over (step 2), `make -j"$(nproc)"`,
+then at a quiet moment stop the server, copy `dist/librsdwapi.so` into place and start it
+again (steps 4-6).
 
 ## Troubleshooting
 
@@ -194,7 +258,10 @@ Bot: replace everything in `/home/dragonwilds/rsdw-bot` except `.env` and `data/
 | ------- | ----- |
 | Bot status stays 🔴 offline | `curl` from step 6 works? Same `API_URL` port and `API_TOKEN` as `settings.ini`? |
 | `API rejected the bearer token` in the bot log | `API_TOKEN` doesn't match `BearerToken` |
-| Bot online but ignores `!` commands | Message Content Intent (step 1), `ALLOWED_CHANNELS`, the bot can see the channel |
+| Nothing appears when typing `/` | re-invite with `applications.commands` (step 1), then reload Discord (Ctrl+R) |
+| `/` commands answer "Commands work in ..." | `ALLOWED_CHANNELS` |
+| Discord messages don't reach the game | Message Content Intent (step 1), `CHAT_CHANNEL_ID`, `BRIDGE_ROLE_ID`; 💤 on the message means nobody is online |
+| No server notices | `STATUS_CHANNEL_ID` or `CHAT_CHANNEL_ID` set, `SERVER_NOTICES` not false |
 | No reactions on replies | the bot needs *Add Reactions* and *Read Message History* |
 | `Discord login failed` | `DISCORD_TOKEN` wrong or reset |
 | No chat in Discord | `CHAT_CHANNEL_ID` set? `Chat: ... not found` in `api.log` means the game patch moved something |

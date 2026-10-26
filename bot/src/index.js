@@ -1,11 +1,14 @@
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { Bridge } from './bridge.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
 import { errorEmbed } from './embeds.js';
 import { initLogFile, logger } from './log.js';
 import { attachMenu } from './menus.js';
+import { Notices } from './notices.js';
 import { Poller } from './poller.js';
 import { Relay } from './relay.js';
+import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
 
 initLogFile(config.dataDir);
@@ -18,49 +21,83 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildMessageReactions,
+        // Needed to read what people type in the chat channel for the game.
         GatewayIntentBits.MessageContent,
     ],
 });
 
-log.info(`starting - API ${config.apiUrl}, prefix "${config.prefix}", data in ${config.dataDir}`);
+log.info(`starting - API ${config.apiUrl}, data in ${config.dataDir}`);
 
 const store = new PlayerStore(config.dataDir);
 const poller = new Poller(client, store);
-const relay = new Relay(client);
+const bridge = new Bridge();
+const relay = new Relay(client, bridge);
+const notices = new Notices(client);
 const ctx = { store, poller };
 const lastUse = new Map();
 
-client.once(Events.ClientReady, c => {
+poller.onTick = state => notices.observe(state);
+
+client.once(Events.ClientReady, async c => {
     log.info(`logged in as ${c.user.tag}, in ${c.guilds.cache.size} server(s), polling every ${config.pollSeconds}s`);
+    for (const guild of c.guilds.cache.values()) await registerCommands(guild);
+    notices.start();
     poller.start();
     relay.start();
+    bridge.start();
 });
 
-client.on(Events.MessageCreate, async message => {
-    if (message.author.bot || !message.guild || !message.content.startsWith(config.prefix)) return;
-    if (config.allowedChannels.length && !config.allowedChannels.includes(message.channelId)) return;
+client.on(Events.GuildCreate, guild => {
+    log.info(`added to ${guild.name}`);
+    registerCommands(guild);
+});
 
-    const [name, ...args] = message.content.slice(config.prefix.length).trim().split(/\s+/);
-    const run = commands.get((name || '').toLowerCase());
-    if (!run) return;
+// Everything typed in the chat channel goes to the game. A message starting
+// with "/" is a slash command that wasn't picked from the list - leave it.
+client.on(Events.MessageCreate, message => {
+    if (message.author.bot || message.webhookId || message.system || !message.guild) return;
+    if (message.content.startsWith('/')) return;
+    if (bridge.handles(message)) bridge.send(message);
+});
 
-    const who = `${message.author.tag} in #${message.channel.name}`;
-    const now = Date.now();
-    if (now - (lastUse.get(message.author.id) || 0) < COOLDOWN_MS) {
-        log.debug(`cooldown: ${who} ${message.content}`);
+client.on(Events.InteractionCreate, async interaction => {
+    if (interaction.isAutocomplete()) {
+        await autocomplete(interaction, ctx).catch(err => log.debug(`autocomplete failed: ${err.message}`));
         return;
     }
-    lastUse.set(message.author.id, now);
+    if (!interaction.isChatInputCommand()) return;
+
+    const run = commands[interaction.commandName];
+    if (!run) return;
+
+    const options = interaction.options.data.map(o => `${o.name}:${o.value}`).join(' ');
+    const what = `/${interaction.commandName}${options ? ' ' + options : ''}`;
+    const who = `${interaction.user.tag} in #${interaction.channel?.name ?? interaction.channelId}`;
+    const ephemeral = text => interaction.reply({ embeds: [errorEmbed(text)], flags: MessageFlags.Ephemeral }).catch(() => {});
+
+    if (config.allowedChannels.length && !config.allowedChannels.includes(interaction.channelId)) {
+        const where = config.allowedChannels.map(id => `<#${id}>`).join(', ');
+        return ephemeral(`Commands work in ${where}.`);
+    }
+
+    const now = Date.now();
+    if (now - (lastUse.get(interaction.user.id) || 0) < COOLDOWN_MS) {
+        log.debug(`cooldown: ${who} ${what}`);
+        return ephemeral('Slow down a little - try again in a few seconds.');
+    }
+    lastUse.set(interaction.user.id, now);
 
     try {
-        await message.channel.sendTyping().catch(() => {});
-        const { reply, menu } = await run(args, ctx);
-        const sent = await message.reply({ ...reply, allowedMentions: { repliedUser: false } });
-        log.info(`${who}: ${message.content} (${Date.now() - now} ms)`);
+        // Lookups can take a few seconds; Discord wants an answer within 3.
+        await interaction.deferReply();
+        const { reply, menu } = await run(interaction, ctx);
+        const sent = await interaction.editReply(reply);
+        log.info(`${who}: ${what} (${Date.now() - now} ms)`);
         if (menu) attachMenu(sent, menu).catch(err => log.error(`menu failed: ${err.message}`));
     } catch (err) {
-        log.error(`${who}: ${message.content} failed:`, err);
-        await message.reply({ embeds: [errorEmbed('Something went wrong running that command.')] }).catch(() => {});
+        log.error(`${who}: ${what} failed:`, err);
+        const failed = { embeds: [errorEmbed('Something went wrong running that command.')] };
+        await (interaction.deferred ? interaction.editReply(failed) : interaction.reply(failed)).catch(() => {});
     }
 });
 

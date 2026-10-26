@@ -1,5 +1,4 @@
 import { api } from './api.js';
-import { config } from './config.js';
 import {
     ONLINE_PAGE_SIZE,
     PLAYER_NAV,
@@ -125,47 +124,26 @@ function notFoundReply(query, result) {
     return { reply: { embeds: [errorEmbed(`No player found matching **${query}**.${extra}`)] } };
 }
 
-const usage = text => ({ reply: { embeds: [errorEmbed(`Usage: \`${config.prefix}${text}\``)] } });
-
-async function levels(args, ctx) {
-    const query = args.join(' ');
-    if (!query) return usage('levels <player>');
-
+async function levels(ctx, query) {
     const result = await resolvePlayer(ctx, query);
     if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(query, result.ambiguous)] } };
     if (result.notFound) return notFoundReply(query, result);
     return playerView(ctx, result.profile, 'overview');
 }
 
-async function level(args, ctx) {
-    if (args.length < 2) return usage('level <skill> <player>');
+async function level(ctx, skillQuery, playerQuery) {
+    const result = await resolvePlayer(ctx, playerQuery);
+    if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(playerQuery, result.ambiguous)] } };
+    if (result.notFound) return notFoundReply(playerQuery, result);
 
-    // Skill names are one word, but allow two ("!level wood cutting Bob").
-    for (const split of [1, 2]) {
-        if (split >= args.length) break;
-        const skillQuery = args.slice(0, split).join(' ');
-        const playerQuery = args.slice(split).join(' ');
-        const canRetry = split === 1 && args.length > 2;
+    const skill = findSkill(result.profile.skills, skillQuery);
+    if (skill) return playerView(ctx, result.profile, `skill:${skill.key}`);
 
-        const result = await resolvePlayer(ctx, playerQuery);
-        if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(playerQuery, result.ambiguous)] } };
-        if (result.notFound) {
-            if (canRetry) continue;
-            return notFoundReply(playerQuery, result);
-        }
-
-        const skill = findSkill(result.profile.skills, skillQuery);
-        if (skill) return playerView(ctx, result.profile, `skill:${skill.key}`);
-        if (canRetry) continue;
-
-        const known = result.profile.skills.map(s => s.name).join(', ') || 'none recorded yet';
-        return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.\nSkills: ${known}`)] } };
-    }
-
-    return usage('level <skill> <player>');
+    const known = result.profile.skills.map(s => s.name).join(', ') || 'none recorded yet';
+    return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.\nSkills: ${known}`)] } };
 }
 
-async function status(args, ctx) {
+async function status(ctx) {
     await ctx.poller.tick();
     const render = () => ({ embeds: [statusEmbed(ctx.poller.state)] });
     return {
@@ -180,7 +158,7 @@ async function status(args, ctx) {
     };
 }
 
-async function online(args, ctx) {
+async function online(ctx) {
     let players = await fetchLive(ctx);
     if (!players) {
         const text = ctx.poller.state.status === 'starting' ? 'The server is still starting.' : 'The server is offline or unreachable.';
@@ -214,18 +192,11 @@ async function online(args, ctx) {
     };
 }
 
-async function help() {
-    return { reply: { embeds: [helpEmbed(config.prefix)] } };
-}
-
-export const commands = new Map([
-    ['levels', levels],
-    ['stats', levels],
-    ['level', level],
-    ['lvl', level],
-    ['status', status],
-    ['server', status],
-    ['online', online],
-    ['players', online],
-    ['help', help],
-]);
+// Keyed by slash command name; each gets the interaction and returns the reply.
+export const commands = {
+    levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
+    level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
+    status: (i, ctx) => status(ctx),
+    online: (i, ctx) => online(ctx),
+    help: () => ({ reply: { embeds: [helpEmbed()] } }),
+};

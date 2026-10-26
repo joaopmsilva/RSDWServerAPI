@@ -135,7 +135,7 @@ export function renderPlayerPage(profile, page) {
 
 // ---- server pages -------------------------------------------------------
 
-function formatDuration(seconds) {
+export function formatDuration(seconds) {
     seconds = Math.floor(seconds);
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
@@ -181,7 +181,7 @@ export function statusEmbed(state) {
         embed.addFields({ name: 'Online now', value: names.join('\n') });
     }
     if (state.status === 'offline') {
-        embed.addFields({ name: '​', value: 'Levels of players seen before are still available with `' + config.prefix + 'levels`.' });
+        embed.addFields({ name: '​', value: 'Levels of players seen before are still available with `/levels`.' });
     }
     return embed;
 }
@@ -221,15 +221,62 @@ export function errorEmbed(text) {
     return new EmbedBuilder().setColor(COLOR.error).setDescription(`❌ ${text}`);
 }
 
-export function helpEmbed(prefix) {
-    return new EmbedBuilder()
+export function helpEmbed() {
+    const embed = new EmbedBuilder()
         .setColor(COLOR.info)
         .setTitle(`🐉 ${config.serverName} — Commands`)
+        .setDescription('Type `/` and pick a command. Player and skill names fill in as you type.')
         .addFields(
-            { name: `${prefix}levels <player>`, value: 'Skill overview, with reactions to open each category.' },
-            { name: `${prefix}level <skill> <player>`, value: `One skill in detail. Short names work: \`wc\`, \`rc\`, \`mage\`, \`agi\`…` },
-            { name: `${prefix}status`, value: 'Is the server up, and who is on it.' },
-            { name: `${prefix}online`, value: 'Everyone connected right now, with ping.' },
+            { name: '/levels', value: 'Skill overview for a player, with reactions to open each category.' },
+            { name: '/level', value: 'One skill in detail for a player, with a progress bar.' },
+            { name: '/status', value: 'Is the server up, and who is on it.' },
+            { name: '/online', value: 'Everyone connected right now, with ping.' },
         )
         .setFooter({ text: 'Players can be looked up by character or account name, even while offline.' });
+
+    if (config.bridgeToGame && config.chatChannelId) {
+        embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> are shown in game chat.` });
+    }
+    return embed;
+}
+
+// ---- server notices -----------------------------------------------------
+
+const NOTICE = {
+    online: [COLOR.online, '🟢 Server is online'],
+    offline: [COLOR.error, '🔴 Server is offline'],
+    restarting: [0xe67e22, '🔄 Server is restarting'],
+    restarted: [0xe67e22, '🔄 Server restarted'],
+    restart: [0xe67e22, '🔄 Server restart'],
+    stop: [COLOR.error, '⛔ Server shutting down'],
+    backup: [COLOR.info, '💾 Backup in progress'],
+    'backup-done': [COLOR.info, '💾 Backup complete'],
+    say: [COLOR.info, '📢 Announcement'],
+};
+
+export const NOTICE_KINDS = Object.keys(NOTICE);
+
+// after: the kind of the planned notice this follows, if any (restart, stop, backup).
+export function noticeEmbed(kind, { minutes = 0, message = '', downtimeMs = 0, after = '' } = {}) {
+    const [color, title] = NOTICE[kind];
+    const lines = [];
+
+    if (kind === 'restart' || kind === 'stop') {
+        lines.push(minutes ? `In **${minutes} minute${minutes === 1 ? '' : 's'}** · ${relative(Date.now() + minutes * 60000)}` : '**Now**');
+    }
+    if (kind === 'online') {
+        lines.push(after === 'restart' ? 'Restart complete, come on back in!' : 'Ready to join.');
+        if (downtimeMs >= 60000) lines.push(`Down for ${formatDuration(downtimeMs / 1000)}.`);
+    }
+    if (kind === 'offline') lines.push('The server stopped responding.');
+    if (kind === 'restarting') lines.push('It should be back in a few minutes.');
+    if (kind === 'restarted') lines.push('The server restarted and is back online.');
+    if (message) lines.push(message);
+
+    return new EmbedBuilder()
+        .setColor(color)
+        .setTitle(title)
+        .setDescription(lines.join('\n') || null)
+        .setFooter({ text: config.serverName })
+        .setTimestamp();
 }

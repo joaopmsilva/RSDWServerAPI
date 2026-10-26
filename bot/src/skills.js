@@ -64,6 +64,14 @@ export function describeSkills(raw = []) {
     return entries.sort((a, b) => a.order - b.order);
 }
 
+// Autocomplete for /level: released skills matching what's typed, aliases included.
+export function skillChoices(query) {
+    const q = query.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    return CATALOG.filter(d => !d.unreleased)
+        .filter(d => !q || d.key.startsWith(q) || d.aliases.some(a => a.startsWith(q)) || d.key.includes(q))
+        .map(d => ({ name: `${d.emoji} ${d.name}`, value: d.key }));
+}
+
 export function findSkill(entries, query) {
     const q = query.replace(/[^a-z0-9]/gi, '').toLowerCase();
     if (!q) return null;

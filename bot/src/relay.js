@@ -12,8 +12,9 @@ const NO_MENTIONS = { parse: [] };
 // The cursor is saved so a bot restart neither repeats nor skips events; a
 // changed bootId means the server restarted and its event ids began again.
 export class Relay {
-    constructor(client) {
+    constructor(client, bridge = null) {
         this.client = client;
+        this.bridge = bridge;
         this.file = path.join(config.dataDir, 'relay.json');
         this.cursor = null;
         this.timer = null;
@@ -103,7 +104,7 @@ export class Relay {
     }
 
     async post(events) {
-        const chat = events.filter(e => e.type === 'chat');
+        const chat = events.filter(e => e.type === 'chat' && !this.bridge?.isEcho(e));
         const deaths = events.filter(e => e.type === 'death');
 
         if (chat.length) {

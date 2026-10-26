@@ -18,6 +18,7 @@ export class Poller {
         this.lastStatus = 'unknown';
         this.knownPlayers = null;
         this.timer = null;
+        this.onTick = null;
     }
 
     start() {
@@ -58,6 +59,7 @@ export class Poller {
 
         this.logChanges();
         this.updatePresence();
+        this.onTick?.(state);
     }
 
     logChanges() {
