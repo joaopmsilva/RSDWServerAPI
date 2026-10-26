@@ -315,20 +315,26 @@ void HttpServer::HandleClient(int clientSocket) {
     }
 
     HttpResponse resp;
-    bool found = false;
+    RouteHandler handler;
 
+    // Look the route up under the lock but run it outside: a handler may wait
+    // (GET /api/events?wait=), and must not hold up every other request.
     {
         std::lock_guard<std::mutex> lock(routesMutex);
         for (const auto& route : routes) {
             if (route.method != req.method || route.path != req.path) continue;
-            try {
-                resp = route.handler(req);
-            } catch (...) {
-                resp = HttpResponse(500);
-                resp.body = R"({"error":"Internal server error"})";
-            }
-            found = true;
+            handler = route.handler;
             break;
+        }
+    }
+
+    bool found = static_cast<bool>(handler);
+    if (found) {
+        try {
+            resp = handler(req);
+        } catch (...) {
+            resp = HttpResponse(500);
+            resp.body = R"({"error":"Internal server error"})";
         }
     }
 

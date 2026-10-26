@@ -55,11 +55,20 @@ struct RconConfig {
     int maxConnections = 16;
 };
 
+struct AfkConfig {
+    int kickMinutes = 0;      // 0 = off
+    int warnMinutes = 1;      // private warning this long before the kick
+    bool onlyWhenFull = false;
+    int maxPlayers = 0;       // the server's slots, for OnlyWhenFull
+    bool exemptAdmins = true;
+};
+
 struct APIConfig {
     bool enableLogging = true;
     bool verboseLogging = true;
     RestConfig rest;
     RconConfig rcon;
+    AfkConfig afk;
 
     bool Load(const std::string& configPath) {
         std::ifstream file(configPath);
@@ -140,7 +149,18 @@ struct APIConfig {
         file << "MaxFailedAuth=" << rcon.maxFailedAuth << "\n";
         file << "FailWindowSeconds=" << rcon.failWindowSeconds << "\n";
         file << "BanSeconds=" << rcon.banSeconds << "\n";
-        file << "MaxConnections=" << rcon.maxConnections << "\n";
+        file << "MaxConnections=" << rcon.maxConnections << "\n\n";
+
+        file << "[AFK]\n";
+        file << "# Kick players who haven't moved or looked around for this many minutes. 0 is off.\n";
+        file << "KickMinutes=" << afk.kickMinutes << "\n";
+        file << "# They get a private warning this many minutes before.\n";
+        file << "WarnMinutes=" << afk.warnMinutes << "\n";
+        file << "# Only kick when the server is full (MaxPlayers players online).\n";
+        file << "OnlyWhenFull=" << Bool(afk.onlyWhenFull) << "\n";
+        file << "MaxPlayers=" << afk.maxPlayers << "\n";
+        file << "# The game's own admins are never kicked for being AFK.\n";
+        file << "ExemptAdmins=" << Bool(afk.exemptAdmins) << "\n";
     }
 
     static std::string GenerateSecureToken(size_t bytes) {
@@ -181,6 +201,15 @@ private:
             else if (key == "BindAddress") rest.bindAddress = value;
             else if (key == "BearerToken") rest.bearerToken = value;
             else if (key == "IPWhitelist") rest.ipWhitelist = value;
+            return;
+        }
+
+        if (section == "AFK") {
+            if (key == "KickMinutes") afk.kickMinutes = atoi(value.c_str());
+            else if (key == "WarnMinutes") afk.warnMinutes = atoi(value.c_str());
+            else if (key == "OnlyWhenFull") afk.onlyWhenFull = ParseBool(value);
+            else if (key == "MaxPlayers") afk.maxPlayers = atoi(value.c_str());
+            else if (key == "ExemptAdmins") afk.exemptAdmins = ParseBool(value);
             return;
         }
 

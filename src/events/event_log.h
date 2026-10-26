@@ -28,6 +28,11 @@ void Push(Event event);
 std::vector<Event> Since(uint64_t afterId, size_t limit);
 
 uint64_t LatestId();
+
+// Blocks until an event newer than afterId exists or timeoutMs passes; true if
+// there is one. Lets GET /api/events?wait= answer the moment something happens.
+bool WaitForNewer(uint64_t afterId, int timeoutMs);
+
 int64_t BootId();
 
 }

@@ -2,9 +2,11 @@
 
 #include "../engine/chat.h"
 #include "../engine/process_event.h"
+#include "../engine/world_save.h"
 #include "../events/event_log.h"
 #include "../runtime.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -45,12 +47,22 @@ void RegisterSystem(HttpServer& server) {
             if (value > 0) limit = value > 500 ? 500 : (size_t)value;
         }
 
+        // ?wait=N holds the request open up to N seconds (25 at most) until an
+        // event arrives, so a reader hears about it at once instead of polling.
+        // A since beyond the latest id means the server restarted - answer now.
+        it = req.query.find("wait");
+        if (it != req.query.end() && since <= EventLog::LatestId()) {
+            int seconds = std::min(std::max(atoi(it->second.c_str()), 0), 25);
+            if (seconds > 0) EventLog::WaitForNewer(since, seconds * 1000);
+        }
+
         auto events = EventLog::Since(since, limit);
 
         auto q = [](const std::string& value) { return "\"" + Json::Escape(value) + "\""; };
 
         std::ostringstream oss;
-        oss << "{\"bootId\":" << EventLog::BootId() << ",\"latestId\":" << EventLog::LatestId() << ",\"events\":[";
+        oss << "{\"bootId\":" << EventLog::BootId() << ",\"latestId\":" << EventLog::LatestId()
+            << ",\"longPoll\":true,\"events\":[";
         for (size_t i = 0; i < events.size(); i++) {
             const EventLog::Event& e = events[i];
             if (i) oss << ",";
@@ -68,6 +80,32 @@ void RegisterSystem(HttpServer& server) {
         }
         oss << "]}";
         return JsonResponse(oss.str());
+    });
+
+    // Zero-argument save functions on world-level classes, to pick the one that
+    // saves the world. POST /api/save {"function":"Class.Function"} calls it.
+    server.Get("/api/save/candidates", [](const HttpRequest&) -> HttpResponse {
+        if (!EngineReady()) return EngineUnavailable();
+        std::ostringstream oss;
+        oss << "{\"candidates\":[";
+        std::vector<std::string> candidates = DomSave::Candidates();
+        for (size_t i = 0; i < candidates.size(); i++) {
+            if (i) oss << ",";
+            oss << "\"" << Json::Escape(candidates[i]) << "\"";
+        }
+        oss << "]}";
+        return JsonResponse(oss.str());
+    });
+
+    server.Post("/api/save", [](const HttpRequest& req) -> HttpResponse {
+        if (!EngineReady()) return EngineUnavailable();
+        std::string function;
+        if (!Json::GetString(req.body, "function", function) || function.empty()) {
+            return Error(400, "function required (Class.Function) - see GET /api/save/candidates");
+        }
+        std::string message;
+        if (!DomSave::Save(function, message)) return Error(500, message);
+        return Ok(message);
     });
 
     // A self-check of what the mod reads from the game, so a game update that

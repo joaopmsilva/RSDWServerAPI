@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { announce } from './announcer.js';
+import { restoreFiles } from './backups.js';
 import { config } from './config.js';
 import { logger } from './log.js';
 import { clearPlan } from './notices.js';
@@ -40,6 +41,36 @@ export class ServerControl {
         await systemctl('start');
     }
 
+    // Stop (after warning players a minute ahead if anyone is online), swap the
+    // backup in, start again. The server is always started again, even if the
+    // copy fails. Returns the names of the copies kept of the replaced saves.
+    async restore(backup, by, playersOnline) {
+        if (this.pending) throw new Error(`a ${this.pending.action} is already planned - use cancel first`);
+        log.info(`restore of backup ${backup.id} requested by ${by}`);
+        const post = embed => this.post(embed);
+        const message = 'Restoring a backup';
+
+        this.pending = { action: 'restore', timers: [], by };
+        try {
+            if (playersOnline) {
+                await announce('stop', { minutes: 1, message, post });
+                await new Promise(r => setTimeout(r, 60000));
+            } else {
+                await announce('stop', { minutes: 0, message, post });
+            }
+            await systemctl('stop');
+            try {
+                const kept = restoreFiles(backup);
+                log.info(`restored backup ${backup.id}; the replaced saves are kept as ${kept.join(', ')}`);
+                return kept;
+            } finally {
+                await systemctl('start');
+            }
+        } finally {
+            this.pending = null;
+        }
+    }
+
     // Without minutes it runs now and throws if systemctl fails. With minutes,
     // notify(text, ok) reports the outcome back to the admin later.
     async schedule(action, minutes, by, notify) {
@@ -78,6 +109,7 @@ export class ServerControl {
 
     async cancel(by) {
         if (!this.pending) return null;
+        if (this.pending.action === 'restore') throw new Error("a backup restore is under way and can't be cancelled");
         const { action, timers } = this.pending;
         for (const timer of timers) clearTimeout(timer);
         this.pending = null;

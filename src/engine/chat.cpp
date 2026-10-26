@@ -486,6 +486,20 @@ bool Initialize() {
     return true;
 }
 
+bool Whisper(const PlayerInfo& player, const std::string& body) {
+    if (!g_ReceiveFunction || !GameThread::IsReady() || !GameThread::HasProcessEvent() || body.empty()) return false;
+    bool sent = false;
+    bool ran = GameThread::RunSync([&]() { sent = SendToPlayer(player, body); }, 5000);
+    return ran && sent;
+}
+
+bool IsPlayerAdmin(const PlayerInfo& player) {
+    if (!GameThread::IsReady() || !GameThread::FrameLayoutReady()) return false;
+    bool admin = false;
+    bool ran = GameThread::RunSync([&]() { admin = IsAdmin(player.controllerPtr); }, 5000);
+    return ran && admin;
+}
+
 bool Broadcast(const std::string& body, std::string& outError) {
     Engine* engine = g_Engine;
     if (!engine || !engine->IsInitialized()) {

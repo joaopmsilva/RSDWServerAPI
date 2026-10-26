@@ -62,6 +62,16 @@ export const config = {
     alertRam: int('ALERT_RAM', 90),
     alertDisk: int('ALERT_DISK', 90),
     backupScript: (process.env.BACKUP_SCRIPT || '/home/dragonwilds/scripts/backup.sh').trim(),
+    backupDir: (process.env.BACKUP_DIR || '/home/dragonwilds/backups').trim(),
+    saveDir: (process.env.SAVE_DIR || '/home/dragonwilds/rs_server/RSDragonwilds/Saved/SaveGames').trim(),
+    saveFunction: (process.env.SAVE_FUNCTION || '').trim(),
+    statusBoardChannelId: id('STATUS_BOARD_CHANNEL_ID'),
+    connectAddress: (process.env.CONNECT_ADDRESS || '').trim(),
+    worldName: (process.env.WORLD_NAME || '').trim(),
+    worldCreator: (process.env.WORLD_CREATOR || '').trim(),
+    serverPassword: (process.env.SERVER_PASSWORD || '').trim(),
+    dailyRestart: (process.env.DAILY_RESTART || '').trim(),
+    boardShowVps: bool('BOARD_SHOW_VPS', true),
     adminUserIds: (process.env.ADMIN_USER_IDS || '')
         .split(',')
         .map(s => s.trim())

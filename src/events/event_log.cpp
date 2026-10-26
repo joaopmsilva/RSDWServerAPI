@@ -1,6 +1,7 @@
 #include "event_log.h"
 
 #include <chrono>
+#include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <utility>
@@ -18,6 +19,7 @@ int64_t NowMs() {
 }
 
 std::mutex g_Mutex;
+std::condition_variable g_Changed;
 std::deque<Event> g_Events;
 uint64_t g_NextId = 1;
 const int64_t g_BootId = NowMs();
@@ -25,11 +27,19 @@ const int64_t g_BootId = NowMs();
 }
 
 void Push(Event event) {
-    std::lock_guard<std::mutex> lock(g_Mutex);
-    event.id = g_NextId++;
-    event.timeMs = NowMs();
-    g_Events.push_back(std::move(event));
-    if (g_Events.size() > kCapacity) g_Events.pop_front();
+    {
+        std::lock_guard<std::mutex> lock(g_Mutex);
+        event.id = g_NextId++;
+        event.timeMs = NowMs();
+        g_Events.push_back(std::move(event));
+        if (g_Events.size() > kCapacity) g_Events.pop_front();
+    }
+    g_Changed.notify_all();
+}
+
+bool WaitForNewer(uint64_t afterId, int timeoutMs) {
+    std::unique_lock<std::mutex> lock(g_Mutex);
+    return g_Changed.wait_for(lock, std::chrono::milliseconds(timeoutMs), [afterId] { return g_NextId - 1 > afterId; });
 }
 
 std::vector<Event> Since(uint64_t afterId, size_t limit) {

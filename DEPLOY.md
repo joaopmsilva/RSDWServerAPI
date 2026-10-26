@@ -104,7 +104,7 @@ grep -E "loaded|data directory|Failed to bind|engine ready|not found|Events" /ho
 
 You should see:
 
-- `RSDWRestAPI 0.3.0 loaded`
+- `RSDWRestAPI 0.4.0 loaded`
 - `RSDWRestAPI: engine ready, endpoints are live`
 - `Events: chat and death feed live at /api/events`
 
@@ -119,7 +119,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 
 `health` should say `"engineReady":true`.
 
-If there is no `0.3.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
+If there is no `0.4.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
 **Run it as a service.** `/server` in Discord and the cron scripts start and stop the server
@@ -283,6 +283,31 @@ planned one off. A planned restart or stop is forgotten if the bot itself restar
 `/server backup` runs `BACKUP_SCRIPT` (your `backup.sh`) straight away. With `ADMIN_USER_IDS` set
 you also get private alerts for crashes, a failing mod self-check and a VPS running hot - make
 sure your Discord privacy settings allow messages from server members.
+
+## 12. Optional: status board, saving before backups, AFK kick
+
+**Status board.** Make a channel (read-only for members works best), give the bot *View Channel*,
+*Send Messages*, *Embed Links* and *Read Message History* there, and add to the bot's `.env`:
+
+```
+STATUS_BOARD_CHANNEL_ID=123456789012345678
+CONNECT_ADDRESS=your.ip.address:7777
+WORLD_NAME=YourWorld
+WORLD_CREATOR=YourName
+SERVER_PASSWORD=yourpassword
+DAILY_RESTART=05:00
+```
+
+The password shows behind a spoiler; leave any line out to hide it. Restart the bot.
+
+**Save before backups** (mod 0.4.0+). Once someone has been in game since the server started, run
+`/admin save` in Discord. It lists the game functions that might save the world; try them with
+`/admin save function:…` - the bot tells you which one really updated the save files. Put that one in
+the bot's `.env` as `SAVE_FUNCTION=`, restart the bot, and from then on `backup.sh` (the updated one
+from step 10) and `/server backup` save the world first.
+
+**AFK kick** (mod 0.4.0+). With the server stopped, set `KickMinutes` under `[AFK]` in
+`rsdwapi/settings.ini` (the section appears after the first start with 0.4.0), then start it.
 
 ## Updating
 

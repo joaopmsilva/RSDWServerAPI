@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.3.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.4.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.4.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.5.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -30,7 +30,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **`/leaderboard`** - by total level or any skill, 🥇🥈🥉
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths
-- **`/status`, `/online`, `/system`** - server, players and VPS load
+- **`/status`, `/online`, `/system`, `/item`** - server, players, VPS load and item lookup
 - Player and skill names **auto-fill** as you type
 
 </td>
@@ -43,6 +43,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Joins, leaves and deaths**, with the cause when the game gives one
 - **Server notices** - online, offline, restarting, backups
 - **Weekly recap** every Sunday: top gainers, new 99s, most played
+- **Live status board** - one self-updating message with how to join and who's on
 - The bot's status shows `🟢 3/16 players online`
 
 </td>
@@ -52,10 +53,11 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 
 ### 🛡️ For admins
 
-- **`/server`** start, stop, restart (with player warnings), backup
+- **`/server`** start, stop, restart (with player warnings), back up, list and restore backups
 - **`/admin`** kick, ban, unban, give items, announce
 - **Leaderboard cleanup** - remove a player and their stats
 - **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
+- **AFK kick** with a warning first, optionally only when the server is full
 - In-game `/kick`, `/ban`, `/give` for the game's own admins
 
 </td>
@@ -66,6 +68,8 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **REST API** and optional **Source RCON**, each with its own auth, IP whitelist and rate limits
 - **Self-checking** - every offset is validated at runtime, and `/api/diagnostics` reports
   what a game update broke instead of serving nonsense
+- **Saves the world before every backup**, so a backup is never a half-written file
+- **Events pushed the moment they happen** - chat, joins and deaths reach Discord instantly
 - **Bans that survive restarts**, offline players by SteamID64
 - **One-command updates** from your PC - the bot updates without touching the server
 
@@ -251,6 +255,13 @@ MaxFailedAuth=5
 FailWindowSeconds=60
 BanSeconds=300
 MaxConnections=16
+
+[AFK]
+KickMinutes=0
+WarnMinutes=1
+OnlyWhenFull=false
+MaxPlayers=0
+ExemptAdmins=true
 ```
 
 > [!IMPORTANT]
@@ -265,6 +276,10 @@ MaxConnections=16
   sticks, but bind to `127.0.0.1` or set an `IPWhitelist` if you do it. A warning is logged at
   startup either way.
 - An empty RCON `Password` keeps RCON from starting at all, by design.
+- **AFK kick** is off until `KickMinutes` is set. Players who haven't moved or looked around get a
+  private warning `WarnMinutes` before, and can rejoin straight away after the kick.
+  `OnlyWhenFull=true` (with `MaxPlayers`) only kicks when someone else could use the slot, and the
+  game's own admins are never kicked unless `ExemptAdmins=false`.
 
 </details>
 
@@ -290,8 +305,10 @@ Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empt
 | :----: | ---- | - |
 | `GET` | `/api/health` | Mod status and uptime |
 | `GET` | `/api/players` | Every connected player, with stats |
-| `GET` | `/api/events` | Chat, death, join and leave feed |
+| `GET` | `/api/events` | Chat, death, join, leave and AFK feed - `?wait=` to be told the moment something happens |
 | `GET` | `/api/diagnostics` | Self-check of everything the mod reads |
+| `POST` | `/api/save` | Make the game save the world |
+| `GET` | `/api/save/candidates` | Functions that might be the game's world save |
 | `POST` | `/api/kick` | Disconnect a player |
 | `POST` | `/api/broadcast` | Message every player |
 | `POST` | `/api/give` | Give an item to a player |
@@ -355,9 +372,10 @@ Health and max health come from the character's attributes component, not from
 
 <br/>
 
-In-game chat, player deaths, joins and leaves, oldest first. Pass the last `id` you have seen as
-`?since=` to get only newer events; `?limit=` caps the count (default 100, max 500). The last 500
-events are kept in memory.
+In-game chat, player deaths, joins, leaves and AFK kicks, oldest first. Pass the last `id` you have
+seen as `?since=` to get only newer events; `?limit=` caps the count (default 100, max 500). The
+last 500 events are kept in memory. With `?wait=N` (up to 25) the request is held open until an
+event arrives or N seconds pass, so a reader hears about it at once instead of polling.
 
 ```json
 {
@@ -402,6 +420,27 @@ check starts failing.
   ]
 }
 ```
+
+</details>
+
+<details>
+<summary><code>POST /api/save</code> · <code>GET /api/save/candidates</code></summary>
+
+<br/>
+
+Makes the game save the world - the bot calls it before every backup, so the copy is a finished
+save rather than one the game is halfway through writing.
+
+The game's save function has no fixed name, so it's chosen once per game version.
+`GET /api/save/candidates` lists every zero-argument function with "save" in its name on a
+world-level class; `POST /api/save` calls one on the live object, on the game thread:
+
+```bash
+curl -X POST http://localhost:8080/api/save -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"function\":\"SomeGameMode.SaveWorld\"}"
+```
+
+Only functions without parameters are called. A successful call only proves the function ran -
+the bot's `/admin save` also checks that the `.sav` files changed, which is how you find the right one.
 
 </details>
 
@@ -479,7 +518,7 @@ Deliberately minimal, because authentication can be turned off and this therefor
 to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
-{"status":"healthy","version":"0.3.0","uptimeSeconds":41.2,"engineReady":true}
+{"status":"healthy","version":"0.4.0","uptimeSeconds":41.2,"engineReady":true}
 ```
 
 `status` is `starting` until the world has loaded. Engine discovery detail goes to the log at

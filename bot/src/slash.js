@@ -1,6 +1,6 @@
 import { InteractionContextType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { removedChoices } from './admin.js';
-import { api } from './api.js';
+import { backupChoices, removedChoices, saveChoices } from './admin.js';
+import { itemChoices } from './items.js';
 import { logger } from './log.js';
 import { skillChoices } from './skills.js';
 
@@ -52,6 +52,10 @@ export const definitions = [
         .setName('deaths')
         .setDescription('Deaths - who died most, or one player')
         .addStringOption(o => o.setName('player').setDescription('Leave empty for everyone').setAutocomplete(true)),
+    new SlashCommandBuilder()
+        .setName('item')
+        .setDescription('Look up an item')
+        .addStringOption(o => o.setName('item').setDescription('Start typing to search').setRequired(true).setAutocomplete(true)),
     new SlashCommandBuilder().setName('system').setDescription("The VPS's CPU, RAM, disk and network use"),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),
 
@@ -72,6 +76,8 @@ export const definitions = [
                     { name: 'start', value: 'start' },
                     { name: 'cancel a planned restart or stop', value: 'cancel' },
                     { name: 'backup now', value: 'backup' },
+                    { name: 'list backups', value: 'backups' },
+                    { name: 'restore a backup', value: 'restore' },
                 ),
         )
         .addIntegerOption(o =>
@@ -80,7 +86,8 @@ export const definitions = [
                 .setDescription('Warn players this long before (default: 2 if anyone is online, else now)')
                 .setMinValue(0)
                 .setMaxValue(10),
-        ),
+        )
+        .addStringOption(o => o.setName('backup').setDescription('For restore: which backup').setAutocomplete(true)),
     new SlashCommandBuilder()
         .setName('admin')
         .setDescription('Moderation (admins)')
@@ -131,6 +138,12 @@ export const definitions = [
                 .setDescription('Let a removed player back on the leaderboards')
                 .addStringOption(o => o.setName('player').setDescription('A removed player').setRequired(true).setAutocomplete(true)),
         )
+        .addSubcommand(s =>
+            s
+                .setName('save')
+                .setDescription('Save the world now - or, the first time, find which game function does it')
+                .addStringOption(o => o.setName('function').setDescription('Default: SAVE_FUNCTION from .env').setAutocomplete(true)),
+        )
         .addSubcommand(s => s.setName('bans').setDescription('Everyone who is banned'))
         .addSubcommand(s => s.setName('diagnostics').setDescription("The mod's self-check of what it reads from the game")),
 ].map(c => c.setContexts(InteractionContextType.Guild).toJSON());
@@ -169,25 +182,14 @@ function playerChoices(ctx, query) {
     return choices;
 }
 
-// The game's item names, fetched from the mod and kept for ten minutes.
-let itemCache = { items: [], at: 0 };
-async function itemChoices(query) {
-    if (Date.now() - itemCache.at > 10 * 60 * 1000) {
-        try {
-            itemCache = { items: (await api.items()).map(i => i.name).sort(), at: Date.now() };
-        } catch (err) {
-            log.debug(`item list unavailable: ${err.message}`);
-        }
-    }
-    const q = query.trim().toLowerCase();
-    return itemCache.items.filter(name => !q || name.toLowerCase().includes(q)).map(name => ({ name: name.slice(0, 100), value: name.slice(0, 100) }));
-}
 
 export async function autocomplete(interaction, ctx) {
     const focused = interaction.options.getFocused(true);
     let choices;
     if (focused.name === 'skill') choices = skillChoices(focused.value);
     else if (focused.name === 'item') choices = await itemChoices(focused.value);
+    else if (focused.name === 'backup') choices = backupChoices(focused.value);
+    else if (focused.name === 'function') choices = await saveChoices(focused.value);
     else if (interaction.commandName === 'admin' && interaction.options.getSubcommand(false) === 'restore') choices = removedChoices(ctx, focused.value);
     else choices = playerChoices(ctx, focused.value);
     await interaction.respond(choices.slice(0, MAX_CHOICES));

@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { joinEmbed, leaveEmbed, levelUpEmbed, maxedEmbed, summaryEmbed } from './embeds.js';
+import { afkEmbed, joinEmbed, leaveEmbed, levelUpEmbed, maxedEmbed, summaryEmbed } from './embeds.js';
 import { dayKey } from './history.js';
 import { levelInfo, MAX_LEVEL } from './levels.js';
 import { logger } from './log.js';
@@ -169,6 +169,12 @@ export class Activity {
     presence(event) {
         if (!event.netId || !event.name) return;
         this.announce(event.type, event.netId, event.name, event.players ?? -1);
+    }
+
+    // From the relay (mod 0.4.0+): kicked for being AFK. The leave follows on its own.
+    afk(event) {
+        log.info(`AFK kick: ${event.name}`);
+        if (config.joinLeaveNotices && event.name) this.queuePresence(afkEmbed(event.name));
     }
 
     death(event) {

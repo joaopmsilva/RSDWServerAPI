@@ -1,11 +1,22 @@
 import { execFile } from 'node:child_process';
-import { MessageFlags } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { announce } from './announcer.js';
 import { api } from './api.js';
+import { findBackup, listBackups } from './backups.js';
 import { resolvePlayer } from './commands.js';
 import { config } from './config.js';
-import { bansEmbed, diagnosticsEmbed, errorEmbed, okEmbed } from './embeds.js';
+import {
+    backupChoice,
+    backupsEmbed,
+    bansEmbed,
+    diagnosticsEmbed,
+    errorEmbed,
+    okEmbed,
+    restoreConfirmEmbed,
+    saveCandidatesEmbed,
+} from './embeds.js';
 import { logger } from './log.js';
+import { saveWorld } from './world-save.js';
 
 const log = logger('admin');
 
@@ -44,11 +55,17 @@ async function server(i, ctx) {
     const { control, poller } = ctx;
 
     if (action === 'cancel') {
-        const cancelled = await control.cancel(by);
-        return cancelled ? ok(`The planned ${cancelled} is cancelled. Players have been told.`) : fail('Nothing is planned.');
+        try {
+            const cancelled = await control.cancel(by);
+            return cancelled ? ok(`The planned ${cancelled} is cancelled. Players have been told.`) : fail('Nothing is planned.');
+        } catch (err) {
+            return fail(err.message);
+        }
     }
 
     if (action === 'backup') return backup(by);
+    if (action === 'backups') return { reply: { embeds: [backupsEmbed(listBackups())] } };
+    if (action === 'restore') return restore(i, ctx, by);
 
     if (action === 'start') {
         const { status } = poller.state;
@@ -73,8 +90,56 @@ async function server(i, ctx) {
     return ok(`${what} in ${minutes} minute${minutes === 1 ? '' : 's'}. Players have been warned. \`/server cancel\` stops it.`);
 }
 
+// Asks first with buttons; index.js runs confirm() when the admin presses Restore.
+function restore(i, ctx, by) {
+    const id = i.options.getString('backup');
+    if (!id) return fail('Pick a backup in the `backup` option - start typing and they show up.');
+    const backup = findBackup(id);
+    if (!backup) return fail(`No backup **${id}** in \`${config.backupDir}\`.`);
+
+    const online = ctx.poller.state.players.length;
+    const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('confirm').setLabel('Restore').setEmoji('💾').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+    );
+    return {
+        reply: { embeds: [restoreConfirmEmbed(backup, online)], components: [buttons] },
+        working: online ? 'Warning players - the restore starts in a minute…' : 'Restoring…',
+        confirm: async () => {
+            try {
+                const kept = await ctx.control.restore(backup, by, online);
+                return ok(`Backup restored and the server is starting. The saves it replaced are kept as a backup (\`${kept[0] || 'none'}\`…).`);
+            } catch (err) {
+                log.error(`restore failed: ${err.message}`);
+                return fail(`The restore failed: ${err.message}`);
+            }
+        },
+    };
+}
+
+// No function given and none set: list what the mod found. Otherwise call it
+// and say whether the save files really changed.
+async function save(i) {
+    const fn = i.options.getString('function') || config.saveFunction;
+    if (!fn) {
+        try {
+            return { reply: { embeds: [saveCandidatesEmbed(await api.saveCandidates())] } };
+        } catch (err) {
+            if (err.status === 404) return fail('The running mod is older than 0.4.0, which added saving.');
+            return fail(err.message);
+        }
+    }
+    const result = await saveWorld(fn);
+    if (result.changed) {
+        const hint = fn === config.saveFunction ? '' : `\n\nTo save before every backup, put this in the bot's \`.env\`:\n\`SAVE_FUNCTION=${fn}\``;
+        return ok(`**${fn}** saved the world - the save files were updated.${hint}`);
+    }
+    return fail(`${result.message}.${result.ok ? ' Try another one from `/admin save` with no function.' : ''}`);
+}
+
 async function admin(i, ctx) {
     const sub = i.options.getSubcommand();
+    if (sub === 'save') return save(i);
     const player = i.options.getString('player');
     const reason = i.options.getString('reason') || '';
 
@@ -139,6 +204,32 @@ async function restorePlayer(ctx, query, by) {
     ctx.history.flush();
     log.info(`${by} restored ${name} (${key}) to the leaderboards`);
     return ok(`**${name}** is back on the leaderboards. Their stats start fresh from now.`);
+}
+
+// For /server restore's auto-fill.
+export function backupChoices(query) {
+    const q = query.trim().toLowerCase();
+    try {
+        return listBackups()
+            .map(backupChoice)
+            .filter(c => !q || c.name.toLowerCase().includes(q));
+    } catch {
+        return [];
+    }
+}
+
+// For /admin save's auto-fill, from the mod; kept for ten minutes.
+let saveCache = { list: [], at: 0 };
+export async function saveChoices(query) {
+    if (Date.now() - saveCache.at > 10 * 60 * 1000) {
+        try {
+            saveCache = { list: await api.saveCandidates(), at: Date.now() };
+        } catch {
+            // the server is down or the mod is older - nothing to suggest
+        }
+    }
+    const q = query.trim().toLowerCase();
+    return saveCache.list.filter(c => !q || c.toLowerCase().includes(q)).map(c => ({ name: c.slice(0, 100), value: c.slice(0, 100) }));
 }
 
 // For /admin restore's auto-fill.

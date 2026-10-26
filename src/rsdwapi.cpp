@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdlib>
 #include <chrono>
 #include <cstdio>
@@ -113,6 +114,88 @@ bool IsGameServerProcess() {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     return false;
+}
+
+// AFK: a player who hasn't moved or looked around for [AFK] KickMinutes gets a
+// private warning WarnMinutes before, then is kicked. The kick isn't
+// remembered, so they can rejoin straight away. Called every two seconds.
+struct AfkState {
+    double x = 0, y = 0, z = 0, yaw = 0, pitch = 0;
+    std::chrono::steady_clock::time_point active;
+    std::chrono::steady_clock::time_point warnedAt;
+    bool warned = false;
+};
+std::map<std::string, AfkState> g_Afk;
+
+void CheckAfk(const std::vector<DomEngine::PlayerInfo>& players) {
+    const AfkConfig& cfg = g_Config.afk;
+    if (cfg.kickMinutes <= 0) {
+        g_Afk.clear();
+        return;
+    }
+
+    using Clock = std::chrono::steady_clock;
+    auto now = Clock::now();
+    auto minutesSince = [&](Clock::time_point t) { return std::chrono::duration<double>(now - t).count() / 60.0; };
+    bool full = !cfg.onlyWhenFull || (cfg.maxPlayers > 0 && (int)players.size() >= cfg.maxPlayers);
+    int warnMinutes = std::max(cfg.warnMinutes, 0);
+    double warnAt = std::max(cfg.kickMinutes - warnMinutes, 0);
+
+    std::map<std::string, AfkState> next;
+    for (const DomEngine::PlayerInfo& player : players) {
+        if (player.uniqueNetId.empty() || !player.hasLocation) continue;
+        std::string name = player.characterName.empty() ? player.name : player.characterName;
+
+        auto it = g_Afk.find(player.uniqueNetId);
+        bool moved = it == g_Afk.end() ||
+                     std::fabs(player.x - it->second.x) + std::fabs(player.y - it->second.y) +
+                             std::fabs(player.z - it->second.z) > 50.0 ||
+                     std::fabs(player.yaw - it->second.yaw) > 1.0 || std::fabs(player.pitch - it->second.pitch) > 1.0;
+        AfkState state = moved ? AfkState{} : it->second;
+        if (moved) {
+            state.x = player.x, state.y = player.y, state.z = player.z;
+            state.yaw = player.yaw, state.pitch = player.pitch;
+            state.active = now;
+            if (it != g_Afk.end() && it->second.warned) DomChat::Whisper(player, "[Server] Welcome back - you won't be kicked.");
+        }
+
+        double idle = minutesSince(state.active);
+        if (full && idle >= warnAt) {
+            if (cfg.exemptAdmins && DomChat::IsPlayerAdmin(player)) {
+                state.active = now;
+                state.warned = false;
+                next[player.uniqueNetId] = state;
+                continue;
+            }
+
+            bool warningDone = !warnMinutes || (state.warned && minutesSince(state.warnedAt) >= warnMinutes);
+            if (idle >= cfg.kickMinutes && warningDone) {
+                std::string error;
+                if (DomEngine::g_Engine->KickPlayer(player.uniqueNetId, "Kicked for being AFK", error)) {
+                    DomEngine::g_Engine->ClearKick(player.uniqueNetId);
+                    LogMessage("AFK: kicked " + name + " after " + std::to_string((int)idle) + " min idle");
+                    EventLog::Event event;
+                    event.type = "afk";
+                    event.name = name;
+                    event.netId = player.uniqueNetId;
+                    EventLog::Push(std::move(event));
+                } else {
+                    LogMessage("AFK: could not kick " + name + ": " + error);
+                }
+                continue;
+            }
+
+            if (!state.warned && warnMinutes) {
+                state.warned = true;
+                state.warnedAt = now;
+                DomChat::Whisper(player, "[Server] You'll be kicked for being AFK in " + std::to_string(warnMinutes) +
+                                             " minute" + (warnMinutes == 1 ? "" : "s") + " - move to stay.");
+                LogMessage("AFK: warned " + name);
+            }
+        }
+        next[player.uniqueNetId] = state;
+    }
+    g_Afk.swap(next);
 }
 
 void InitThread() {
@@ -288,6 +371,8 @@ void InitThread() {
                 reportDeath(player.uniqueNetId, name, where, player.uniqueNetId, "");
             }
             wasDead.swap(nowDead);
+
+            CheckAfk(players);
         }
     }
 }

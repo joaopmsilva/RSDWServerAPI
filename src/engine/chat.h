@@ -1,4 +1,6 @@
 #pragma once
+#include "dom_engine.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -34,6 +36,12 @@ void AddEventListener(EventListener listener);
 void Poll();
 
 bool Broadcast(const std::string& body, std::string& outError);
+
+// A private line to one player, from any thread.
+bool Whisper(const DomEngine::PlayerInfo& player, const std::string& body);
+
+// The game's own owner / admin check, from any thread.
+bool IsPlayerAdmin(const DomEngine::PlayerInfo& player);
 
 // For /api/diagnostics.
 bool CanBroadcast();

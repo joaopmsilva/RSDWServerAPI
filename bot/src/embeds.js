@@ -265,6 +265,10 @@ export function leaveEmbed(name, count, playedSeconds) {
     return embed;
 }
 
+export function afkEmbed(name) {
+    return new EmbedBuilder().setColor(0xe67e22).setDescription(`💤 **${escapeMarkdown(name)}** was kicked for being AFK`).setTimestamp();
+}
+
 // ---- gains, playtime, deaths, weekly recap -------------------------------
 
 const place = i => MEDALS[i] || `\`${String(i + 1).padStart(2)}.\``;
@@ -354,7 +358,122 @@ export function summaryEmbed({ gainers, milestones, played, deaths }) {
     return embed;
 }
 
+// ---- status board -------------------------------------------------------
+
+export function boardEmbed({ state, gainers, vps }) {
+    const count = state.players.length;
+    const max = config.maxPlayers ? `/${config.maxPlayers}` : '';
+    const headline = {
+        online: `🟢 Online · ${count}${max} player${count === 1 && !max ? '' : 's'}`,
+        starting: '🟡 Starting up',
+        offline: '🔴 Offline',
+        unknown: '⚪ Checking…',
+    }[state.status];
+
+    const embed = new EmbedBuilder()
+        .setColor(COLOR[state.status] || COLOR.info)
+        .setTitle(`🐉 ${config.serverName}`)
+        .setDescription(`## ${headline}`)
+        .setFooter({ text: 'Updates by itself' })
+        .setTimestamp();
+
+    const join = [];
+    if (config.connectAddress) join.push(`🌐 **Direct connect** \`${config.connectAddress}\``);
+    if (config.worldName) {
+        const by = config.worldCreator ? ` by **${config.worldCreator}**` : '';
+        join.push(`${config.connectAddress ? '…or find ' : '🗺️ Find '}**${config.worldName}**${by} in the server list`);
+    }
+    if (config.serverPassword) join.push(`🔑 **Password** ||${config.serverPassword}||`);
+    if (join.length) embed.addFields({ name: '🎮 How to join', value: join.join('\n') });
+
+    if (state.status === 'online') {
+        const names = state.players.slice(0, 20).map(p => `• ${displayName(p)}`);
+        if (count > 20) names.push(`…and ${count - 20} more`);
+        embed.addFields({ name: `👥 Playing now`, value: names.join('\n') || 'Nobody yet - be the first!' });
+    }
+
+    if (state.health) {
+        embed.addFields(
+            { name: '⏱️ Uptime', value: formatDuration(state.health.uptimeSeconds || 0), inline: true },
+            { name: '🧩 Mod', value: `v${state.health.version || '?'}`, inline: true },
+        );
+    }
+    if (config.dailyRestart) embed.addFields({ name: '🔄 Daily restart', value: config.dailyRestart, inline: true });
+    if (gainers.length) {
+        embed.addFields({ name: '📈 Top XP today', value: gainers.map((r, i) => `${place(i)} **${r.name}** +${fmt(r.total)}`).join('\n') });
+    }
+    if (vps) {
+        const ram = vps.memory.used / vps.memory.total;
+        embed.addFields({ name: '🖥️ Server load', value: `CPU **${pct(vps.cpu.usage)}%** · RAM **${pct(ram)}%**`, inline: true });
+    }
+    return embed;
+}
+
 // ---- admin --------------------------------------------------------------
+
+const backupLabel = b => new Date(b.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+export function backupsEmbed(backups) {
+    const lines = backups.slice(0, 15).map((b, i) => {
+        const files = b.files.length === 1 ? b.files[0].save : `${b.files.length} files`;
+        return `\`${String(i + 1).padStart(2)}\` 💾 **${backupLabel(b)}** · ${relative(b.at)} · ${files} · ${bytes(b.size)}`;
+    });
+    if (backups.length > 15) lines.push(`…and ${backups.length - 15} older`);
+    const total = backups.reduce((n, b) => n + b.size, 0);
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle(`💾 Backups — ${backups.length}`)
+        .setDescription(lines.join('\n') || 'No backups yet. `/server backup` makes one now.')
+        .setFooter({ text: `${bytes(total)} in total · /server restore to put one back` });
+}
+
+export const backupChoice = b => ({
+    name: `💾 ${backupLabel(b)} · ${b.files.length} file${b.files.length === 1 ? '' : 's'} · ${bytes(b.size)}`.slice(0, 100),
+    value: b.id,
+});
+
+export function restoreConfirmEmbed(backup, playersOnline) {
+    const files = backup.files.map(f => `• \`${f.save}.sav\``).join('\n');
+    const warning = playersOnline
+        ? `**${playersOnline} player${playersOnline === 1 ? ' is' : 's are'} online** - they get a minute's warning, then the server stops.`
+        : 'Nobody is online, so the server stops straight away.';
+    return new EmbedBuilder()
+        .setColor(0xe67e22)
+        .setTitle(`⚠️ Restore the backup from ${backupLabel(backup)}?`)
+        .setDescription(
+            `${warning}\n\nThese saves are replaced by the backup's:\n${files}\n\n` +
+                'The current saves are copied into the backups first, so this can be undone. The server starts again afterwards.',
+        );
+}
+
+export function saveCandidatesEmbed(candidates) {
+    const lines = candidates.slice(0, 30).map(c => `• \`${c}\``);
+    if (candidates.length > 30) lines.push(`…and ${candidates.length - 30} more (type to search in the \`function\` option)`);
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle('💾 Which function saves the world?')
+        .setDescription(
+            'The game\'s save function differs between versions, so it\'s picked once. Try one with ' +
+                '`/admin save function:…` - the bot checks whether the save files actually change. Put the one ' +
+                'that works in the bot\'s `.env` as `SAVE_FUNCTION=`, and backups save the world first from then on.\n\n' +
+                (lines.join('\n') || 'No candidates found - the mod lists them once the world has loaded.'),
+        );
+}
+
+export function itemEmbed(item) {
+    const wiki = `https://dragonwilds.runescape.wiki/w/Special:Search?search=${encodeURIComponent(item.name)}`;
+    const embed = new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle(`🎒 ${item.name}`)
+        .setURL(wiki)
+        .addFields(
+            { name: 'Category', value: item.category || '—', inline: true },
+            { name: 'Stacks to', value: item.maxStackSize > 1 ? fmt(item.maxStackSize) : 'Doesn\'t stack', inline: true },
+            { name: 'Game id', value: `\`${item.id}\``, inline: false },
+        )
+        .setFooter({ text: 'Click the title for the wiki' });
+    return embed;
+}
 
 export function bansEmbed(bans) {
     const lines = bans.slice(0, 25).map(b => `• **${b.name || 'unknown'}** \`${b.netId}\`${b.reason ? ` · ${b.reason}` : ''}`);
@@ -455,6 +574,7 @@ export function helpEmbed() {
             { name: '/online', value: 'Everyone connected right now, with ping.' },
             { name: '/gains', value: 'Who gained the most XP, or one player skill by skill. Today, this week or this month.' },
             { name: '/playtime · /deaths', value: 'Most played and most deaths, or one player.' },
+            { name: '/item', value: 'Look up any item in the game.' },
             { name: '/system', value: "The VPS's CPU, RAM, disk and network use right now." },
         )
         .setFooter({ text: 'Players can be looked up by character or account name, even while offline.' });
@@ -463,7 +583,7 @@ export function helpEmbed() {
         embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> are shown in game chat.` });
     }
     if (config.adminUserIds.length) {
-        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop, restart, back up · `/admin` kick, ban, give, say, remove from leaderboards, diagnostics' });
+        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop, restart, back up, list and restore backups · `/admin` kick, ban, give, say, save, remove from leaderboards, diagnostics' });
     }
     return embed;
 }

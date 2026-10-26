@@ -2,10 +2,11 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import { Activity } from './activity.js';
 import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
 import { Alerts } from './alerts.js';
+import { StatusBoard } from './board.js';
 import { Bridge } from './bridge.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
-import { errorEmbed } from './embeds.js';
+import { errorEmbed, okEmbed } from './embeds.js';
 import { History } from './history.js';
 import { initLogFile, logger } from './log.js';
 import { attachMenu } from './menus.js';
@@ -43,10 +44,14 @@ const notices = new Notices(client);
 const alerts = new Alerts(client, poller);
 const control = new ServerControl(client);
 const ctx = { store, history, poller, control };
+const board = new StatusBoard(client, poller, ctx);
 const lastUse = new Map();
 
 poller.onPlayers = (players, health) => activity.observe(players, health);
-poller.onTick = state => notices.observe(state);
+poller.onTick = state => {
+    notices.observe(state);
+    board.update();
+};
 notices.onNotice = (kind, details) => alerts.notice(kind, details);
 
 client.once(Events.ClientReady, async c => {
@@ -55,6 +60,7 @@ client.once(Events.ClientReady, async c => {
     notices.start();
     alerts.start();
     activity.start();
+    board.start();
     poller.start();
     relay.start();
     bridge.start();
@@ -113,16 +119,35 @@ client.on(Events.InteractionCreate, async interaction => {
         // Lookups can take a few seconds; Discord wants an answer within 3.
         // Admin replies are only shown to the admin.
         await interaction.deferReply(admin ? { flags: MessageFlags.Ephemeral } : {});
-        const { reply, menu } = await run(interaction, ctx);
+        const { reply, menu, confirm, working } = await run(interaction, ctx);
         const sent = await interaction.editReply(reply);
         log.info(`${who}: ${what} (${Date.now() - now} ms)`);
         if (menu) attachMenu(sent, menu).catch(err => log.error(`menu failed: ${err.message}`));
+        if (confirm) await awaitConfirm(interaction, sent, confirm, working, who, what);
     } catch (err) {
         log.error(`${who}: ${what} failed:`, err);
         const failed = { embeds: [errorEmbed('Something went wrong running that command.')] };
         await (interaction.deferred ? interaction.editReply(failed) : interaction.reply(failed)).catch(() => {});
     }
 });
+
+// A reply with Confirm / Cancel buttons (e.g. /server restore): only the admin
+// who asked can press them, and nothing happens if they don't within a minute.
+async function awaitConfirm(interaction, sent, confirm, working, who, what) {
+    const press = await sent
+        .awaitMessageComponent({ filter: b => b.user.id === interaction.user.id, time: 60000 })
+        .catch(() => null);
+    if (!press || press.customId !== 'confirm') {
+        const text = press ? 'Cancelled - nothing was changed.' : 'No answer within a minute - nothing was changed.';
+        await (press ? press.update({ embeds: [okEmbed(text)], components: [] }) : interaction.editReply({ embeds: [okEmbed(text)], components: [] })).catch(() => {});
+        log.info(`${who}: ${what} not confirmed`);
+        return;
+    }
+    log.info(`${who}: ${what} confirmed`);
+    await press.update({ embeds: [okEmbed(working || 'Working on it…')], components: [] });
+    const result = await confirm();
+    await interaction.editReply({ ...result.reply, components: [] }).catch(err => log.warn(`could not report the result: ${err.message}`));
+}
 
 // The bot runs independently of the game server: API failures are expected
 // and handled, and nothing else should be able to take the process down.

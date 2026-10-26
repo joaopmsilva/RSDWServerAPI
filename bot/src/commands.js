@@ -17,6 +17,7 @@ import {
     renderPlayerPage,
     statusEmbed,
     systemEmbed,
+    itemEmbed,
 } from './embeds.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
@@ -24,6 +25,7 @@ import { catalogSkill, describeSkills, findSkill } from './skills.js';
 import { deathBoard, gainsFor, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
 import { systemStats } from './system.js';
+import { findItem, itemsKnown } from './items.js';
 
 // A command returns { reply }, plus menu: { emojis, onPress } for page arrows;
 // index.js sends the reply and turns the menu into reactions.
@@ -229,6 +231,13 @@ export const commands = {
     deaths: (i, ctx) => deaths(ctx, i.options.getString('player')),
     status: (i, ctx) => status(ctx),
     online: (i, ctx) => online(ctx),
+    item: async i => {
+        const query = i.options.getString('item', true);
+        const item = await findItem(query);
+        if (item) return { reply: { embeds: [itemEmbed(item)] } };
+        const why = itemsKnown() ? '' : '\nThe item list loads from the server the first time it is online.';
+        return { reply: { embeds: [errorEmbed(`No item found matching **${query}**.${why}`)] } };
+    },
     system: async () => {
         try {
             return { reply: { embeds: [systemEmbed(await systemStats())] } };

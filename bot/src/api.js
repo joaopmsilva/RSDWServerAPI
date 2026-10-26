@@ -39,7 +39,11 @@ async function request(path, { method = 'GET', body, timeout = 5000 } = {}) {
 export const api = {
     health: () => request('/api/health'),
     players: async () => (await request('/api/players')).players || [],
-    events: since => request(`/api/events?since=${since}&limit=200`),
+    // With wait, mod 0.4.0+ holds the request until something happens (up to wait seconds).
+    events: (since, wait = 0) =>
+        request(`/api/events?since=${since}&limit=200${wait ? `&wait=${wait}` : ''}`, { timeout: (wait + 10) * 1000 }),
+    save: fn => request('/api/save', { method: 'POST', body: { function: fn }, timeout: 20000 }),
+    saveCandidates: async () => (await request('/api/save/candidates', { timeout: 15000 })).candidates || [],
     // The mod shows it in game as "[sender] message". It waits up to 10s for
     // the game thread, so allow longer than a normal request.
     broadcast: (sender, message) =>

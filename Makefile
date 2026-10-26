@@ -19,6 +19,7 @@ SRC := src/rsdwapi.cpp \
        src/engine/chat.cpp \
        src/engine/items.cpp \
        src/engine/bans.cpp \
+       src/engine/world_save.cpp \
        src/events/event_log.cpp \
        src/engine/native_call.cpp \
        src/engine/process_event.cpp \

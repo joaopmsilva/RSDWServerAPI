@@ -27,8 +27,9 @@ export class Relay {
         this.activity = activity;
         this.file = path.join(config.dataDir, 'relay.json');
         this.cursor = null;
-        this.timer = null;
-        this.running = false;
+        this.stopped = false;
+        // Mod 0.4.0+ holds a request open until something happens; older ones are polled.
+        this.longPoll = false;
 
         try {
             this.cursor = JSON.parse(fs.readFileSync(this.file, 'utf8'));
@@ -39,12 +40,20 @@ export class Relay {
 
     // Always runs: deaths, joins and leaves feed the stats even with no channels set.
     start() {
-        log.info(`following the event feed every ${config.relaySeconds}s - chat to ${config.chatChannelId || '(off)'}, deaths to ${config.deathChannelId || '(off)'}`);
-        this.timer = setInterval(() => this.tick(), config.relaySeconds * 1000);
+        log.info(`following the event feed - chat to ${config.chatChannelId || '(off)'}, deaths to ${config.deathChannelId || '(off)'}`);
+        this.loop();
     }
 
     stop() {
-        clearInterval(this.timer);
+        this.stopped = true;
+    }
+
+    async loop() {
+        while (!this.stopped) {
+            const waited = await this.tick();
+            // A long poll already waited for news; otherwise pause between polls.
+            if (!waited) await new Promise(r => setTimeout(r, config.relaySeconds * 1000));
+        }
     }
 
     save() {
@@ -57,16 +66,14 @@ export class Relay {
         }
     }
 
+    // True when the request was a long poll, so the loop can ask again at once.
     async tick() {
-        if (this.running) return;
-        this.running = true;
         try {
-            await this.pull();
+            return await this.pull();
         } catch (err) {
-            // Server offline or restarting - try again next tick.
+            // Server offline or restarting - try again after a pause.
             if (err.kind !== 'offline' && err.kind !== 'starting') log.warn(err.message);
-        } finally {
-            this.running = false;
+            return false;
         }
     }
 
@@ -74,13 +81,18 @@ export class Relay {
         let since = 0;
         if (this.cursor) since = this.cursor.lastId;
 
-        let feed = await api.events(since);
+        const wait = this.longPoll && this.cursor ? 25 : 0;
+        let feed = await api.events(since, wait);
+        if (Boolean(feed.longPoll) !== this.longPoll) {
+            this.longPoll = Boolean(feed.longPoll);
+            log.info(this.longPoll ? 'the mod pushes events as they happen' : `polling for events every ${config.relaySeconds}s`);
+        }
         if (!this.cursor) {
             // First run ever: start from now rather than replaying old chat.
             this.cursor = { bootId: feed.bootId, lastId: feed.latestId };
             this.save();
             log.info(`first run, starting the feed at event ${feed.latestId}`);
-            return;
+            return this.longPoll;
         }
         if (feed.bootId !== this.cursor.bootId) {
             log.info('server restarted, following its new event feed');
@@ -88,12 +100,13 @@ export class Relay {
             this.save();
             feed = await api.events(0);
         }
-        if (!feed.events?.length) return;
+        if (!feed.events?.length) return this.longPoll;
 
         await this.post(feed.events);
         log.debug(`relayed events ${feed.events[0].id}-${feed.events[feed.events.length - 1].id}`);
         this.cursor.lastId = feed.events[feed.events.length - 1].id;
         this.save();
+        return this.longPoll;
     }
 
     async channel(id) {
@@ -113,6 +126,7 @@ export class Relay {
         for (const e of events) {
             if (e.type === 'join' || e.type === 'leave') this.activity?.presence(e);
             if (e.type === 'death') this.activity?.death(e);
+            if (e.type === 'afk') this.activity?.afk(e);
         }
 
         if (chat.length && config.chatChannelId) {

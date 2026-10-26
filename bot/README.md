@@ -6,11 +6,11 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.4.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.5.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
-[**Commands**](#-commands) · [**Chat**](#-two-way-chat) · [**Activity**](#-player-activity) · [**Notices**](#-server-notices) · [**Admins**](#%EF%B8%8F-for-admins) · [**Setup**](../DEPLOY.md)
+[**Commands**](#-commands) · [**Status board**](#-status-board) · [**Chat**](#-two-way-chat) · [**Activity**](#-player-activity) · [**Notices**](#-server-notices) · [**Admins**](#%EF%B8%8F-for-admins) · [**Setup**](../DEPLOY.md)
 
 </div>
 
@@ -37,6 +37,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
 | 🐉 **`/status`** | Online / starting / offline, players, uptime |
 | 👥 **`/online`** | Everyone connected, with ping |
+| 🎒 **`/item`** `item` | Any item: category, stack size, wiki link |
 | 🖥️ **`/system`** | The VPS's CPU, RAM, disk and network right now |
 | ❓ **`/help`** | All of the above |
 
@@ -78,6 +79,28 @@ Snapshots live in `data/players.json`, history in `data/history.json` (five week
 
 </details>
 
+## 📌 Status board
+
+Point `STATUS_BOARD_CHANNEL_ID` at a channel (read-only for members works best) and the bot keeps
+one message there up to date by itself:
+
+```text
+🐉 The Hut
+🟢 Online · 3/16 players
+
+🎮 How to join
+🌐 Direct connect  203.0.113.10:7777
+…or find Ashenvale by HostName in the server list
+🔑 Password  ▒▒▒▒▒▒   ← a spoiler, click to see
+
+👥 Playing now        ⏱️ Uptime 2h 1m   🧩 Mod v0.4.0   🔄 Daily restart 05:00
+📈 Top XP today       🖥️ Server load  CPU 23% · RAM 37%
+```
+
+The join details come from `CONNECT_ADDRESS`, `WORLD_NAME`, `WORLD_CREATOR` and `SERVER_PASSWORD`
+in `.env` - leave out anything you don't want shown. If the message gets deleted, the bot posts a
+new one.
+
 ## 💬 Two-way chat
 
 Set `CHAT_CHANNEL_ID` and the channel becomes the game's chat:
@@ -106,11 +129,12 @@ Posted in the chat channel as small cards, the moment they happen:
 | ➡️ **Join** | Green: **Tobin** joined the server · *👥 3/16 online* |
 | ⬅️ **Leave** | Grey: **Tobin** left · played 1h 20m · *👥 2/16 online* |
 | 💀 **Death** | Dark red: **Mira** has died · Drowned · *📍 location* |
+| 💤 **AFK kick** | Orange: **Mira** was kicked for being AFK (mod 0.4.0+, when AFK kick is on) |
 
 Several at once (a few level-ups, people joining together) share one message.
 
 - Level-ups start at `LEVELUP_MIN_LEVEL` (10) - the first levels come every few seconds.
-- With mod 0.3.0+, joins and leaves are instant; with older mods they arrive at the next poll.
+- With mod 0.4.0+ everything arrives the moment it happens; with older mods within a few seconds.
 - A death shows its cause when the game sends one.
 
 **📅 Weekly recap** - every Sunday from 20:00 (VPS time): top XP gainers, new 99s, most played and
@@ -163,9 +187,12 @@ Administrator, and the replies are only visible to you.
 | ▶️ **`/server start`** | Starts a stopped server |
 | ✋ **`/server cancel`** | Calls off a planned restart or stop |
 | 💾 **`/server backup`** | Runs the backup script now |
+| 🗂️ **`/server backups`** | Every backup with its age and size |
+| ⏪ **`/server restore`** `backup` | Puts a backup back after you confirm - warns players, stops the server, keeps a copy of the current world, starts it again |
 | 👢 **`/admin kick`** · **`ban`** · **`unban`** · **`bans`** | Moderation |
 | 🎁 **`/admin give`** `player` `item` `[count]` | Item names fill in as you type |
 | 📢 **`/admin say`** `message` | In game and in the status channel |
+| 💾 **`/admin save`** `[function]` | Save the world now - the first time, it finds which game function does it |
 | 🧹 **`/admin remove`** · **`restore`** | Take a player off every leaderboard and delete their stats - or let them back |
 | 🩺 **`/admin diagnostics`** | The mod's self-check |
 
@@ -227,6 +254,9 @@ presence updates, relay batches and undelivered chat.
 | `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart / backup |
 | `src/alerts.js` | Private alerts to the admins |
 | `src/system.js` | VPS CPU, RAM, disk and network |
+| `src/board.js` | The live status board |
+| `src/backups.js`, `src/world-save.js`, `src/save-world.js` | Backups, restoring, saving the world before a backup |
+| `src/items.js` | Item list and lookup |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |
 | `src/store.js` | Saved player snapshots |
 | `src/api.js`, `src/config.js`, `src/log.js` | API client, settings, logging |
