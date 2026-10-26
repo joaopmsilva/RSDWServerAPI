@@ -297,7 +297,11 @@ cd C:\Users\parad\Desktop\rsdwapi\RSDWServerAPI
 .\deploy\upload.ps1 -Bot          # bot changes: live in a few seconds
 .\deploy\upload.ps1 -Mod          # mod changes: built now, loaded at the 05:00 restart
 .\deploy\upload.ps1 -Bot -Mod     # both
+.\deploy\upload.ps1 -Mod -Restart # mod now: build, warn players, restart in 2 minutes
 ```
+
+A new mod only loads when the server starts. Without `-Restart` that's the 05:00 restart; you
+can also restart any time with `/server restart` in Discord.
 
 The VPS address is at the top of `upload.ps1` (`-Target`).
 
