@@ -34,8 +34,13 @@ constexpr size_t    kMessageSize   = 0x88;
 constexpr uintptr_t kEventTag  = 0x78;
 constexpr size_t    kEventSize = 0x80;
 
-// ADominionPlayerController::PlayerChatComponent - Source: Assertions.inl
+// ADominionPlayerController::PlayerChatComponent - Source: Assertions.inl. Only a
+// first guess: game patches move it, so ChatComponentOf() checks the class and
+// searches the controller when it's wrong.
 constexpr uintptr_t kControllerChatComponent = 0x1288;
+constexpr uintptr_t kControllerScanEnd = 0x2000;
+uintptr_t g_ChatComponentOffset = kControllerChatComponent;
+bool g_ChatComponentMissingLogged = false;
 
 typedef void (*ExecThunk)(void* context, void* frame, void* result);
 
@@ -161,11 +166,41 @@ void HookedChatProcessEvent(void* self, void* function, void* params) {
     if (previous) previous(self, function, params);
 }
 
+bool IsChatComponent(uintptr_t object) {
+    return object && Mem::Readable((void*)object, 0x30) && g_Engine->IsA(object, "PlayerChatComponent");
+}
+
+// The controller's PlayerChatComponent, or 0. The offset found is kept for
+// every later call.
+uintptr_t ChatComponentOf(uintptr_t controller) {
+    if (!controller || !g_Engine) return 0;
+
+    uintptr_t component = Mem::ReadPtr(controller + g_ChatComponentOffset);
+    if (IsChatComponent(component)) return component;
+
+    for (uintptr_t offset = 0x28; offset < kControllerScanEnd; offset += sizeof(uintptr_t)) {
+        component = Mem::ReadPtr(controller + offset);
+        if (!IsChatComponent(component)) continue;
+
+        LogMessage("Chat: PlayerChatComponent found at controller +" + HexString(offset) +
+                   " (the SDK said +" + HexString(kControllerChatComponent) + ")");
+        g_ChatComponentOffset = offset;
+        return component;
+    }
+
+    if (!g_ChatComponentMissingLogged) {
+        g_ChatComponentMissingLogged = true;
+        LogMessage("Chat: no PlayerChatComponent on the player controller; broadcast and chat "
+                   "command replies are unavailable");
+    }
+    return 0;
+}
+
 bool SendToPlayer(const PlayerInfo& player, const std::string& body) {
     if (!g_ReceiveFunction || !GameThread::HasProcessEvent()) return false;
     if (!player.controllerPtr || !player.playerStatePtr) return false;
 
-    uintptr_t component = Mem::ReadPtr(player.controllerPtr + kControllerChatComponent);
+    uintptr_t component = ChatComponentOf(player.controllerPtr);
     if (!component || !Mem::Readable((void*)component, 0x150)) return false;
 
     uint8_t params[kMessageSize + 16];
@@ -364,8 +399,8 @@ void Poll() {
 
     for (const PlayerInfo& player : engine->GetAllPlayers()) {
         if (!player.controllerPtr) continue;
-        uintptr_t component = Mem::ReadPtr(player.controllerPtr + kControllerChatComponent);
-        if (!component || !Mem::Readable((void*)component, sizeof(uintptr_t))) continue;
+        uintptr_t component = ChatComponentOf(player.controllerPtr);
+        if (!component) continue;
         uintptr_t vtable = Mem::ReadPtr(component);
         if (!vtable) continue;
 

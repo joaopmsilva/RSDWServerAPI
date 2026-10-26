@@ -103,7 +103,7 @@ grep -E "loaded|data directory|Failed to bind|engine ready|not found|Events" /ho
 
 You should see:
 
-- `RSDWRestAPI 0.2.0 loaded`
+- `RSDWRestAPI 0.2.1 loaded`
 - `RSDWRestAPI: engine ready, endpoints are live`
 - `Events: chat and death feed live at /api/events`
 
@@ -118,7 +118,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 
 `health` should say `"engineReady":true`.
 
-If there is no `0.2.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
+If there is no `0.2.1 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
 ## 7. Install the bot

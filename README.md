@@ -264,7 +264,7 @@ Deliberately minimal, because authentication can be turned off and this therefor
 safe to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
-{"status":"healthy","version":"0.2.0","uptimeSeconds":41.2,"engineReady":true}
+{"status":"healthy","version":"0.2.1","uptimeSeconds":41.2,"engineReady":true}
 ```
 
 `status` is `starting` until the world has loaded. Engine discovery detail goes to the log
