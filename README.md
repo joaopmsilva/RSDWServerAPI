@@ -7,7 +7,7 @@ Discord bot that uses it.
   optional Source RCON listener, so you can see who is connected, read their live stats,
   kick, ban, give items and broadcast - and it records in-game chat and deaths for the bot.
 - **The bot** ([bot/](bot/)) has `/levels`, `/level`, `/leaderboard`, `/status` and `/online` slash commands
-  with auto-fill and navigable embeds, shows the server's state and player count as its
+  with auto-fill, shows the server's state and player count as its
   status, bridges chat both ways between the game and a Discord channel, posts deaths, and
   announces when the server goes up, down, restarts or is backed up.
 

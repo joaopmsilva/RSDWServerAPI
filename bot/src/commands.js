@@ -2,7 +2,6 @@ import { api } from './api.js';
 import {
     LEADERBOARD_PAGE_SIZE,
     ONLINE_PAGE_SIZE,
-    PLAYER_NAV,
     ambiguousEmbed,
     errorEmbed,
     helpEmbed,
@@ -16,8 +15,8 @@ import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
 import { PlayerStore } from './store.js';
 
-// A command returns { reply } or { reply, menu: { emojis, onPress } }; index.js
-// sends the reply and turns the menu into reaction buttons.
+// A command returns { reply }, plus menu: { emojis, onPress } for page arrows;
+// index.js sends the reply and turns the menu into reactions.
 
 const log = logger('commands');
 const lower = s => (s || '').toLowerCase();
@@ -89,38 +88,6 @@ async function resolvePlayer(ctx, query) {
     return { notFound: true, serverDown: live === null };
 }
 
-async function reloadProfile(ctx, profile) {
-    const live = await fetchLive(ctx);
-    const player = live?.find(p => PlayerStore.key(p) === profile.key);
-    if (player) return buildProfile(withStoredSkills(ctx, player), true);
-
-    const stored = ctx.store.all().find(p => PlayerStore.key(p) === profile.key);
-    return stored ? buildProfile(stored, false) : profile;
-}
-
-function playerView(ctx, profile, startPage) {
-    let page = startPage;
-    const render = () => ({ embeds: [renderPlayerPage(profile, page)] });
-
-    return {
-        reply: render(),
-        menu: {
-            emojis: PLAYER_NAV.map(n => n.emoji),
-            onPress: async emoji => {
-                const nav = PLAYER_NAV.find(n => normEmoji(n.emoji) === emoji);
-                if (!nav) return null;
-                if (nav.page === 'refresh') {
-                    profile = await reloadProfile(ctx, profile);
-                } else {
-                    if (nav.page === page) return null;
-                    page = nav.page;
-                }
-                return render();
-            },
-        },
-    };
-}
-
 function notFoundReply(query, result) {
     const extra = result.serverDown ? '\nThe server is unreachable right now, so only saved stats were searched.' : '';
     return { reply: { embeds: [errorEmbed(`No player found matching **${query}**.${extra}`)] } };
@@ -130,7 +97,7 @@ async function levels(ctx, query) {
     const result = await resolvePlayer(ctx, query);
     if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(query, result.ambiguous)] } };
     if (result.notFound) return notFoundReply(query, result);
-    return playerView(ctx, result.profile, 'overview');
+    return { reply: { embeds: [renderPlayerPage(result.profile, 'overview')] } };
 }
 
 async function level(ctx, skillQuery, playerQuery) {
@@ -139,7 +106,7 @@ async function level(ctx, skillQuery, playerQuery) {
     if (result.notFound) return notFoundReply(playerQuery, result);
 
     const skill = findSkill(result.profile.skills, skillQuery);
-    if (skill) return playerView(ctx, result.profile, `skill:${skill.key}`);
+    if (skill) return { reply: { embeds: [renderPlayerPage(result.profile, `skill:${skill.key}`)] } };
 
     const known = result.profile.skills.map(s => s.name).join(', ') || 'none recorded yet';
     return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.\nSkills: ${known}`)] } };
@@ -147,51 +114,37 @@ async function level(ctx, skillQuery, playerQuery) {
 
 async function status(ctx) {
     await ctx.poller.tick();
-    const render = () => ({ embeds: [statusEmbed(ctx.poller.state)] });
+    return { reply: { embeds: [statusEmbed(ctx.poller.state)] } };
+}
+
+// ◀️ ▶️ only when there's more than one page.
+function paged(count, pageSize, render) {
+    const pages = Math.max(1, Math.ceil(count / pageSize));
+    let page = 0;
+    const reply = () => ({ embeds: [render(page)] });
+    if (pages === 1) return { reply: reply() };
+
     return {
-        reply: render(),
+        reply: reply(),
         menu: {
-            emojis: ['🔄'],
-            onPress: async () => {
-                await ctx.poller.tick();
-                return render();
+            emojis: ['◀️', '▶️'],
+            onPress: async emoji => {
+                const next = emoji === normEmoji('◀️') ? page - 1 : page + 1;
+                if (next < 0 || next >= pages) return null;
+                page = next;
+                return reply();
             },
         },
     };
 }
 
 async function online(ctx) {
-    let players = await fetchLive(ctx);
+    const players = await fetchLive(ctx);
     if (!players) {
         const text = ctx.poller.state.status === 'starting' ? 'The server is still starting.' : 'The server is offline or unreachable.';
         return { reply: { embeds: [errorEmbed(text)] } };
     }
-
-    let page = 0;
-    const pages = () => Math.max(1, Math.ceil(players.length / ONLINE_PAGE_SIZE));
-    const render = () => ({ embeds: [onlineEmbed(players, page)] });
-
-    return {
-        reply: render(),
-        menu: {
-            emojis: players.length > ONLINE_PAGE_SIZE ? ['◀️', '▶️', '🔄'] : ['🔄'],
-            onPress: async emoji => {
-                if (emoji === normEmoji('◀️')) {
-                    if (page === 0) return null;
-                    page--;
-                } else if (emoji === normEmoji('▶️')) {
-                    if (page >= pages() - 1) return null;
-                    page++;
-                } else {
-                    const fresh = await fetchLive(ctx);
-                    if (!fresh) return { embeds: [errorEmbed('The server is offline or unreachable.')] };
-                    players = fresh;
-                    page = Math.min(page, pages() - 1);
-                }
-                return render();
-            },
-        },
-    };
+    return paged(players.length, ONLINE_PAGE_SIZE, page => onlineEmbed(players, page));
 }
 
 // Everyone with saved stats, best first: by total level (then total XP), or by
@@ -221,31 +174,8 @@ async function leaderboard(ctx, skillQuery) {
 
     // Fold in the latest numbers for whoever is online right now.
     await fetchLive(ctx);
-    let rows = rankings(ctx, skill);
-    let page = 0;
-    const pages = () => Math.max(1, Math.ceil(rows.length / LEADERBOARD_PAGE_SIZE));
-    const render = () => ({ embeds: [leaderboardEmbed(rows, skill, page)] });
-
-    return {
-        reply: render(),
-        menu: {
-            emojis: rows.length > LEADERBOARD_PAGE_SIZE ? ['◀️', '▶️', '🔄'] : ['🔄'],
-            onPress: async emoji => {
-                if (emoji === normEmoji('◀️')) {
-                    if (page === 0) return null;
-                    page--;
-                } else if (emoji === normEmoji('▶️')) {
-                    if (page >= pages() - 1) return null;
-                    page++;
-                } else {
-                    await fetchLive(ctx);
-                    rows = rankings(ctx, skill);
-                    page = Math.min(page, pages() - 1);
-                }
-                return render();
-            },
-        },
-    };
+    const rows = rankings(ctx, skill);
+    return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => leaderboardEmbed(rows, skill, page));
 }
 
 // Keyed by slash command name; each gets the interaction and returns the reply.

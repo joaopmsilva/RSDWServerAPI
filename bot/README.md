@@ -12,7 +12,7 @@ first (🟢), then everyone the bot has seen before (⚫).
 
 | Command | |
 | ------- | - |
-| `/levels player` | Skill overview, with reactions to open each category |
+| `/levels player` | Every skill grouped by category, total level, and health while online |
 | `/level skill player` | One skill in detail, with a progress bar |
 | `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
 | `/status` | Online / starting / offline, players, uptime |
@@ -26,22 +26,13 @@ The commands are registered to each Discord server the bot is in every time it s
 they appear straight away. If they don't show up, re-invite the bot with the
 `applications.commands` scope (see DEPLOY.md step 1).
 
-### Navigating with reactions
+Replies are plain embeds. Run a command again to see newer numbers.
 
-Replies to `/levels` and `/level` carry reactions:
+### Pages
 
-| Reaction | Opens |
-| -------- | ----- |
-| 📊 | Overview - every skill's level, total level and total XP |
-| ⚔️ | Combat - Attack, Magic, Ranged |
-| ⛏️ | Gathering - Mining, Woodcutting, Farming, Fishing |
-| 🔨 | Artisan - Runecrafting, Construction, Artisan, Cooking |
-| 🏃 | Support - Agility |
-| 🔄 | Reload the player's stats |
-
-`/status`, `/online` and `/leaderboard` have 🔄, and `/online` and `/leaderboard` add ◀️ ▶️
-when there are more than ten entries. Reactions stay active for ten minutes after the last use, and stop when the bot
-restarts - run the command again for a fresh one.
+`/online` and `/leaderboard` show ten entries per page. When there are more, they get ◀️ ▶️
+reactions to change page, which work for ten minutes after the last press and stop when the
+bot restarts.
 
 If the bot has **Manage Messages** in the channel it removes your reaction after each press,
 so you can click the same one again. Without it, clicking a reaction a second time (removing

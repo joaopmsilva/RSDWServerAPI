@@ -24,7 +24,7 @@ application:
 2. **Bot** → **Reset Token** if you don't have the token saved. You'll paste it into `.env`.
 3. Make sure the bot has these permissions in the channels it should work in: *View
    Channels*, *Send Messages*, *Embed Links*, *Add Reactions*, *Read Message History*.
-   *Manage Messages* is optional but makes reaction navigation smoother. To re-invite with
+   *Manage Messages* is optional but makes the ◀️ ▶️ page arrows smoother. To re-invite with
    the right permissions: **OAuth2 → URL Generator**, scopes `bot` **and**
    `applications.commands` (needed for the slash commands), tick those permissions, open the
    URL. Re-inviting over the existing bot keeps its roles.
@@ -157,7 +157,7 @@ npm start
 
 Look for `logged in as ...`, `slash commands registered` and `server is online`. In Discord
 type `/` and try `/status`, `/online`, `/levels`, `/level` and `/leaderboard` (names fill in as you type),
-click the reactions, say something in game chat to check it shows up in Discord, and type in
+say something in game chat to check it shows up in Discord, and type in
 the chat channel to check it shows up in game. Stop with Ctrl+C.
 
 ## 9. Run the bot permanently
@@ -262,7 +262,7 @@ again (steps 4-6).
 | `/` commands answer "Commands work in ..." | `ALLOWED_CHANNELS` |
 | Discord messages don't reach the game | Message Content Intent (step 1), `CHAT_CHANNEL_ID`, `BRIDGE_ROLE_ID`; 💤 on the message means nobody is online |
 | No server notices | `STATUS_CHANNEL_ID` or `CHAT_CHANNEL_ID` set, `SERVER_NOTICES` not false |
-| No reactions on replies | the bot needs *Add Reactions* and *Read Message History* |
+| No ◀️ ▶️ on long lists | the bot needs *Add Reactions* and *Read Message History* |
 | `Discord login failed` | `DISCORD_TOKEN` wrong or reset |
 | No chat in Discord | `CHAT_CHANNEL_ID` set? `Chat: ... not found` in `api.log` means the game patch moved something |
 | `Failed to bind on 0.0.0.0:8080` in `api.log` | step 4 - something else holds the port |

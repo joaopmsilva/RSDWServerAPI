@@ -31,38 +31,34 @@ export function displayName(player) {
 
 // ---- player pages -------------------------------------------------------
 
-export const PLAYER_NAV = [
-    { emoji: '📊', page: 'overview', label: 'Overview' },
-    ...CATEGORIES.filter(c => c.id !== 'other').map(c => ({ emoji: c.emoji, page: c.id, label: c.name })),
-    { emoji: '🔄', page: 'refresh', label: 'Refresh' },
-];
-const NAV_HINT = PLAYER_NAV.map(n => `${n.emoji} ${n.label}`).join('  ');
-
 function statusLine(profile) {
     if (profile.online) return '🟢 **Online now**';
     return profile.lastSeen ? `⚫ **Offline** · last seen ${relative(profile.lastSeen)}` : '⚫ **Offline**';
+}
+
+// Live only - a saved snapshot's health would just be wrong.
+function healthLine(profile) {
+    const health = profile.online ? profile.player.health : null;
+    if (!health || !(health.max > 0)) return null;
+    if (health.isDead) return '💀 **Dead**';
+    const current = Math.max(0, Math.min(health.current, health.max));
+    return `❤️ **Health** \`${progressBar(current / health.max, 10)}\` **${fmt(current)}** / ${fmt(health.max)}`;
 }
 
 function playerEmbed(profile, color) {
     return new EmbedBuilder()
         .setColor(color)
         .setAuthor({ name: displayName(profile.player) })
-        .setFooter({ text: NAV_HINT })
         .setTimestamp(new Date(profile.fetchedAt));
 }
 
-function progressText(s) {
-    if (s.info.maxed) return `\`${progressBar(1)}\` **MAX** ⭐\n${fmt(s.xp)} xp`;
-    return (
-        `\`${progressBar(s.info.progress)}\` **${pct(s.info.progress)}%**\n` +
-        `${fmt(s.xp)} xp · ${fmt(s.info.remaining)} to level ${s.info.level + 1}`
-    );
-}
-
 function overviewPage(profile) {
-    const embed = playerEmbed(profile, profile.online ? COLOR.online : COLOR.offline).setTitle('📊 Skills overview');
+    const embed = playerEmbed(profile, profile.online ? COLOR.online : COLOR.offline).setTitle('📊 Skills');
 
-    const lines = [statusLine(profile), ''];
+    const lines = [statusLine(profile)];
+    const health = healthLine(profile);
+    if (health) lines.push(health);
+    lines.push('');
     if (profile.skills.length) {
         lines.push(`**Total level** \`${fmt(profile.totalLevel)}\`  ·  **Total XP** \`${fmt(profile.totalXP)}\``);
     } else {
@@ -75,26 +71,14 @@ function overviewPage(profile) {
         if (!skills.length) continue;
         embed.addFields({
             name: `${category.emoji} ${category.name}`,
-            value: skills.map(s => `\`${String(s.info.level).padStart(2)}\` ${s.emoji} ${s.name}`).join('\n'),
+            value: skills
+                .map(s => {
+                    const progress = s.info.maxed ? '⭐' : `· ${pct(s.info.progress)}%`;
+                    return `\`${String(s.info.level).padStart(2)}\` ${s.emoji} ${s.name} ${progress}`;
+                })
+                .join('\n'),
             inline: true,
         });
-    }
-    return embed;
-}
-
-function categoryPage(profile, categoryId) {
-    const category = CATEGORIES.find(c => c.id === categoryId);
-    const skills = profile.skills.filter(s => s.category.id === categoryId);
-    const embed = playerEmbed(profile, category.color).setTitle(`${category.emoji} ${category.name}`);
-
-    if (!skills.length) return embed.setDescription(`${statusLine(profile)}\n\nNo ${category.name.toLowerCase()} skills yet.`);
-
-    const levels = skills.reduce((sum, s) => sum + s.info.level, 0);
-    embed.setDescription(`${statusLine(profile)}\n\n**${category.name} levels** \`${levels}\``);
-    if (skills[0].icon) embed.setThumbnail(skills[0].icon);
-
-    for (const s of skills) {
-        embed.addFields({ name: `${s.emoji} ${s.name} — Level ${s.info.level}`, value: progressText(s) });
     }
     return embed;
 }
@@ -127,13 +111,11 @@ function skillPage(profile, key) {
     return embed;
 }
 
+// page: 'overview' or 'skill:<key>'
 export function renderPlayerPage(profile, page) {
-    if (page === 'overview') return overviewPage(profile);
     if (page.startsWith('skill:')) return skillPage(profile, page.slice(6));
-    return categoryPage(profile, page);
+    return overviewPage(profile);
 }
-
-// ---- server pages -------------------------------------------------------
 
 export function formatDuration(seconds) {
     seconds = Math.floor(seconds);
@@ -158,7 +140,6 @@ export function statusEmbed(state) {
         .setColor(COLOR[state.status] || COLOR.info)
         .setTitle(`🐉 ${config.serverName}`)
         .setDescription(`### ${STATUS_LABEL[state.status]}`)
-        .setFooter({ text: '🔄 Refresh' })
         .setTimestamp(state.updatedAt ? new Date(state.updatedAt) : null);
 
     if (state.status === 'online') {
@@ -199,12 +180,13 @@ export function onlineEmbed(players, page) {
         return `\`${String(n).padStart(2)}\` **${displayName(p)}** · ${p.pingMs ?? '?'} ms`;
     });
 
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
         .setColor(players.length ? COLOR.online : COLOR.offline)
         .setTitle(`👥 Online players — ${players.length}${max}`)
         .setDescription(lines.join('\n') || 'Nobody is online right now.')
-        .setFooter({ text: pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ Page  🔄 Refresh` : '🔄 Refresh' })
         .setTimestamp();
+    if (pages > 1) embed.setFooter({ text: `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page` });
+    return embed;
 }
 
 // ---- leaderboard --------------------------------------------------------
@@ -230,8 +212,8 @@ export function leaderboardEmbed(rows, skill, page) {
         .setDescription(lines.join('\n') || (skill ? `Nobody has ${skill.name} XP yet.` : 'No player stats saved yet.'))
         .setFooter({
             text:
-                (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ Page  ` : '') +
-                '🔄 Refresh  ·  🟢 online now, others as last seen',
+                (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page  ·  ` : '') +
+                '🟢 online now, others as last seen',
         })
         .setTimestamp();
     if (skill?.icon) embed.setThumbnail(skill.icon);
@@ -258,7 +240,7 @@ export function helpEmbed() {
         .setTitle(`🐉 ${config.serverName} — Commands`)
         .setDescription('Type `/` and pick a command. Player and skill names fill in as you type.')
         .addFields(
-            { name: '/levels', value: 'Skill overview for a player, with reactions to open each category.' },
+            { name: '/levels', value: 'Every skill for a player, with health while they are online.' },
             { name: '/level', value: 'One skill in detail for a player, with a progress bar.' },
             { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
             { name: '/status', value: 'Is the server up, and who is on it.' },
