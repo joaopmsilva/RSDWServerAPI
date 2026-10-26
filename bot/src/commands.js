@@ -9,11 +9,13 @@ import {
     onlineEmbed,
     renderPlayerPage,
     statusEmbed,
+    systemEmbed,
 } from './embeds.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
 import { PlayerStore } from './store.js';
+import { systemStats } from './system.js';
 
 // A command returns { reply }, plus menu: { emojis, onPress } for page arrows;
 // index.js sends the reply and turns the menu into reactions.
@@ -185,5 +187,12 @@ export const commands = {
     leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
     status: (i, ctx) => status(ctx),
     online: (i, ctx) => online(ctx),
+    system: async () => {
+        try {
+            return { reply: { embeds: [systemEmbed(await systemStats())] } };
+        } catch (err) {
+            return { reply: { embeds: [errorEmbed(`Could not read the VPS stats: ${err.message}`)] } };
+        }
+    },
     help: () => ({ reply: { embeds: [helpEmbed()] } }),
 };

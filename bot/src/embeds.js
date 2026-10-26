@@ -217,6 +217,56 @@ export function leaderboardEmbed(rows, skill, page) {
     return embed;
 }
 
+// ---- system -------------------------------------------------------------
+
+function bytes(n) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+        n /= 1024;
+        i++;
+    }
+    return `${n.toFixed(i && n < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+function bitrate(bytesPerSecond) {
+    const bits = bytesPerSecond * 8;
+    if (bits >= 1e9) return `${(bits / 1e9).toFixed(2)} Gbit/s`;
+    if (bits >= 1e6) return `${(bits / 1e6).toFixed(1)} Mbit/s`;
+    return `${Math.round(bits / 1e3)} kbit/s`;
+}
+
+const usageLine = (used, total) =>
+    `\`${progressBar(used / total, 12)}\` **${pct(used / total)}%**\n${bytes(used)} / ${bytes(total)}`;
+
+export function systemEmbed(s) {
+    const { cpu, memory, disk, network } = s;
+    const embed = new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle(`🖥️ VPS · ${s.hostname}`)
+        .addFields(
+            {
+                name: '⚙️ CPU',
+                value: `\`${progressBar(cpu.usage, 12)}\` **${pct(cpu.usage)}%**\n${cpu.cores} cores · load ${cpu.load.map(l => l.toFixed(2)).join(' / ')}`,
+                inline: true,
+            },
+            { name: '🧠 RAM', value: usageLine(memory.used, memory.total), inline: true },
+        )
+        .setFooter({ text: `VPS up ${formatDuration(s.uptimeSeconds)}` })
+        .setTimestamp();
+
+    if (memory.swapTotal) embed.addFields({ name: '🔁 Swap', value: usageLine(memory.swapUsed, memory.swapTotal), inline: true });
+    if (disk) embed.addFields({ name: '💾 Disk', value: usageLine(disk.used, disk.total), inline: true });
+    embed.addFields({
+        name: '🌐 Network',
+        value:
+            `⬇️ **${bitrate(network.rxRate)}** · ⬆️ **${bitrate(network.txRate)}**\n` +
+            `Since boot: ⬇️ ${bytes(network.rxTotal)} · ⬆️ ${bytes(network.txTotal)}`,
+        inline: true,
+    });
+    return embed;
+}
+
 // ---- misc ---------------------------------------------------------------
 
 export function ambiguousEmbed(query, players) {
@@ -246,6 +296,7 @@ export function helpEmbed() {
             { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
             { name: '/status', value: 'Is the server up, and who is on it.' },
             { name: '/online', value: 'Everyone connected right now, with ping.' },
+            { name: '/system', value: "The VPS's CPU, RAM, disk and network use right now." },
         )
         .setFooter({ text: 'Players can be looked up by character or account name, even while offline.' });
 

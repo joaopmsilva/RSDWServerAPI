@@ -28,6 +28,7 @@ export const definitions = [
         ),
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
     new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
+    new SlashCommandBuilder().setName('system').setDescription("The VPS's CPU, RAM, disk and network use"),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),
 
     // Admin only. Hidden from members without Administrator; the bot also checks

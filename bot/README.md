@@ -17,6 +17,7 @@ first (🟢), then everyone the bot has seen before (⚫).
 | `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
 | `/status` | Online / starting / offline, players, uptime |
 | `/online` | Everyone connected, with ping |
+| `/system` | The VPS's CPU, RAM, swap, disk and network use right now |
 | `/help` | Command list |
 | `/server action [minutes]` | Admins: start, stop, restart, or cancel a planned one |
 | `/admin kick` · `ban` · `unban` · `say` | Admins: moderation and announcements |
@@ -154,6 +155,7 @@ updates, relay batches and undelivered chat too.
 | `src/embeds.js` | Every embed the bot sends |
 | `src/menus.js` | Reaction navigation |
 | `src/poller.js` | Server status, presence, player snapshots |
+| `src/system.js` | VPS CPU, RAM, disk and network for /system |
 | `src/relay.js` | Game → Discord chat and deaths |
 | `src/bridge.js` | Discord → game chat |
 | `src/notices.js` | Online / offline / restart notices |
