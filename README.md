@@ -1,40 +1,146 @@
-# RSDWServerAPI
+<div align="center">
 
-A server management API for **RuneScape: Dragonwilds** dedicated servers on Linux, plus a
-Discord bot that uses it.
+# 🐉 RSDWServerAPI
 
-- **The mod** (`librsdwapi.so`) is preloaded into the server. It adds a REST API and an
-  optional Source RCON listener, so you can see who is connected, read their live stats,
-  kick, ban, give items and broadcast - and it records in-game chat and deaths for the bot.
-- **The bot** ([bot/](bot/)) has `/levels`, `/level`, `/leaderboard`, `/status`, `/online` and `/system` slash commands
-  with auto-fill, shows the server's state and player count as its
-  status, bridges chat both ways between the game and a Discord channel, posts deaths, and
-  announces when the server goes up, down, restarts or is backed up, and lets admins start,
-  stop and restart the server and kick, ban and announce from Discord.
+**A server mod and Discord bot for _RuneScape: Dragonwilds_ dedicated servers on Linux.**
 
-**Setting it all up on a VPS: see [DEPLOY.md](DEPLOY.md).**
+Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-## Features
+![Mod](https://img.shields.io/badge/mod-v0.3.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.4.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
 
-- **Live player data** - names, character names, SteamID64, character GUID, ping,
-  position, rotation, velocity, health, sustenance, hydration, skills and every float
-  attribute the character carries.
-- **Remote kick** through the game's own kick function, persistent until the server
-  restarts, exactly like an in-game kick.
-- **Broadcast** to all players through the game's own chat.
-- **Give items** through the game's own give function.
-- **Bans** that survive restarts, with offline players bannable by SteamID64.
-- **In-game admin commands** - `/kick`, `/ban`, `/unban`, `/give`, gated by the game's
-  own owner and admin list.
-- **Chat and death feed** at `/api/events`, which the Discord bot relays.
-- **Two independent listeners** - REST and Source RCON, each switchable on its own.
-- **Access control on both** - bearer token or RCON password, IP whitelisting, per-address
-  rate limiting and automatic blocking after repeated failed logins.
-- **Offsets validated at runtime.** Every discovery step is checked and cross-checked
-  before anything is read, and a mismatch after a game patch degrades to a `503` and a log
-  line rather than serving nonsense.
+[**Features**](#-features) · [**How it works**](#-how-it-works) · [**Quick start**](#-quick-start) · [**Discord bot**](bot/README.md) · [**Full setup guide**](DEPLOY.md) · [**API reference**](#-rest-api)
 
-## Build
+</div>
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🎮 In Discord
+
+- **`/levels`, `/level`** - any player's skills, live or from the last time they were seen
+- **`/leaderboard`** - by total level or any skill, 🥇🥈🥉
+- **`/gains`** - who gained the most XP today, this week or this month
+- **`/playtime`, `/deaths`** - most played, most deaths
+- **`/status`, `/online`, `/system`** - server, players and VPS load
+- Player and skill names **auto-fill** as you type
+
+</td>
+<td width="50%" valign="top">
+
+### 💬 Live in your channels
+
+- **Two-way chat** - game chat in Discord, Discord messages in game
+- **Level-ups** 🎉 and ⭐ 99 celebrations
+- **Joins, leaves and deaths**, with the cause when the game gives one
+- **Server notices** - online, offline, restarting, backups
+- **Weekly recap** every Sunday: top gainers, new 99s, most played
+- The bot's status shows `🟢 3/16 players online`
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🛡️ For admins
+
+- **`/server`** start, stop, restart (with player warnings), backup
+- **`/admin`** kick, ban, unban, give items, announce
+- **Leaderboard cleanup** - remove a player and their stats
+- **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
+- In-game `/kick`, `/ban`, `/give` for the game's own admins
+
+</td>
+<td width="50%" valign="top">
+
+### ⚙️ Under the hood
+
+- **REST API** and optional **Source RCON**, each with its own auth, IP whitelist and rate limits
+- **Self-checking** - every offset is validated at runtime, and `/api/diagnostics` reports
+  what a game update broke instead of serving nonsense
+- **Bans that survive restarts**, offline players by SteamID64
+- **One-command updates** from your PC - the bot updates without touching the server
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🧭 How it works
+
+```mermaid
+flowchart LR
+    subgraph VPS["🖥️ Your Linux VPS"]
+        direction LR
+        Game["🐉 Dragonwilds server<br/><sub>+ librsdwapi.so</sub>"]
+        API[("REST API<br/><sub>127.0.0.1:8080</sub>")]
+        Bot["🤖 Discord bot<br/><sub>Node.js · systemd</sub>"]
+        Game --- API
+        Bot -- "players, events,<br/>broadcast, kick" --> API
+    end
+    Bot <-- "slash commands,<br/>chat, notices" --> Discord(["💬 Discord"])
+    Players(["🧑‍🤝‍🧑 Players"]) <--> Game
+```
+
+| Part | What it is |
+| ---- | ---------- |
+| **The mod** · `librsdwapi.so` | Loaded into the game server with `LD_PRELOAD`. Reads players straight from the game's memory and serves them over a local REST API, plus a chat, death, join and leave feed. |
+| **The bot** · [`bot/`](bot/) | Runs next to the server as its own service and talks to the API. Keeps running when the server is down, and keeps everyone's last known stats. |
+
+Updating the bot never needs a server restart. A new mod build is picked up at the next server start.
+
+---
+
+## 🚀 Quick start
+
+> [!TIP]
+> The step-by-step guide for a plain Steam install on a VPS - Discord setup, building,
+> installing, systemd, cron and updating - is in **[DEPLOY.md](DEPLOY.md)**.
+
+**1. Build the mod** on the server's machine:
+
+```bash
+sudo apt install -y build-essential
+make -j"$(nproc)"          # → dist/librsdwapi.so
+```
+
+**2. Start the server with it:**
+
+```bash
+LD_PRELOAD=/home/dragonwilds/rs_server/librsdwapi.so ./RSDragonwildsServer.sh -log -port=7777
+```
+
+**3. Run the bot:**
+
+```bash
+cd bot && npm install --omit=dev
+cp .env.example .env && nano .env   # Discord token, API token, channel IDs
+npm start
+```
+
+**4. Update later** with one command from your PC:
+
+```powershell
+.\deploy\upload.ps1 -Bot -Mod      # add -Restart to load the new mod straight away
+```
+
+---
+
+## 🔧 Mod details
+
+<details>
+<summary><b>Build</b></summary>
+
+<br/>
 
 On the Linux machine that runs the server:
 
@@ -43,11 +149,16 @@ sudo apt install -y build-essential
 make -j"$(nproc)"
 ```
 
-Output: `dist/librsdwapi.so`. `libstdc++` and `libgcc` are linked statically, and building on
-the server's own machine means the result never needs a newer glibc than it has.
-`make clean` removes the build output.
+Output: `dist/librsdwapi.so`. `libstdc++` and `libgcc` are linked statically, and building on the
+server's own machine means the result never needs a newer glibc than it has. `make clean`
+removes the build output.
 
-## Install
+</details>
+
+<details>
+<summary><b>Install</b></summary>
+
+<br/>
 
 Put `librsdwapi.so` beside the server and prefix whatever starts it with `LD_PRELOAD`:
 
@@ -63,20 +174,28 @@ LD_PRELOAD=./librsdwapi.so ./RSDragonwilds/Binaries/Linux/RSDragonwildsServer-Li
 
 `LD_PRELOAD` is inherited by every process the launch command starts, including a wrapper
 script's shell and the small commands it runs. The mod stays inert in all of them and only
-starts inside the server itself. If it ever fails to recognise the server (no `loaded` line
-in the log), add `RSDWAPI_FORCE=1` next to `LD_PRELOAD`.
+starts inside the server itself. If it ever fails to recognise the server (no `loaded` line in
+the log), add `RSDWAPI_FORCE=1` next to `LD_PRELOAD`.
 
-## Configuration
+> [!WARNING]
+> Never copy a new build straight over the `librsdwapi.so` a running server has loaded - that
+> can crash it. Copy it beside it and rename it over, which is what `deploy/update-mod.sh` does.
 
-On first run the mod writes `rsdwapi/settings.ini` beside the server binary. Set
-`RSDWAPI_DIR` to put it somewhere else. The log prints the folder it uses
-(`RSDWRestAPI: data directory ...`).
+</details>
+
+<details>
+<summary><b>Configuration</b> · <code>rsdwapi/settings.ini</code></summary>
+
+<br/>
+
+On first run the mod writes `rsdwapi/settings.ini` beside the server binary. Set `RSDWAPI_DIR`
+to put it somewhere else. The log prints the folder it uses (`RSDWRestAPI: data directory ...`).
 
 A bearer token and an RCON password are generated on that first run and never regenerated
 afterwards, so an empty value stays empty.
 
-**The REST API is on by default. RCON is off by default** - set `Enabled=true` under
-`[RCON]` to use it; the password is already generated and waiting.
+**The REST API is on by default. RCON is off by default** - set `Enabled=true` under `[RCON]` to
+use it; the password is already generated and waiting.
 
 ```ini
 [General]
@@ -104,48 +223,57 @@ BanSeconds=300
 MaxConnections=16
 ```
 
-When the Discord bot runs on the same machine, set `BindAddress=127.0.0.1` so the API is not
-reachable from the internet at all.
+> [!IMPORTANT]
+> When the bot runs on the same machine, set `BindAddress=127.0.0.1` so the API isn't
+> reachable from the internet at all.
 
-Bans are kept in `rsdwapi/bans.json` beside the config and survive restarts.
+- Bans are kept in `rsdwapi/bans.json` beside the config and survive restarts.
+- `IPWhitelist` takes a comma separated list of addresses and CIDR blocks
+  (`127.0.0.1,10.0.0.0/8`). Empty allows everyone. It applies to both listeners independently,
+  and an unparseable entry is logged and ignored rather than silently locking everyone out.
+- Clearing `BearerToken` disables REST authentication entirely. That is deliberate and it
+  sticks, but bind to `127.0.0.1` or set an `IPWhitelist` if you do it. A warning is logged at
+  startup either way.
+- An empty RCON `Password` keeps RCON from starting at all, by design.
 
-`IPWhitelist` takes a comma separated list of addresses and CIDR blocks
-(`127.0.0.1,10.0.0.0/8`). Empty allows everyone. It applies to both listeners
-independently, and an unparseable entry is logged and ignored rather than silently locking
-everyone out.
+</details>
 
-Clearing `BearerToken` disables REST authentication entirely. That is deliberate and it
-sticks, but bind to `127.0.0.1` or set an `IPWhitelist` if you do it. A warning is logged
-at startup either way.
+<details>
+<summary><b>Logs</b></summary>
 
-An empty RCON `Password` keeps RCON from starting at all, by design.
-
-### Logs
+<br/>
 
 `<data dir>/logs/api.log`, rotated on each boot with ten kept, and mirrored to the server's
-stdout. It records startup and engine discovery, kicks, bans, deaths, and with
-`VerboseLogging=true` every API request and every chat line. The bot's frequent
-`/api/events` polls are only logged when they fail.
+stdout. It records startup and engine discovery, kicks, bans, joins, leaves and deaths, and with
+`VerboseLogging=true` every API request and every chat line. The bot's frequent `/api/events`
+polls are only logged when they fail.
 
-## REST endpoints
+</details>
+
+---
+
+## 📡 REST API
 
 Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empty.
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| GET | `/api/hello` | Load check |
-| GET | `/api/health` | Mod status and uptime |
-| GET | `/api/players` | Every connected player |
-| GET | `/api/events` | Chat and death feed |
-| POST | `/api/kick` | Disconnect a player |
-| POST | `/api/broadcast` | Send a message to every player |
-| POST | `/api/give` | Give an item to a player |
-| GET | `/api/items` | List loaded items, `?search=` to filter |
-| POST | `/api/ban` | Ban a player |
-| POST | `/api/unban` | Remove a ban |
-| GET | `/api/bans` | List bans |
+| Method | Path | |
+| :----: | ---- | - |
+| `GET` | `/api/health` | Mod status and uptime |
+| `GET` | `/api/players` | Every connected player, with stats |
+| `GET` | `/api/events` | Chat, death, join and leave feed |
+| `GET` | `/api/diagnostics` | Self-check of everything the mod reads |
+| `POST` | `/api/kick` | Disconnect a player |
+| `POST` | `/api/broadcast` | Message every player |
+| `POST` | `/api/give` | Give an item to a player |
+| `GET` | `/api/items` | Loaded items, `?search=` to filter |
+| `POST` | `/api/ban` · `/api/unban` | Ban or unban a player |
+| `GET` | `/api/bans` | List bans |
+| `GET` | `/api/hello` | Load check |
 
-### GET /api/players
+<details>
+<summary><code>GET /api/players</code></summary>
+
+<br/>
 
 Accepts `?name=`, `?characterName=`, `?netId=` and `?characterGuid=` to narrow the list.
 
@@ -185,22 +313,26 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/players
 }
 ```
 
-Skills are reported as raw XP. The bot converts XP to levels with the Dragonwilds XP table.
-
+Skills are reported as raw XP; the bot converts XP to levels with the Dragonwilds XP table.
 Health and max health come from the character's attributes component, not from
 `UHealthComponent`'s own fields - on a player those are always zero, because
 `UPlayerHealthComponent` sources both from attributes.
 
-### GET /api/events
+</details>
 
-In-game chat, player deaths, joins and leaves, oldest first. Pass the last `id` you have seen as `?since=`
-to get only newer events; `?limit=` caps the count (default 100, max 500). The last 500
+<details>
+<summary><code>GET /api/events</code></summary>
+
+<br/>
+
+In-game chat, player deaths, joins and leaves, oldest first. Pass the last `id` you have seen as
+`?since=` to get only newer events; `?limit=` caps the count (default 100, max 500). The last 500
 events are kept in memory.
 
 ```json
 {
   "bootId": 1793042710123,
-  "latestId": 42,
+  "latestId": 43,
   "events": [
     { "id": 41, "time": 1793042790000, "type": "chat", "name": "Adventurer", "netId": "7656...",
       "characterGuid": "...", "playerId": 256, "message": "hello", "location": "" },
@@ -215,15 +347,20 @@ events are kept in memory.
 
 `cause` on a death is the game's own event tag when the death came from one (empty when it was
 spotted from the player's health). `players` on a join or leave is how many are online after it.
+Ids restart at 1 when the server restarts; `bootId` changes at the same time, so a reader knows
+to start over from `since=0`.
 
-Ids restart at 1 when the server restarts; `bootId` changes at the same time, so a reader
-knows to start over from `since=0`.
+</details>
 
-### GET /api/diagnostics
+<details>
+<summary><code>GET /api/diagnostics</code></summary>
 
-A self-check of what the mod reads from the game, so a game update that moves something
-shows up here instead of a feature quietly doing nothing. Each check has `ok` `true`,
-`false`, or `null` when it can't be checked yet (most need someone online).
+<br/>
+
+A self-check of what the mod reads from the game, so a game update that moves something shows up
+here instead of a feature quietly doing nothing. Each check has `ok` `true`, `false`, or `null`
+when it can't be checked yet (most need someone online). The bot messages its admins when a
+check starts failing.
 
 ```json
 {
@@ -236,19 +373,29 @@ shows up here instead of a feature quietly doing nothing. Each check has `ok` `t
 }
 ```
 
-### POST /api/kick
+</details>
 
-`player` accepts a SteamID64, player id, character GUID, character name or display name.
-They are matched in that order, most stable first.
+<details>
+<summary><code>POST /api/kick</code></summary>
+
+<br/>
+
+`player` accepts a SteamID64, player id, character GUID, character name or display name, matched
+in that order, most stable first.
 
 ```bash
 curl -X POST http://localhost:8080/api/kick -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"reason\":\"Kicked by an administrator\"}"
 ```
 
-A kick holds until the server restarts. The kicked player is remembered and removed again
-if they reconnect.
+A kick holds until the server restarts. The kicked player is remembered and removed again if
+they reconnect.
 
-### POST /api/broadcast
+</details>
+
+<details>
+<summary><code>POST /api/broadcast</code></summary>
+
+<br/>
 
 Sends a line to every connected player's chat box.
 
@@ -256,13 +403,17 @@ Sends a line to every connected player's chat box.
 curl -X POST http://localhost:8080/api/broadcast -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"message\":\"Restarting in 5 minutes\"}"
 ```
 
-`sender` is optional and defaults to `Server`, giving `[Server] Restarting in 5 minutes`.
+`sender` is optional and defaults to `Server`, giving `[Server] Restarting in 5 minutes`. The
+game has no server identity in chat, so a broadcast is delivered under the receiving player's
+own name: everyone sees the `[Server]` prefix, but it looks as though they sent it themselves.
+After a server restart, broadcasts work once the first player has joined.
 
-The game has no server identity in chat, so a broadcast is delivered under the receiving
-player's own name. Everyone sees the `[Server]` prefix, but it appears as though they sent
-it themselves.
+</details>
 
-### POST /api/give
+<details>
+<summary><code>POST /api/give</code></summary>
+
+<br/>
 
 ```bash
 curl -X POST http://localhost:8080/api/give -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"item\":\"IronBar\",\"count\":10}"
@@ -272,39 +423,57 @@ curl -X POST http://localhost:8080/api/give -H "Authorization: Bearer TOKEN" -H 
 prefix, or a unique partial like `ironbar`. Only items currently loaded on the server can be
 given; `GET /api/items` shows what is available right now. `count` defaults to 1.
 
-### POST /api/ban
+</details>
+
+<details>
+<summary><code>POST /api/ban</code> · <code>POST /api/unban</code></summary>
+
+<br/>
 
 ```bash
 curl -X POST http://localhost:8080/api/ban -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"reason\":\"Griefing\"}"
 ```
 
-Kicks the player if online and adds them to `bans.json`. They are removed again whenever
-they reconnect. Offline players can be banned by SteamID64. `POST /api/unban` takes the
-same `player` field.
+Kicks the player if online and adds them to `bans.json`. They are removed again whenever they
+reconnect. Offline players can be banned by SteamID64. `POST /api/unban` takes the same `player`
+field.
 
-### GET /api/health
+</details>
 
-Deliberately minimal, because authentication can be turned off and this therefore has to be
-safe to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
+<details>
+<summary><code>GET /api/health</code></summary>
+
+<br/>
+
+Deliberately minimal, because authentication can be turned off and this therefore has to be safe
+to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
 {"status":"healthy","version":"0.3.0","uptimeSeconds":41.2,"engineReady":true}
 ```
 
-`status` is `starting` until the world has loaded. Engine discovery detail goes to the log
-at startup and to the authenticated RCON `status` command.
+`status` is `starting` until the world has loaded. Engine discovery detail goes to the log at
+startup and to the authenticated RCON `status` command.
 
-## RCON
+</details>
 
-Standard Valve Source RCON, so `mcrcon`, `rcon-cli` and panel consoles all work. Off by
-default.
+---
+
+## 🖥️ RCON
+
+Standard Valve Source RCON, so `mcrcon`, `rcon-cli` and panel consoles all work. Off by default.
 
 ```bash
 mcrcon -H 127.0.0.1 -P 27020 -p PASSWORD players
 ```
 
-| Command | Description |
-| ------- | ----------- |
+<details>
+<summary><b>Commands and rate limits</b></summary>
+
+<br/>
+
+| Command | |
+| ------- | - |
 | `help` | List commands |
 | `health` | Mod and engine readiness in one line |
 | `status` | Server identity, world and engine discovery |
@@ -320,34 +489,40 @@ mcrcon -H 127.0.0.1 -P 27020 -p PASSWORD players
 | `bans` | List bans |
 
 Rate limiting is a per-address token bucket: `CommandsPerMinute` is the sustained rate,
-`CommandBurst` is how much can be spent at once. Separately, `MaxFailedAuth` failed logins
-inside `FailWindowSeconds` refuse that address for `BanSeconds`, enforced at `accept`
-before the password is read.
+`CommandBurst` is how much can be spent at once. Separately, `MaxFailedAuth` failed logins inside
+`FailWindowSeconds` refuse that address for `BanSeconds`, enforced at `accept` before the
+password is read.
 
-## In-game commands
+</details>
 
-Admins can run these from chat. Admin status comes from the game's own owner and admin
-list, so anyone who has entered the admin password in the Server Management screen
-qualifies. Replies go only to the sender, and the command line itself is never shown to
+---
+
+## ⌨️ In-game commands
+
+For the game's own admins - anyone who has entered the admin password in the **Server
+Management** screen. Replies go only to the sender, and the command itself is never shown to
 other players.
 
-| Command | Description |
-| ------- | ----------- |
+| Command | |
+| ------- | - |
 | `/kick <player> [reason]` | Disconnect a player |
 | `/ban <player> [reason]` | Ban a player |
 | `/unban <player or SteamID64>` | Remove a ban |
 | `/give <player> <item> [count]` | Give an item to a player |
 | `/help` | List commands |
 
-## SDK
+---
 
-The engine layer is driven by a Dumper-7 dump of the server binary, which is not included
-in this repository. Every offset the mod uses carries a `// Source:` comment naming the file
-it came from, so they can be re-verified against a fresh dump after a game patch.
+## 📚 SDK
 
-## License
+The engine layer is driven by a Dumper-7 dump of the server binary, which is not included in this
+repository. Every offset the mod uses carries a `// Source:` comment naming the file it came from,
+so they can be re-verified against a fresh dump after a game patch - and `/api/diagnostics`
+tells you when that's needed.
 
-Released under the MIT License. See [LICENSE](LICENSE) for the full text.
+## 📄 License
 
-Based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI). This software is
-provided as is, without warranty of any kind. Use it at your own risk.
+Released under the MIT License - see [LICENSE](LICENSE).
+
+Based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI). Provided as is, without
+warranty of any kind. Use it at your own risk.

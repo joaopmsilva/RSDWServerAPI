@@ -1,163 +1,140 @@
-# RSDW Discord bot
+<div align="center">
 
-A Discord bot for a RuneScape: Dragonwilds server running the RSDWServerAPI mod. It runs on
-its own, whether the game server is up or not.
+# 🤖 RSDW Discord Bot
 
-Installation and updating are covered step by step in [../DEPLOY.md](../DEPLOY.md).
+**Your Dragonwilds server, inside Discord.**
 
-## Commands
+Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-Type `/` in Discord and pick one. Player and skill names fill in as you type: online players
-first (🟢), then everyone the bot has seen before (⚫).
+![Version](https://img.shields.io/badge/version-0.4.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
+![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+
+[**Commands**](#-commands) · [**Chat**](#-two-way-chat) · [**Activity**](#-player-activity) · [**Notices**](#-server-notices) · [**Admins**](#%EF%B8%8F-for-admins) · [**Setup**](../DEPLOY.md)
+
+</div>
+
+---
+
+Runs on its own next to the game server and talks to the [RSDWServerAPI mod](../README.md). It
+keeps going while the server is down - the status turns red, saved stats still answer, and it
+announces when the server is back. Installing and updating are step by step in
+**[DEPLOY.md](../DEPLOY.md)**.
+
+## 🎮 Commands
+
+Type **`/`** in Discord and pick one. Player and skill names fill in as you type - online
+players first 🟢, then everyone seen before ⚫. Short skill names work too: `wc`, `rc`, `mage`,
+`agi`, `con`, `cook`…
 
 | Command | |
 | ------- | - |
-| `/levels player` | Every skill grouped by category, total level and max health |
-| `/level skill player` | One skill in detail, with a progress bar |
-| `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
-| `/status` | Online / starting / offline, players, uptime |
-| `/online` | Everyone connected, with ping |
-| `/gains [player] [period]` | Top XP gainers, or one player skill by skill - today, this week (default) or this month |
-| `/playtime [player]` | Most played this week, or one player: today, this week, total |
-| `/deaths [player]` | Most deaths, or one player: this week and total |
-| `/system` | The VPS's CPU, RAM, swap, disk and network use right now |
-| `/help` | Command list |
-| `/server action [minutes]` | Admins: start, stop, restart, back up, or cancel a planned restart / stop |
-| `/admin kick` · `ban` · `unban` · `bans` · `give` · `say` | Admins: moderation, items and announcements |
-| `/admin remove` · `restore` | Admins: take a player off the leaderboards (and delete their stats), or let them back |
-| `/admin diagnostics` | Admins: the mod's self-check |
+| 📊 **`/levels`** `player` | Every skill by category, total level and max health |
+| 🪓 **`/level`** `skill` `player` | One skill in detail, with a progress bar to the next level |
+| 🏆 **`/leaderboard`** `[skill]` | Top players by total level, or by XP in one skill |
+| 📈 **`/gains`** `[player]` `[period]` | Who gained the most XP, or one player skill by skill |
+| ⏱️ **`/playtime`** `[player]` | Most played this week, or one player's time |
+| 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
+| 🐉 **`/status`** | Online / starting / offline, players, uptime |
+| 👥 **`/online`** | Everyone connected, with ping |
+| 🖥️ **`/system`** | The VPS's CPU, RAM, disk and network right now |
+| ❓ **`/help`** | All of the above |
 
-Players are found by character name or account name, case-insensitively, and partial names
-work. Skills accept short forms too: `wc`, `rc`, `mage`, `agi`, `con`, `cook` and so on.
+```text
+📊 Skills · Smurfy (Paradox)
+🟢 Online now
+❤️ Max health 120
 
-The commands are registered to each Discord server the bot is in every time it starts, so
-they appear straight away. If they don't show up, re-invite the bot with the
-`applications.commands` scope (see DEPLOY.md step 1).
+Total level 178  ·  Total XP 1,200,050
 
-Replies are plain embeds. Run a command again to see newer numbers.
+⛏️ Gathering
+`99` ⛏️ Mining ⭐
+`77` 🪓 Woodcutting · 12%
+` 2` 🎣 Fishing · 45%
+```
 
-### Pages
+Offline players are answered from the last time the bot saw them, marked *"Offline · last seen
+2 hours ago"*. `/online` and `/leaderboard` page with ◀️ ▶️ when there are more than ten.
 
-`/online` and `/leaderboard` show ten entries per page. When there are more, they get ◀️ ▶️
-reactions to change page, which work for ten minutes after the last press and stop when the
-bot restarts.
+<details>
+<summary><b>How levels, gains and playtime are worked out</b></summary>
 
-If the bot has **Manage Messages** in the channel it removes your reaction after each press,
-so you can click the same one again. Without it, clicking a reaction a second time (removing
-it) also counts as a press.
+<br/>
 
-## Admin commands
+- **Levels** - the API reports raw XP; [`src/levels.js`](src/levels.js) converts it with the
+  [Dragonwilds XP table](https://dragonwilds.runescape.wiki/w/Experience) (99 at 1,000,000 XP).
+  Skills and categories follow the [wiki's skill list](https://dragonwilds.runescape.wiki/w/Skills)
+  in [`src/skills.js`](src/skills.js). Unreleased skills (Prayer, Hunter, Slayer) stay hidden until
+  someone has XP in them.
+- **Leaderboard** - total level, with total XP breaking ties; online players use live numbers,
+  everyone else what they had when last seen.
+- **Gains** - each player's XP now, compared with the first time the bot saw them in the period:
+  since midnight for *today*, the last 7 days for *this week* (the default), 30 for *this month*.
+  Someone first seen on Wednesday counts from Wednesday, and the footer says so.
+- **Playtime** - counted while the bot runs and the player is online.
+- **Deaths** - from the mod's death events.
 
-`/server` and `/admin` only work for the Discord users in `ADMIN_USER_IDS` and are hidden
-from members without Administrator. Their replies are only shown to the admin.
+Snapshots live in `data/players.json`, history in `data/history.json` (five weeks of days).
 
-- `/server restart` / `stop` warn players in game and in the status channel, then run
-  `systemctl` on `SERVER_SERVICE` through sudo (DEPLOY.md step 11 has the sudoers line).
-  The warning is 2 minutes by default when someone is online, none when nobody is, or set
-  `minutes`. `/server cancel` calls it off. `/server start` starts a stopped server.
-- `/admin kick` / `ban` / `unban` use the mod's API; `/admin say` tells players in game and
-  posts in the status channel.
+</details>
 
-## Player activity
+## 💬 Two-way chat
 
-Posted in the chat channel (`LEVELUP_CHANNEL_ID` / `SUMMARY_CHANNEL_ID` to move them):
+Set `CHAT_CHANNEL_ID` and the channel becomes the game's chat:
 
-- **Level-ups**: "🎉 **Name** reached **🪓 Woodcutting 43**", from level `LEVELUP_MIN_LEVEL` (10) up, since
-  the first levels come every few seconds. A 99 gets its own ⭐ embed.
-- **Joins and leaves**: "➡️ **Name** joined · 3/16 online", "⬅️ **Name** left after 1h 20m". With mod
-  0.3.0+ they're instant; with older mods they show up at the next poll.
-- **Weekly recap**, Sundays from 20:00 (VPS time): top XP gainers, new 99s, most played, deaths.
+| | |
+| - | - |
+| **Game → Discord** | `💬 **Smurfy**: anyone got iron?` - and deaths as a small embed |
+| **Discord → game** | Players see `[Discord] Paradox: on my way!` |
 
-The numbers behind `/gains`, `/playtime`, `/deaths` and the recap are kept in `data/history.json`:
+- Mentions are never turned into pings, custom emoji become `:name:`, pictures `[image]`, and
+  long messages are cut at `BRIDGE_MAX_LENGTH`.
+- If a message can't reach the game the bot reacts on it: 💤 server down or nobody online,
+  ⚠️ anything else. After a server restart, messages get through once the first player has joined.
+- `BRIDGE_ROLE_ID` limits who can talk into the game; `BRIDGE_TO_GAME=false` keeps it one way.
+- The game has no "server" sender, so a Discord line shows in each player's chat under their own
+  name, with `[Discord]` in front.
 
-- **Gains** compare each player's XP now with the first time the bot saw them in the period - since
-  midnight for *today*, the last 7 days for *this week*, 30 for *this month*. Someone first seen on
-  Wednesday counts from Wednesday; the footer says from when.
-- **Playtime** is counted while the bot is running and the player is online.
-- **Deaths** come from the mod's death events.
+## 🎉 Player activity
 
-Five weeks of days are kept. `/admin remove` deletes everything about a player and keeps them off
-every board and the recap; `/admin restore` lets them back with a fresh start.
+Posted in the chat channel as it happens:
 
-## Admin alerts
+```text
+🎉 Smurfy reached 🪓 Woodcutting 43
+⭐ Smurfy reached 99 Mining!            ← its own embed
+➡️ Bobby joined · 3/16 online
+⬅️ Bobby left after 1h 20m · 2/16 online
+💀 Smurfy has died · Drowned
+```
 
-Everyone in `ADMIN_USER_IDS` gets a private message when:
+- Level-ups start at `LEVELUP_MIN_LEVEL` (10) - the first levels come every few seconds.
+- With mod 0.3.0+, joins and leaves are instant; with older mods they arrive at the next poll.
+- A death shows its cause when the game sends one.
 
-- the server goes offline or restarts **without** a planned restart or stop, and when it's back;
-- the mod's self-check (`/admin diagnostics`, mod 0.3.0+) finds a problem - usually right after a
-  game update moved something - and again when it's fixed;
-- CPU stays over `ALERT_CPU`% for 5 minutes, RAM over `ALERT_RAM`% for 3, or the disk goes over
-  `ALERT_DISK`% (all 90 by default; 0 turns one off), and when it settles.
+**📅 Weekly recap** - every Sunday from 20:00 (VPS time): top XP gainers, new 99s, most played and
+deaths. Move these with `LEVELUP_CHANNEL_ID` / `SUMMARY_CHANNEL_ID`.
 
-You need to share a server with the bot and allow DMs from server members. `ADMIN_ALERTS=false`
-turns them all off.
+## 📣 Server notices
 
-## Levels
-
-The API reports raw XP; [src/levels.js](src/levels.js) converts it with the
-[Dragonwilds XP table](https://dragonwilds.runescape.wiki/w/Experience) (level 99 at
-1,000,000 XP). Skills and categories follow the
-[wiki's skill list](https://dragonwilds.runescape.wiki/w/Skills) in
-[src/skills.js](src/skills.js). Unreleased skills (Prayer, Hunter, Slayer) stay hidden until
-someone has XP in them, and any skill the game reports that isn't listed shows under "Other".
-
-## Leaderboard
-
-`/leaderboard` ranks everyone the bot has saved stats for by total level (total XP breaks
-ties). Pick a skill to rank by XP in that skill instead; players with none are left out.
-Online players (🟢) are ranked on live numbers, everyone else on what they had when last
-seen.
-
-## Offline lookups
-
-Every poll saves each online player's skills to `data/players.json`. Offline players are
-answered from that snapshot, marked "Offline · last seen ...". Only players seen while the
-bot was running are known.
-
-## Status
-
-The bot's own status shows the server's state:
-
-- 🟢 `3/16 players online` (green) - the server is up
-- 🟡 `Server starting` (yellow) - running, world still loading
-- 🔴 `Server offline` (red) - the API doesn't answer
-
-## Two-way chat
-
-With `CHAT_CHANNEL_ID` set:
-
-- **Game → Discord:** in-game chat is posted there as `💬 **Name**: message`, and deaths as
-  a small embed in `DEATH_CHANNEL_ID` (or the chat channel). Mentions are never turned into
-  pings. The read position is saved in `data/relay.json`, so restarting the bot doesn't
-  repeat or skip messages.
-- **Discord → game:** anything typed in the channel is shown to players as
-  `[Discord] Name: message`, using the member's server nickname. Mentions become plain
-  `@names`, custom emoji `:name:`, pictures `[image]`, and long messages are cut at
-  `BRIDGE_MAX_LENGTH`. If a message can't be delivered the bot reacts on it: 💤 when the
-  server is down or nobody is online, ⚠️ for anything else (see the log).
-
-After a server restart the mod can only send into the game once the first player has
-joined (it learns how to call the game from that player's traffic), so until then messages
-get 💤.
-
-Set `BRIDGE_ROLE_ID` to let only one role talk into the game, or `BRIDGE_TO_GAME=false` to
-keep chat one way. The game has no "server" sender, so a Discord line shows in each player's
-chat box under that player's own name, with the `[Discord]` prefix in front.
-
-## Server notices
-
-Posted to `STATUS_CHANNEL_ID` (or the chat channel):
+In `STATUS_CHANNEL_ID` (or the chat channel), and on the bot's own status:
 
 | Notice | When |
 | ------ | ---- |
-| 🔴 Server is offline | The API stopped answering for two polls in a row |
-| 🔄 Server is restarting | It went straight from online to loading again |
-| 🔄 Server restarted | Its uptime went backwards between two polls |
-| 🟢 Server is online | It's back up, with how long it was down |
+| 🟢 **Server is online** | It's up again - with how long it was down |
+| 🔴 **Server is offline** | The API stopped answering for two polls in a row |
+| 🔄 **Server is restarting** | It went straight from online to loading |
+| 🔄 **Server restarted** | Its uptime went backwards between two polls |
+| 🔄 **Restart in 5 minutes** | Announced by `/server` or a script |
+| 💾 **Backup complete** | From the backup script (`BACKUP_NOTICES=false` to hide) |
 
-Nothing is posted for the state the server is in when the bot itself starts.
+The bot's status reads `🟢 3/16 players online`, `🟡 Server starting` or `🔴 Server offline`.
 
-Scripts can announce things the bot can't see, with [src/announce.js](src/announce.js):
+<details>
+<summary><b>Announcing from scripts</b></summary>
+
+<br/>
+
+[`src/announce.js`](src/announce.js) posts notices the bot can't see for itself - cron jobs use it:
 
 ```bash
 node src/announce.js restart 5 "Daily update"   # Discord + in game: restarting in 5 minutes
@@ -167,24 +144,69 @@ node src/announce.js backup-done "Saved 1 world file(s)."
 node src/announce.js say "Event tonight at 8!"  # Discord + in game
 ```
 
-After an announced restart or stop, the bot skips its own "offline" notice and the
-"online" one says the restart is complete.
-[deploy/scripts/](deploy/scripts/) has the VPS's cron scripts with these calls added.
+After an announced restart or stop the bot skips its own "offline" notice, and the "online" one
+says the restart is complete. [`deploy/scripts/`](deploy/scripts/) has the VPS's cron scripts
+with these calls in.
 
-## Configuration
+</details>
 
-All in `.env` - see [.env.example](.env.example) for every option.
+## 🛡️ For admins
 
-## Logs
+Only the Discord users in `ADMIN_USER_IDS` can use these, they're hidden from members without
+Administrator, and the replies are only visible to you.
 
-Everything goes to stdout (so `journalctl -u rsdw-bot` shows it) and to `data/bot.log`,
-rotated at 5MB. Logged: startup, slash command registration, Discord connection drops and
-reconnects, server state changes and notices, players joining and leaving, every command
-with who ran it and how long it took, every message sent into the game, deaths relayed,
-announcements, and all errors. Set `DEBUG=true` in `.env` for reaction presses, presence
-updates, relay batches and undelivered chat too.
+| Command | |
+| ------- | - |
+| 🔄 **`/server restart`** · **`stop`** `[minutes]` | Warns players in game and on Discord, then goes. 2 minutes by default with people online |
+| ▶️ **`/server start`** | Starts a stopped server |
+| ✋ **`/server cancel`** | Calls off a planned restart or stop |
+| 💾 **`/server backup`** | Runs the backup script now |
+| 👢 **`/admin kick`** · **`ban`** · **`unban`** · **`bans`** | Moderation |
+| 🎁 **`/admin give`** `player` `item` `[count]` | Item names fill in as you type |
+| 📢 **`/admin say`** `message` | In game and in the status channel |
+| 🧹 **`/admin remove`** · **`restore`** | Take a player off every leaderboard and delete their stats - or let them back |
+| 🩺 **`/admin diagnostics`** | The mod's self-check |
 
-## Files
+### 🔔 Private alerts
+
+You get a DM when:
+
+- 🔴 the server goes down or restarts **without** a planned restart - and when it's back;
+- 🩺 the mod's self-check finds a problem (usually right after a game update) - and when it's fixed;
+- 🔥 CPU stays over 90% for 5 minutes, RAM for 3, or the disk fills past 90% - and when it settles.
+
+Limits are `ALERT_CPU`, `ALERT_RAM` and `ALERT_DISK` (0 turns one off); `ADMIN_ALERTS=false` turns
+them all off. Discord has to allow DMs from server members.
+
+## ⚙️ Configuration
+
+Everything lives in `.env` - [`.env.example`](.env.example) explains each option. Only these are
+needed to start:
+
+| Setting | |
+| ------- | - |
+| `DISCORD_TOKEN` | The bot's token |
+| `API_TOKEN` | `BearerToken` from the mod's `settings.ini` |
+| `CHAT_CHANNEL_ID` | Where game chat, deaths and activity go |
+| `ADMIN_USER_IDS` | Your Discord user ID, for the admin commands and alerts |
+
+<details>
+<summary><b>Logs</b></summary>
+
+<br/>
+
+Everything goes to stdout (`journalctl -u rsdw-bot`) and to `data/bot.log`, rotated at 5MB:
+startup, slash command registration, Discord disconnects, server state and notices, joins,
+leaves, level-ups and deaths, every command with who ran it and how long it took, every message
+sent into the game, admin actions, alerts and all errors. `DEBUG=true` adds reaction presses,
+presence updates, relay batches and undelivered chat.
+
+</details>
+
+<details>
+<summary><b>Files</b></summary>
+
+<br/>
 
 | Path | |
 | ---- | - |
@@ -192,19 +214,21 @@ updates, relay batches and undelivered chat too.
 | `src/slash.js` | Slash command definitions, registration, auto-fill |
 | `src/commands.js` | The commands and player lookup |
 | `src/embeds.js` | Every embed the bot sends |
-| `src/menus.js` | Reaction navigation |
+| `src/menus.js` | ◀️ ▶️ page reactions |
 | `src/poller.js` | Server status, presence, player snapshots |
-| `src/system.js` | VPS CPU, RAM, disk and network for /system |
-| `src/relay.js` | Game → Discord chat and deaths |
-| `src/bridge.js` | Discord → game chat |
-| `src/notices.js` | Online / offline / restart notices |
-| `src/announce.js`, `src/announcer.js` | Notices for scripts and /server |
-| `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart / backup |
 | `src/activity.js` | Level-ups, joins and leaves, playtime, deaths, weekly recap |
 | `src/history.js`, `src/stats.js` | Saved history and the gains / playtime / death numbers |
+| `src/relay.js` | Game → Discord: chat, deaths and the event feed |
+| `src/bridge.js` | Discord → game chat |
+| `src/notices.js` | Online / offline / restart notices |
+| `src/announce.js`, `src/announcer.js` | Notices for scripts and `/server` |
+| `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart / backup |
 | `src/alerts.js` | Private alerts to the admins |
+| `src/system.js` | VPS CPU, RAM, disk and network |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |
 | `src/store.js` | Saved player snapshots |
 | `src/api.js`, `src/config.js`, `src/log.js` | API client, settings, logging |
 | `deploy/rsdw-bot.service` | systemd unit |
 | `deploy/scripts/` | Backup and daily update scripts with notices |
+
+</details>
