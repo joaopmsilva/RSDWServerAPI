@@ -207,6 +207,37 @@ export function onlineEmbed(players, page) {
         .setTimestamp();
 }
 
+// ---- leaderboard --------------------------------------------------------
+
+export const LEADERBOARD_PAGE_SIZE = 10;
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+// rows: [{ player, online, level, xp }] sorted best first. skill: null for total level.
+export function leaderboardEmbed(rows, skill, page) {
+    const pages = Math.max(1, Math.ceil(rows.length / LEADERBOARD_PAGE_SIZE));
+    page = Math.min(Math.max(0, page), pages - 1);
+
+    const lines = rows.slice(page * LEADERBOARD_PAGE_SIZE, (page + 1) * LEADERBOARD_PAGE_SIZE).map((r, i) => {
+        const rank = page * LEADERBOARD_PAGE_SIZE + i;
+        const place = MEDALS[rank] || `\`${String(rank + 1).padStart(2)}.\``;
+        const level = skill ? `Level **${r.level}**${r.level >= MAX_LEVEL ? ' ⭐' : ''}` : `Total **${fmt(r.level)}**`;
+        return `${place} **${displayName(r.player)}**${r.online ? ' 🟢' : ''}\n　${level} · ${fmt(r.xp)} xp`;
+    });
+
+    const embed = new EmbedBuilder()
+        .setColor(skill ? skill.category.color : 0xf1c40f)
+        .setTitle(skill ? `${skill.emoji} ${skill.name} leaderboard` : '🏆 Total level leaderboard')
+        .setDescription(lines.join('\n') || (skill ? `Nobody has ${skill.name} XP yet.` : 'No player stats saved yet.'))
+        .setFooter({
+            text:
+                (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ Page  ` : '') +
+                '🔄 Refresh  ·  🟢 online now, others as last seen',
+        })
+        .setTimestamp();
+    if (skill?.icon) embed.setThumbnail(skill.icon);
+    return embed;
+}
+
 // ---- misc ---------------------------------------------------------------
 
 export function ambiguousEmbed(query, players) {
@@ -229,6 +260,7 @@ export function helpEmbed() {
         .addFields(
             { name: '/levels', value: 'Skill overview for a player, with reactions to open each category.' },
             { name: '/level', value: 'One skill in detail for a player, with a progress bar.' },
+            { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
             { name: '/status', value: 'Is the server up, and who is on it.' },
             { name: '/online', value: 'Everyone connected right now, with ping.' },
         )

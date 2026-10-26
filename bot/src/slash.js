@@ -20,6 +20,12 @@ export const definitions = [
             o.setName('skill').setDescription('Skill, e.g. woodcutting or wc').setRequired(true).setAutocomplete(true),
         )
         .addStringOption(playerOption),
+    new SlashCommandBuilder()
+        .setName('leaderboard')
+        .setDescription('Top players by total level, or by one skill')
+        .addStringOption(o =>
+            o.setName('skill').setDescription('Leave empty for total level').setRequired(false).setAutocomplete(true),
+        ),
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
     new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),

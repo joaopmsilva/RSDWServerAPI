@@ -14,6 +14,7 @@ first (🟢), then everyone the bot has seen before (⚫).
 | ------- | - |
 | `/levels player` | Skill overview, with reactions to open each category |
 | `/level skill player` | One skill in detail, with a progress bar |
+| `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
 | `/status` | Online / starting / offline, players, uptime |
 | `/online` | Everyone connected, with ping |
 | `/help` | Command list |
@@ -38,8 +39,8 @@ Replies to `/levels` and `/level` carry reactions:
 | 🏃 | Support - Agility |
 | 🔄 | Reload the player's stats |
 
-`/status` and `/online` have 🔄, and `/online` adds ◀️ ▶️ when there are more than ten
-players. Reactions stay active for ten minutes after the last use, and stop when the bot
+`/status`, `/online` and `/leaderboard` have 🔄, and `/online` and `/leaderboard` add ◀️ ▶️
+when there are more than ten entries. Reactions stay active for ten minutes after the last use, and stop when the bot
 restarts - run the command again for a fresh one.
 
 If the bot has **Manage Messages** in the channel it removes your reaction after each press,
@@ -54,6 +55,13 @@ The API reports raw XP; [src/levels.js](src/levels.js) converts it with the
 [wiki's skill list](https://dragonwilds.runescape.wiki/w/Skills) in
 [src/skills.js](src/skills.js). Unreleased skills (Prayer, Hunter, Slayer) stay hidden until
 someone has XP in them, and any skill the game reports that isn't listed shows under "Other".
+
+## Leaderboard
+
+`/leaderboard` ranks everyone the bot has saved stats for by total level (total XP breaks
+ties). Pick a skill to rank by XP in that skill instead; players with none are left out.
+Online players (🟢) are ranked on live numbers, everyone else on what they had when last
+seen.
 
 ## Offline lookups
 

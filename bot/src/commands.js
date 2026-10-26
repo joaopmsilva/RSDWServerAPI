@@ -1,17 +1,19 @@
 import { api } from './api.js';
 import {
+    LEADERBOARD_PAGE_SIZE,
     ONLINE_PAGE_SIZE,
     PLAYER_NAV,
     ambiguousEmbed,
     errorEmbed,
     helpEmbed,
+    leaderboardEmbed,
     onlineEmbed,
     renderPlayerPage,
     statusEmbed,
 } from './embeds.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
-import { describeSkills, findSkill } from './skills.js';
+import { catalogSkill, describeSkills, findSkill } from './skills.js';
 import { PlayerStore } from './store.js';
 
 // A command returns { reply } or { reply, menu: { emojis, onPress } }; index.js
@@ -192,10 +194,65 @@ async function online(ctx) {
     };
 }
 
+// Everyone with saved stats, best first: by total level (then total XP), or by
+// XP in one skill. The store has every online player's latest numbers, so
+// offline players are ranked on what they had when last seen.
+function rankings(ctx, skill) {
+    const online = new Set(ctx.poller.state.players.map(PlayerStore.key));
+    const rows = [];
+    for (const player of ctx.store.all()) {
+        const skills = describeSkills(player.skills);
+        const row = { player, online: online.has(PlayerStore.key(player)) };
+        if (skill) {
+            const s = skills.find(entry => entry.key === skill.key);
+            if (!s?.xp) continue;
+            rows.push({ ...row, level: s.info.level, xp: s.xp });
+        } else {
+            if (!skills.length) continue;
+            rows.push({ ...row, level: skills.reduce((n, s) => n + s.info.level, 0), xp: skills.reduce((n, s) => n + s.xp, 0) });
+        }
+    }
+    return rows.sort((a, b) => b.level - a.level || b.xp - a.xp);
+}
+
+async function leaderboard(ctx, skillQuery) {
+    const skill = skillQuery ? catalogSkill(skillQuery) : null;
+    if (skillQuery && !skill) return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.`)] } };
+
+    // Fold in the latest numbers for whoever is online right now.
+    await fetchLive(ctx);
+    let rows = rankings(ctx, skill);
+    let page = 0;
+    const pages = () => Math.max(1, Math.ceil(rows.length / LEADERBOARD_PAGE_SIZE));
+    const render = () => ({ embeds: [leaderboardEmbed(rows, skill, page)] });
+
+    return {
+        reply: render(),
+        menu: {
+            emojis: rows.length > LEADERBOARD_PAGE_SIZE ? ['◀️', '▶️', '🔄'] : ['🔄'],
+            onPress: async emoji => {
+                if (emoji === normEmoji('◀️')) {
+                    if (page === 0) return null;
+                    page--;
+                } else if (emoji === normEmoji('▶️')) {
+                    if (page >= pages() - 1) return null;
+                    page++;
+                } else {
+                    await fetchLive(ctx);
+                    rows = rankings(ctx, skill);
+                    page = Math.min(page, pages() - 1);
+                }
+                return render();
+            },
+        },
+    };
+}
+
 // Keyed by slash command name; each gets the interaction and returns the reply.
 export const commands = {
     levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
     level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
+    leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
     status: (i, ctx) => status(ctx),
     online: (i, ctx) => online(ctx),
     help: () => ({ reply: { embeds: [helpEmbed()] } }),

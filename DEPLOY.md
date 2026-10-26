@@ -156,7 +156,7 @@ npm start
 ```
 
 Look for `logged in as ...`, `slash commands registered` and `server is online`. In Discord
-type `/` and try `/status`, `/online`, `/levels` and `/level` (names fill in as you type),
+type `/` and try `/status`, `/online`, `/levels`, `/level` and `/leaderboard` (names fill in as you type),
 click the reactions, say something in game chat to check it shows up in Discord, and type in
 the chat channel to check it shows up in game. Stop with Ctrl+C.
 

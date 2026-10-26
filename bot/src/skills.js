@@ -72,6 +72,19 @@ export function skillChoices(query) {
         .map(d => ({ name: `${d.emoji} ${d.name}`, value: d.key }));
 }
 
+// A skill by name or alias, whether or not anyone has XP in it (for /leaderboard).
+export function catalogSkill(query) {
+    const def = findSkill(CATALOG, query);
+    if (!def) return null;
+    return {
+        key: def.key,
+        name: def.name,
+        emoji: def.emoji,
+        icon: def.icon ? `https://dragonwilds.runescape.wiki/images/${def.name}.png` : null,
+        category: CATEGORIES.find(c => c.id === def.category),
+    };
+}
+
 export function findSkill(entries, query) {
     const q = query.replace(/[^a-z0-9]/gi, '').toLowerCase();
     if (!q) return null;
