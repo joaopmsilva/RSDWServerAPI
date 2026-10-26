@@ -2,6 +2,7 @@ import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
 import { CATEGORIES } from './skills.js';
+import { wikiSearchUrl } from './wiki.js';
 
 const COLOR = {
     online: 0x2ecc71,
@@ -460,18 +461,30 @@ export function saveCandidatesEmbed(candidates) {
         );
 }
 
-export function itemEmbed(item) {
-    const wiki = `https://dragonwilds.runescape.wiki/w/Special:Search?search=${encodeURIComponent(item.name)}`;
+// `wiki` is what wikiInfo() found, or null - the card then shows what the game knows.
+export function itemEmbed(item, wiki = null) {
+    const lines = [];
+    if (wiki?.description) lines.push(`> *${wiki.description}*`);
+    if (wiki?.summary) lines.push(wiki.summary);
+    if (!lines.length) lines.push('*The wiki has nothing on this item yet.*');
+
+    const fields = [
+        { name: '🏷️ Type', value: wiki?.type || item.category || '—', inline: true },
+        { name: '📦 Stacks to', value: item.maxStackSize > 1 ? fmt(item.maxStackSize) : 'Doesn\'t stack', inline: true },
+    ];
+    if (wiki?.weight) fields.push({ name: '⚖️ Weight', value: wiki.weight, inline: true });
+    if (wiki?.repair) fields.push({ name: '🔧 Repair cost', value: wiki.repair, inline: true });
+    const link = wiki?.url || wikiSearchUrl(item.name);
+    fields.push({ name: '​', value: `📖 **[${wiki ? 'Read more on the wiki' : 'Search the wiki'}](${link})**` });
+
     const embed = new EmbedBuilder()
-        .setColor(COLOR.info)
-        .setTitle(`🎒 ${item.name}`)
-        .setURL(wiki)
-        .addFields(
-            { name: 'Category', value: item.category || '—', inline: true },
-            { name: 'Stacks to', value: item.maxStackSize > 1 ? fmt(item.maxStackSize) : 'Doesn\'t stack', inline: true },
-            { name: 'Game id', value: `\`${item.id}\``, inline: false },
-        )
-        .setFooter({ text: 'Click the title for the wiki' });
+        .setColor(0xc8a24a)
+        .setAuthor({ name: item.category ? `🎒 ${item.category}` : '🎒 Item' })
+        .setTitle(wiki?.title || item.name)
+        .setDescription(lines.join('\n\n'))
+        .addFields(fields);
+    if (wiki?.image) embed.setThumbnail(wiki.image);
+    if (wiki) embed.setFooter({ text: 'From the RuneScape: Dragonwilds wiki' });
     return embed;
 }
 

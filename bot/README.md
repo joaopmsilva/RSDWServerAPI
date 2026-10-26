@@ -37,7 +37,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
 | 🐉 **`/status`** | Online / starting / offline, players, uptime |
 | 👥 **`/online`** | Everyone connected, with ping |
-| 🎒 **`/item`** `item` | Any item: category, stack size, wiki link |
+| 🎒 **`/item`** `item` | Any item: what it is and does (from the wiki), type, stack size, weight |
 | 🖥️ **`/system`** | The VPS's CPU, RAM, disk and network right now |
 | ❓ **`/help`** | All of the above |
 
@@ -256,7 +256,7 @@ presence updates, relay batches and undelivered chat.
 | `src/system.js` | VPS CPU, RAM, disk and network |
 | `src/board.js` | The live status board |
 | `src/backups.js`, `src/world-save.js`, `src/save-world.js` | Backups, restoring, saving the world before a backup |
-| `src/items.js` | Item list and lookup |
+| `src/items.js`, `src/wiki.js` | Item list and lookup, wiki summaries |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |
 | `src/store.js` | Saved player snapshots |
 | `src/api.js`, `src/config.js`, `src/log.js` | API client, settings, logging |

@@ -26,6 +26,7 @@ import { deathBoard, gainsFor, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
 import { systemStats } from './system.js';
 import { findItem, itemsKnown } from './items.js';
+import { wikiInfo } from './wiki.js';
 
 // A command returns { reply }, plus menu: { emojis, onPress } for page arrows;
 // index.js sends the reply and turns the menu into reactions.
@@ -234,7 +235,7 @@ export const commands = {
     item: async i => {
         const query = i.options.getString('item', true);
         const item = await findItem(query);
-        if (item) return { reply: { embeds: [itemEmbed(item)] } };
+        if (item) return { reply: { embeds: [itemEmbed(item, await wikiInfo(item.name))] } };
         const why = itemsKnown() ? '' : '\nThe item list loads from the server the first time it is online.';
         return { reply: { embeds: [errorEmbed(`No item found matching **${query}**.${why}`)] } };
     },
