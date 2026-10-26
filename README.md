@@ -7,7 +7,7 @@
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.4.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.5.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.5.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -30,7 +30,8 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **`/leaderboard`** - by total level or any skill, 🥇🥈🥉
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths
-- **`/status`, `/online`, `/system`, `/item`** - server, players, VPS load and item lookup
+- **`/status`, `/online`, `/system`** - server, players and VPS load
+- **`/item`** - any item with its wiki summary, picture and stats
 - Player and skill names **auto-fill** as you type
 
 </td>

@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.5.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.5.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -37,9 +37,12 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
 | 🐉 **`/status`** | Online / starting / offline, players, uptime |
 | 👥 **`/online`** | Everyone connected, with ping |
-| 🎒 **`/item`** `item` | Any item: what it is and does (from the wiki), type, stack size, weight - only you see the answer |
-| 🖥️ **`/system`** | The VPS's CPU, RAM, disk and network right now |
-| ❓ **`/help`** | All of the above |
+| 🎒 **`/item`** `item` 🔒 | Any item: what it is and does (from the wiki), type, stack size, weight |
+| 🖥️ **`/system`** 🔒 | The VPS's CPU, RAM, disk and network right now |
+| ❓ **`/help`** 🔒 | All of the above |
+
+🔒 Only the person who used the command sees the answer, so lookups don't clutter the channel.
+The list is `PRIVATE_COMMANDS` at the top of [`src/index.js`](src/index.js).
 
 ```text
 📊 Skills · Mira (MiraPlays)
@@ -53,6 +56,20 @@ Total level 178  ·  Total XP 1,200,050
 `77` 🪓 Woodcutting · 12%
 ` 2` 🎣 Fishing · 45%
 ```
+
+`/item` reads the [Dragonwilds wiki](https://dragonwilds.runescape.wiki) for its card (cached for a day):
+
+```text
+🎒 Tools
+Bronze Logging Axe                                         [picture]
+> A woodcutter's tool, forged from bronze.
+The bronze logging axe is a power level 3 logging axe that can be crafted at a blacksmith's bench…
+
+🏷️ Type Tool   📦 Stacks to Doesn't stack   ⚖️ Weight 5.0   🔧 Repair cost 1 bronze bar
+📖 Read more on the wiki
+```
+
+Items the wiki has no page for still show their type and stack size, with a link to search it.
 
 Offline players are answered from the last time the bot saw them, marked *"Offline · last seen
 2 hours ago"*. `/online` and `/leaderboard` page with ◀️ ▶️ when there are more than ten.
@@ -120,7 +137,8 @@ Set `CHAT_CHANNEL_ID` and the channel becomes the game's chat:
 
 ## 🎉 Player activity
 
-Posted in the chat channel as small cards, the moment they happen:
+Posted as small cards the moment they happen - in the chat channel, or level-ups in their own
+channel with `LEVELUP_CHANNEL_ID`:
 
 | Card | Looks like |
 | ---- | ---------- |
@@ -138,7 +156,7 @@ Several at once (a few level-ups, people joining together) share one message.
 - A death shows its cause when the game sends one.
 
 **📅 Weekly recap** - every Sunday from 20:00 (VPS time): top XP gainers, new 99s, most played and
-deaths. Move these with `LEVELUP_CHANNEL_ID` / `SUMMARY_CHANNEL_ID`.
+deaths. In the chat channel, or its own with `SUMMARY_CHANNEL_ID`.
 
 ## 📣 Server notices
 

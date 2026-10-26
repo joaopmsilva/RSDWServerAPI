@@ -1,6 +1,6 @@
 {
   "name": "rsdw-discord-bot",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Discord bot for RSDWServerAPI - player levels, server status, two-way chat and server notices",
   "type": "module",
   "main": "src/index.js",
