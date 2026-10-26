@@ -1,4 +1,5 @@
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
 import { Bridge } from './bridge.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
@@ -8,6 +9,7 @@ import { attachMenu } from './menus.js';
 import { Notices } from './notices.js';
 import { Poller } from './poller.js';
 import { Relay } from './relay.js';
+import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
 
@@ -33,7 +35,8 @@ const poller = new Poller(client, store);
 const bridge = new Bridge();
 const relay = new Relay(client, bridge);
 const notices = new Notices(client);
-const ctx = { store, poller };
+const control = new ServerControl(client);
+const ctx = { store, poller, control };
 const lastUse = new Map();
 
 poller.onTick = state => notices.observe(state);
@@ -67,15 +70,24 @@ client.on(Events.InteractionCreate, async interaction => {
     }
     if (!interaction.isChatInputCommand()) return;
 
-    const run = commands[interaction.commandName];
+    const name = interaction.commandName;
+    const admin = ADMIN_COMMANDS.has(name);
+    const run = admin ? adminCommands[name] : commands[name];
     if (!run) return;
 
-    const options = interaction.options.data.map(o => `${o.name}:${o.value}`).join(' ');
-    const what = `/${interaction.commandName}${options ? ' ' + options : ''}`;
+    // Subcommands (/admin kick ...) carry their own options one level down.
+    const describe = list => list.map(o => (o.options ? [o.name, describe(o.options)].join(' ') : `${o.name}:${o.value}`)).join(' ');
+    const options = describe(interaction.options.data);
+    const what = `/${name}${options ? ' ' + options : ''}`;
     const who = `${interaction.user.tag} in #${interaction.channel?.name ?? interaction.channelId}`;
     const ephemeral = text => interaction.reply({ embeds: [errorEmbed(text)], flags: MessageFlags.Ephemeral }).catch(() => {});
 
-    if (config.allowedChannels.length && !config.allowedChannels.includes(interaction.channelId)) {
+    if (admin && !isAdmin(interaction.user)) {
+        log.warn(`${who}: ${what} refused - not in ADMIN_USER_IDS`);
+        return ephemeral(config.adminUserIds.length ? 'Only the server admins can use this.' : "No admins are set up - add your Discord user ID to ADMIN_USER_IDS in the bot's .env.");
+    }
+
+    if (!admin && config.allowedChannels.length && !config.allowedChannels.includes(interaction.channelId)) {
         const where = config.allowedChannels.map(id => `<#${id}>`).join(', ');
         return ephemeral(`Commands work in ${where}.`);
     }
@@ -89,7 +101,8 @@ client.on(Events.InteractionCreate, async interaction => {
 
     try {
         // Lookups can take a few seconds; Discord wants an answer within 3.
-        await interaction.deferReply();
+        // Admin replies are only shown to the admin.
+        await interaction.deferReply(admin ? { flags: MessageFlags.Ephemeral } : {});
         const { reply, menu } = await run(interaction, ctx);
         const sent = await interaction.editReply(reply);
         log.info(`${who}: ${what} (${Date.now() - now} ms)`);

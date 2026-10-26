@@ -227,6 +227,10 @@ export function ambiguousEmbed(query, players) {
         .setDescription(`${names}\n\nTry the full name.`);
 }
 
+export function okEmbed(text) {
+    return new EmbedBuilder().setColor(COLOR.online).setDescription(`✅ ${text}`);
+}
+
 export function errorEmbed(text) {
     return new EmbedBuilder().setColor(COLOR.error).setDescription(`❌ ${text}`);
 }
@@ -247,6 +251,9 @@ export function helpEmbed() {
 
     if (config.bridgeToGame && config.chatChannelId) {
         embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> are shown in game chat.` });
+    }
+    if (config.adminUserIds.length) {
+        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop or restart the server · `/admin` kick, ban, unban, say' });
     }
     return embed;
 }

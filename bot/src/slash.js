@@ -1,4 +1,4 @@
-import { InteractionContextType, SlashCommandBuilder } from 'discord.js';
+import { InteractionContextType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { logger } from './log.js';
 import { skillChoices } from './skills.js';
 
@@ -29,6 +29,62 @@ export const definitions = [
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
     new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),
+
+    // Admin only. Hidden from members without Administrator; the bot also checks
+    // ADMIN_USER_IDS, so a Discord admin who isn't listed still can't use them.
+    new SlashCommandBuilder()
+        .setName('server')
+        .setDescription('Start, stop or restart the game server (admins)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addStringOption(o =>
+            o
+                .setName('action')
+                .setDescription('What to do')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'restart', value: 'restart' },
+                    { name: 'stop', value: 'stop' },
+                    { name: 'start', value: 'start' },
+                    { name: 'cancel a planned restart or stop', value: 'cancel' },
+                ),
+        )
+        .addIntegerOption(o =>
+            o
+                .setName('minutes')
+                .setDescription('Warn players this long before (default: 2 if anyone is online, else now)')
+                .setMinValue(0)
+                .setMaxValue(10),
+        ),
+    new SlashCommandBuilder()
+        .setName('admin')
+        .setDescription('Moderation (admins)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addSubcommand(s =>
+            s
+                .setName('kick')
+                .setDescription('Disconnect a player')
+                .addStringOption(playerOption)
+                .addStringOption(o => o.setName('reason').setDescription('Shown to the player')),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('ban')
+                .setDescription('Ban a player (name, or SteamID64 if offline)')
+                .addStringOption(playerOption)
+                .addStringOption(o => o.setName('reason').setDescription('Shown to the player')),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('unban')
+                .setDescription('Remove a ban')
+                .addStringOption(o => o.setName('player').setDescription('Name or SteamID64').setRequired(true)),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('say')
+                .setDescription('Announce to players in game and in the status channel')
+                .addStringOption(o => o.setName('message').setDescription('What to say').setRequired(true).setMaxLength(200)),
+        ),
 ].map(c => c.setContexts(InteractionContextType.Guild).toJSON());
 
 // Registered per server rather than globally: guild commands show up at once,

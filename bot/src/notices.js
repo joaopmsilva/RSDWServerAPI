@@ -25,7 +25,7 @@ export function writePlan(kind, minutes) {
     fs.writeFileSync(PLAN_FILE, JSON.stringify(plan));
 }
 
-function clearPlan() {
+export function clearPlan() {
     fs.rm(PLAN_FILE, { force: true }, () => {});
 }
 

@@ -18,6 +18,8 @@ first (🟢), then everyone the bot has seen before (⚫).
 | `/status` | Online / starting / offline, players, uptime |
 | `/online` | Everyone connected, with ping |
 | `/help` | Command list |
+| `/server action [minutes]` | Admins: start, stop, restart, or cancel a planned one |
+| `/admin kick` · `ban` · `unban` · `say` | Admins: moderation and announcements |
 
 Players are found by character name or account name, case-insensitively, and partial names
 work. Skills accept short forms too: `wc`, `rc`, `mage`, `agi`, `con`, `cook` and so on.
@@ -37,6 +39,18 @@ bot restarts.
 If the bot has **Manage Messages** in the channel it removes your reaction after each press,
 so you can click the same one again. Without it, clicking a reaction a second time (removing
 it) also counts as a press.
+
+## Admin commands
+
+`/server` and `/admin` only work for the Discord users in `ADMIN_USER_IDS` and are hidden
+from members without Administrator. Their replies are only shown to the admin.
+
+- `/server restart` / `stop` warn players in game and in the status channel, then run
+  `systemctl` on `SERVER_SERVICE` through sudo (DEPLOY.md step 11 has the sudoers line).
+  The warning is 2 minutes by default when someone is online, none when nobody is, or set
+  `minutes`. `/server cancel` calls it off. `/server start` starts a stopped server.
+- `/admin kick` / `ban` / `unban` use the mod's API; `/admin say` tells players in game and
+  posts in the status channel.
 
 ## Levels
 
@@ -143,7 +157,8 @@ updates, relay batches and undelivered chat too.
 | `src/relay.js` | Game → Discord chat and deaths |
 | `src/bridge.js` | Discord → game chat |
 | `src/notices.js` | Online / offline / restart notices |
-| `src/announce.js` | Command-line notices for scripts |
+| `src/announce.js`, `src/announcer.js` | Notices for scripts and /server |
+| `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |
 | `src/store.js` | Saved player snapshots |
 | `src/api.js`, `src/config.js`, `src/log.js` | API client, settings, logging |

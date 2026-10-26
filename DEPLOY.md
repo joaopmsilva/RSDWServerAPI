@@ -213,6 +213,49 @@ otherwise, change `ANNOUNCE=` at the top of each. To test without waiting for cr
 /usr/bin/node /home/dragonwilds/rsdw-bot/src/announce.js say "Testing notices"
 ```
 
+## 11. Admin commands
+
+### In game
+
+The mod's `/kick`, `/ban`, `/unban`, `/give` and `/help` chat commands work for whoever the
+game itself treats as an admin: open **Server Management** in game and enter the server's
+admin password. Replies only reach you once mod 0.2.1 or newer is loaded.
+
+### On Discord
+
+`/server` (start, stop, restart, cancel) and `/admin` (kick, ban, unban, say) only work for
+the Discord users listed in `ADMIN_USER_IDS`, and are hidden from members without the
+Administrator permission. Replies are only visible to you.
+
+1. In Discord, with Developer Mode on, right-click your own name → **Copy User ID**.
+2. Put it in the bot's `.env` (several IDs: separate them with commas):
+
+   ```bash
+   sudo nano /home/dragonwilds/rsdw-bot/.env
+   ```
+
+   ```
+   ADMIN_USER_IDS=123456789012345678
+   ```
+
+3. Let the bot's user start, stop and restart the game server, and nothing else:
+
+   ```bash
+   echo 'dragonwilds ALL=(root) NOPASSWD: /bin/systemctl start dragonwilds, /bin/systemctl stop dragonwilds, /bin/systemctl restart dragonwilds' | sudo tee /etc/sudoers.d/rsdw-bot
+   sudo chmod 440 /etc/sudoers.d/rsdw-bot
+   sudo visudo -c
+   ```
+
+   `visudo -c` must say the files are parsed OK. If the server's service isn't called
+   `dragonwilds`, change it in that line and set `SERVER_SERVICE=` in `.env`.
+
+4. `sudo systemctl restart rsdw-bot`
+
+`/server restart` and `/server stop` warn players in game and in the status channel first:
+by default 2 minutes ahead when someone is online and straight away when nobody is, or pick
+`minutes` (0-10). In game there's a second warning a minute before. `/server cancel` calls a
+planned one off. A planned restart or stop is forgotten if the bot itself restarts.
+
 ## Updating
 
 Three scripts do the work:
@@ -280,6 +323,8 @@ If `update-bot.sh` says the cron scripts differ, copy them over as in step 10.
 | Nothing appears when typing `/` | re-invite with `applications.commands` (step 1), then reload Discord (Ctrl+R) |
 | `/` commands answer "Commands work in ..." | `ALLOWED_CHANNELS` |
 | Discord messages don't reach the game | Message Content Intent (step 1), `CHAT_CHANNEL_ID`, `BRIDGE_ROLE_ID`; 💤 on the message means nobody is online |
+| `/server` says "a password is required" | the sudoers line in step 11 |
+| `/server` and `/admin` not in the list | they only show for members with Administrator; your ID must be in `ADMIN_USER_IDS` to use them |
 | No server notices | `STATUS_CHANNEL_ID` or `CHAT_CHANNEL_ID` set, `SERVER_NOTICES` not false |
 | No ◀️ ▶️ on long lists | the bot needs *Add Reactions* and *Read Message History* |
 | `Discord login failed` | `DISCORD_TOKEN` wrong or reset |

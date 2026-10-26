@@ -9,7 +9,8 @@ Discord bot that uses it.
 - **The bot** ([bot/](bot/)) has `/levels`, `/level`, `/leaderboard`, `/status` and `/online` slash commands
   with auto-fill, shows the server's state and player count as its
   status, bridges chat both ways between the game and a Discord channel, posts deaths, and
-  announces when the server goes up, down, restarts or is backed up.
+  announces when the server goes up, down, restarts or is backed up, and lets admins start,
+  stop and restart the server and kick, ban and announce from Discord.
 
 **Setting it all up on a VPS: see [DEPLOY.md](DEPLOY.md).**
 

@@ -44,4 +44,8 @@ export const api = {
     // the game thread, so allow longer than a normal request.
     broadcast: (sender, message) =>
         request('/api/broadcast', { method: 'POST', body: { sender, message }, timeout: 15000 }),
+    // player: name, character name or net id (SteamID64 for unban / offline bans)
+    kick: (player, reason) => request('/api/kick', { method: 'POST', body: reason ? { player, reason } : { player }, timeout: 15000 }),
+    ban: (player, reason) => request('/api/ban', { method: 'POST', body: reason ? { player, reason } : { player }, timeout: 15000 }),
+    unban: player => request('/api/unban', { method: 'POST', body: { player } }),
 };
