@@ -50,6 +50,7 @@ export const config = {
     bridgePrefix: (process.env.BRIDGE_PREFIX ?? 'Discord').trim(),
     bridgeMaxLength: Math.max(20, int('BRIDGE_MAX_LENGTH', 200)),
     serverNotices: bool('SERVER_NOTICES', true),
+    backupNotices: bool('BACKUP_NOTICES', true),
     adminUserIds: (process.env.ADMIN_USER_IDS || '')
         .split(',')
         .map(s => s.trim())

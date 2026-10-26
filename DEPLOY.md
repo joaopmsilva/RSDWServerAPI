@@ -196,8 +196,8 @@ planned restarts it can't see, so the cron scripts announce them. Updated copies
 - `update-and-restart.sh` warns on Discord and in game 5 minutes before (and in game again 1
   minute before), then updates and restarts as before. Once the server is back the bot posts
   "🟢 Server is online - Restart complete". Set `WARN_MINUTES=0` at the top to skip the wait.
-- `backup.sh` posts "💾 Backup complete" after each backup. Delete its last `if` block if
-  hourly messages are too much.
+- `backup.sh` posts "💾 Backup complete" after each backup. To stop those messages, set
+  `BACKUP_NOTICES=false` in the bot's `.env` (backups keep running and logging).
 
 ```bash
 cd /home/dragonwilds/scripts

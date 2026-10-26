@@ -39,6 +39,10 @@ export async function announce(kind, { minutes = 0, message = '', gameOnly = fal
     }
 
     if (gameOnly || !config.serverNotices || !config.statusChannelId || !post) return;
+    if (kind.startsWith('backup') && !config.backupNotices) {
+        log.info(`${kind} notice skipped (BACKUP_NOTICES=false)`);
+        return;
+    }
     try {
         await post(noticeEmbed(kind, { minutes, message }));
         log.info(`posted ${kind} notice${message ? `: ${message}` : ''}`);
