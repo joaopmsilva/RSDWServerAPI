@@ -37,7 +37,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
 | 🐉 **`/status`** | Online / starting / offline, players, uptime |
 | 👥 **`/online`** | Everyone connected, with ping |
-| 🎒 **`/item`** `item` | Any item: what it is and does (from the wiki), type, stack size, weight |
+| 🎒 **`/item`** `item` | Any item: what it is and does (from the wiki), type, stack size, weight - only you see the answer |
 | 🖥️ **`/system`** | The VPS's CPU, RAM, disk and network right now |
 | ❓ **`/help`** | All of the above |
 
