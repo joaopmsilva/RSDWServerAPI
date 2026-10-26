@@ -337,7 +337,10 @@ void HttpServer::HandleClient(int clientSocket) {
         resp.body = R"({"error":"Not found"})";
     }
 
-    LogVerbose("HTTP: " + req.method + " " + req.path + " -> " + std::to_string(resp.status));
+    // The Discord bot polls /api/events every few seconds; only log those when they fail.
+    if (req.path != "/api/events" || resp.status != 200) {
+        LogVerbose("HTTP: " + req.method + " " + req.path + " -> " + std::to_string(resp.status));
+    }
 
     SendResponse(clientSocket, resp);
     close(clientSocket);

@@ -1,10 +1,16 @@
 # RSDWServerAPI
 
-A server management API for **RuneScape: Dragonwilds** dedicated servers on Linux.
+A server management API for **RuneScape: Dragonwilds** dedicated servers on Linux, plus a
+Discord bot that uses it.
 
-It adds a REST API and a Source RCON listener to a running server, so you can see who is
-connected, read their live stats, and kick them remotely - from a panel, a script, a
-Discord bot, or anything else that speaks HTTP.
+- **The mod** (`librsdwapi.so`) is preloaded into the server. It adds a REST API and an
+  optional Source RCON listener, so you can see who is connected, read their live stats,
+  kick, ban, give items and broadcast - and it records in-game chat and deaths for the bot.
+- **The bot** ([bot/](bot/)) answers `!levels`, `!level`, `!status` and `!online` in Discord
+  with navigable embeds, shows the server's state and player count as its status, and relays
+  chat and deaths to channels of your choice.
+
+**Setting it all up on a VPS: see [DEPLOY.md](DEPLOY.md).**
 
 ## Features
 
@@ -18,7 +24,7 @@ Discord bot, or anything else that speaks HTTP.
 - **Bans** that survive restarts, with offline players bannable by SteamID64.
 - **In-game admin commands** - `/kick`, `/ban`, `/unban`, `/give`, gated by the game's
   own owner and admin list.
-- **Discord relay** - in-game chat and player deaths posted to a webhook.
+- **Chat and death feed** at `/api/events`, which the Discord bot relays.
 - **Two independent listeners** - REST and Source RCON, each switchable on its own.
 - **Access control on both** - bearer token or RCON password, IP whitelisting, per-address
   rate limiting and automatic blocking after repeated failed logins.
@@ -28,39 +34,41 @@ Discord bot, or anything else that speaks HTTP.
 
 ## Build
 
-Docker is the only requirement. The build container is Debian bookworm, matching the image
-the dedicated server runs in, so the result never asks the host for a newer glibc than it
-has. `libstdc++` and `libgcc` are linked statically.
+On the Linux machine that runs the server:
 
 ```bash
-./build.sh
+sudo apt install -y build-essential
+make -j"$(nproc)"
 ```
 
-Output: `dist/librsdwapi.so`.
-
-A bare `make` or `xmake` also works if you already have a Linux toolchain.
+Output: `dist/librsdwapi.so`. `libstdc++` and `libgcc` are linked statically, and building on
+the server's own machine means the result never needs a newer glibc than it has.
+`make clean` removes the build output.
 
 ## Install
 
-Copy `dist/librsdwapi.so` to the server and prefix the startup command:
+Put `librsdwapi.so` beside the server and prefix whatever starts it with `LD_PRELOAD`:
+
+```bash
+LD_PRELOAD=/home/dragonwilds/rs_server/librsdwapi.so ./RSDragonwildsServer.sh -log -port=7777
+```
+
+or, starting the binary directly:
 
 ```bash
 LD_PRELOAD=./librsdwapi.so ./RSDragonwilds/Binaries/Linux/RSDragonwildsServer-Linux-Shipping -log -port=7777
 ```
 
-On Pterodactyl or Pelican, put the `.so` in the server root and set the startup to:
-
-```
-LD_PRELOAD=/home/container/librsdwapi.so ./RSDragonwilds/Binaries/Linux/RSDragonwildsServer-Linux-Shipping -log -port={{SERVER_PORT}} -ini:Game:[/Script/Engine.GameSession]:MaxPlayers={{MAX_PLAYERS}}
-```
-
-Allocate the API port (and the RCON port, if you turn it on) in the panel.
+`LD_PRELOAD` is inherited by every process the launch command starts, including a wrapper
+script's shell and the small commands it runs. The mod stays inert in all of them and only
+starts inside the server itself. If it ever fails to recognise the server (no `loaded` line
+in the log), add `RSDWAPI_FORCE=1` next to `LD_PRELOAD`.
 
 ## Configuration
 
-On first run the mod writes `rsdwapi/settings.ini` beside the server binary, which on a
-stock install is `RSDragonwilds/Binaries/Linux/rsdwapi/`. Set `RSDWAPI_DIR` to put it
-somewhere easier to reach - on a panel, `RSDWAPI_DIR=/home/container/rsdwapi`.
+On first run the mod writes `rsdwapi/settings.ini` beside the server binary. Set
+`RSDWAPI_DIR` to put it somewhere else. The log prints the folder it uses
+(`RSDWRestAPI: data directory ...`).
 
 A bearer token and an RCON password are generated on that first run and never regenerated
 afterwards, so an empty value stays empty.
@@ -92,16 +100,10 @@ MaxFailedAuth=5
 FailWindowSeconds=60
 BanSeconds=300
 MaxConnections=16
-
-[Discord]
-Enabled=false
-WebhookUrl=
-DeathWebhookUrl=
-Username=Dragonwilds
 ```
 
-Set `Enabled=true` and paste a webhook URL to relay in-game chat to a Discord channel.
-Player deaths go to `DeathWebhookUrl`, or to `WebhookUrl` when that is left empty.
+When the Discord bot runs on the same machine, set `BindAddress=127.0.0.1` so the API is not
+reachable from the internet at all.
 
 Bans are kept in `rsdwapi/bans.json` beside the config and survive restarts.
 
@@ -116,18 +118,23 @@ at startup either way.
 
 An empty RCON `Password` keeps RCON from starting at all, by design.
 
-Logs go to `<data dir>/logs/api.log`, rotated on each boot with ten kept, and mirrored to
-the server's stdout so a panel console shows them.
+### Logs
+
+`<data dir>/logs/api.log`, rotated on each boot with ten kept, and mirrored to the server's
+stdout. It records startup and engine discovery, kicks, bans, deaths, and with
+`VerboseLogging=true` every API request and every chat line. The bot's frequent
+`/api/events` polls are only logged when they fail.
 
 ## REST endpoints
 
 Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empty.
 
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/api/hello` | Load check |
 | GET | `/api/health` | Mod status and uptime |
 | GET | `/api/players` | Every connected player |
+| GET | `/api/events` | Chat and death feed |
 | POST | `/api/kick` | Disconnect a player |
 | POST | `/api/broadcast` | Send a message to every player |
 | POST | `/api/give` | Give an item to a player |
@@ -176,16 +183,40 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/players
 }
 ```
 
+Skills are reported as raw XP. The bot converts XP to levels with the Dragonwilds XP table.
+
 Health and max health come from the character's attributes component, not from
 `UHealthComponent`'s own fields - on a player those are always zero, because
 `UPlayerHealthComponent` sources both from attributes.
+
+### GET /api/events
+
+In-game chat and player deaths, oldest first. Pass the last `id` you have seen as `?since=`
+to get only newer events; `?limit=` caps the count (default 100, max 500). The last 500
+events are kept in memory.
+
+```json
+{
+  "bootId": 1793042710123,
+  "latestId": 42,
+  "events": [
+    { "id": 41, "time": 1793042790000, "type": "chat", "name": "Adventurer", "netId": "7656...",
+      "characterGuid": "...", "playerId": 256, "message": "hello", "location": "" },
+    { "id": 42, "time": 1793042795000, "type": "death", "name": "Adventurer", "netId": "7656...",
+      "characterGuid": "", "playerId": 0, "message": "", "location": "10360, 186410, -3070" }
+  ]
+}
+```
+
+Ids restart at 1 when the server restarts; `bootId` changes at the same time, so a reader
+knows to start over from `since=0`.
 
 ### POST /api/kick
 
 `player` accepts a SteamID64, player id, character GUID, character name or display name.
 They are matched in that order, most stable first.
 
-```
+```bash
 curl -X POST http://localhost:8080/api/kick -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"reason\":\"Kicked by an administrator\"}"
 ```
 
@@ -196,7 +227,7 @@ if they reconnect.
 
 Sends a line to every connected player's chat box.
 
-```
+```bash
 curl -X POST http://localhost:8080/api/broadcast -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"message\":\"Restarting in 5 minutes\"}"
 ```
 
@@ -208,7 +239,7 @@ it themselves.
 
 ### POST /api/give
 
-```
+```bash
 curl -X POST http://localhost:8080/api/give -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"item\":\"IronBar\",\"count\":10}"
 ```
 
@@ -218,7 +249,7 @@ given; `GET /api/items` shows what is available right now. `count` defaults to 1
 
 ### POST /api/ban
 
-```
+```bash
 curl -X POST http://localhost:8080/api/ban -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d "{\"player\":\"76561190000000000\",\"reason\":\"Griefing\"}"
 ```
 
@@ -232,7 +263,7 @@ Deliberately minimal, because authentication can be turned off and this therefor
 safe to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
-{"status":"healthy","version":"0.1.0","uptimeSeconds":41.2,"engineReady":true}
+{"status":"healthy","version":"0.2.0","uptimeSeconds":41.2,"engineReady":true}
 ```
 
 `status` is `starting` until the world has loaded. Engine discovery detail goes to the log
@@ -248,7 +279,7 @@ mcrcon -H 127.0.0.1 -P 27020 -p PASSWORD players
 ```
 
 | Command | Description |
-|---------|-------------|
+| ------- | ----------- |
 | `help` | List commands |
 | `health` | Mod and engine readiness in one line |
 | `status` | Server identity, world and engine discovery |
@@ -263,6 +294,11 @@ mcrcon -H 127.0.0.1 -P 27020 -p PASSWORD players
 | `unban <player or SteamID64>` | Remove a ban |
 | `bans` | List bans |
 
+Rate limiting is a per-address token bucket: `CommandsPerMinute` is the sustained rate,
+`CommandBurst` is how much can be spent at once. Separately, `MaxFailedAuth` failed logins
+inside `FailWindowSeconds` refuse that address for `BanSeconds`, enforced at `accept`
+before the password is read.
+
 ## In-game commands
 
 Admins can run these from chat. Admin status comes from the game's own owner and admin
@@ -271,39 +307,22 @@ qualifies. Replies go only to the sender, and the command line itself is never s
 other players.
 
 | Command | Description |
-|---------|-------------|
+| ------- | ----------- |
 | `/kick <player> [reason]` | Disconnect a player |
 | `/ban <player> [reason]` | Ban a player |
 | `/unban <player or SteamID64>` | Remove a ban |
 | `/give <player> <item> [count]` | Give an item to a player |
 | `/help` | List commands |
 
-## Discord
-
-With `[Discord]` enabled, every chat message is relayed to `WebhookUrl` as
-`**Name**: message`, and player deaths are posted to `DeathWebhookUrl` as
-`:skull: **Name** died at x, y, z`. Leave `DeathWebhookUrl` empty to send both to the same
-channel.
-Messages are batched and sent at most once per second, so a busy server stays inside
-Discord's rate limits.
-
-Rate limiting is a per-address token bucket: `CommandsPerMinute` is the sustained rate,
-`CommandBurst` is how much can be spent at once. Separately, `MaxFailedAuth` failed logins
-inside `FailWindowSeconds` refuse that address for `BanSeconds`, enforced at `accept`
-before the password is read.
-
 ## SDK
 
 The engine layer is driven by a Dumper-7 dump of the server binary, which is not included
-in this repository. Generate your own and place it at `RSDWSDK/`. Every offset the mod uses
-carries a `// Source:` comment naming the file it came from, so they can be re-verified
-against a fresh dump after a game patch.
+in this repository. Every offset the mod uses carries a `// Source:` comment naming the file
+it came from, so they can be re-verified against a fresh dump after a game patch.
 
 ## License
 
 Released under the MIT License. See [LICENSE](LICENSE) for the full text.
 
-This software is provided as is, without warranty of any kind. Use it at your own risk.
-
-If you use this code in your own project, please provide credit and keep a link back to
-this repository.
+Based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI). This software is
+provided as is, without warranty of any kind. Use it at your own risk.

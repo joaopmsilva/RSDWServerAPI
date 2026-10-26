@@ -1,5 +1,5 @@
-# Plain g++ build. Run it through ./build.sh to get the Debian container,
-# which is what the dedicated server actually runs on.
+# Plain g++ build. Run `make` on the Linux machine that hosts the server, so the
+# result is linked against the same glibc the server runs with.
 CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -O2 -fPIC -fvisibility=hidden -Wall -Wextra -Wno-unused-parameter -Isrc
 # libstdc++ and libgcc are linked statically so the mod does not depend on the
@@ -19,7 +19,7 @@ SRC := src/rsdwapi.cpp \
        src/engine/chat.cpp \
        src/engine/items.cpp \
        src/engine/bans.cpp \
-       src/discord/webhook.cpp \
+       src/events/event_log.cpp \
        src/engine/native_call.cpp \
        src/engine/process_event.cpp \
        src/engine/server.cpp \

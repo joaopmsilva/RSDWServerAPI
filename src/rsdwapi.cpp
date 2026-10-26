@@ -1,11 +1,11 @@
 #include "api/api_routes.h"
 #include "config/config.h"
-#include "discord/webhook.h"
 #include "engine/bans.h"
 #include "engine/chat.h"
 #include "engine/dom_engine.h"
 #include "engine/native_call.h"
 #include "engine/process_event.h"
+#include "events/event_log.h"
 #include "http/http_server.h"
 #include "rcon/rcon_commands.h"
 #include "rcon/rcon_server.h"
@@ -18,9 +18,12 @@
 #include <cstdlib>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <mutex>
+#include <sys/stat.h>
 #include <thread>
+#include <utility>
 
 APIConfig g_Config;
 
@@ -38,7 +41,6 @@ void ShutdownListeners() {
 
     if (g_HttpServer) g_HttpServer->Stop();
     if (g_RconServer) g_RconServer->Stop();
-    Discord::Stop();
 
     if (g_InitThread && g_InitThread->joinable()) g_InitThread->join();
 
@@ -74,7 +76,47 @@ void StartListeners() {
     }
 }
 
+// LD_PRELOAD is inherited by everything the launch script runs (its own shell,
+// chmod, dirname) and anything the server spawns. Left alone, each of those
+// binds the API port first, rotates the log and rewrites settings.ini. Only the
+// game server process itself carries on.
+bool GameImageMapped() {
+    FILE* maps = fopen("/proc/self/maps", "r");
+    if (!maps) return false;
+
+    bool found = false;
+    char line[4096];
+    while (!found && fgets(line, sizeof(line), maps)) {
+        if (strstr(line, "RSDragonwilds") && !strstr(line, "librsdwapi") && !strstr(line, ".sh")) {
+            found = true;
+        }
+    }
+    fclose(maps);
+    return found;
+}
+
+// The server binary is well over 100MB; shells and curl are a few MB at most.
+bool ExecutableIsGameSized() {
+    struct stat st;
+    return stat("/proc/self/exe", &st) == 0 && st.st_size >= 64ll * 1024 * 1024;
+}
+
+bool IsGameServerProcess() {
+    const char* force = getenv("RSDWAPI_FORCE");
+    if (force && *force && strcmp(force, "0") != 0) return true;
+    if (ExecutableIsGameSized()) return true;
+
+    // A launcher stub may map the game a moment after we load, so allow a minute.
+    for (int i = 0; i < 120 && !g_Shutdown; i++) {
+        if (GameImageMapped()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    return false;
+}
+
 void InitThread() {
+    if (!IsGameServerProcess()) return;
+
     Mem::Init();
 
     APIConfig::EnsureConfigDirectory();
@@ -126,18 +168,19 @@ void InitThread() {
 
         DomChat::Initialize();
 
-        if (g_Config.discord.enabled) {
-            Discord::Start(Discord::Channel::Chat, g_Config.discord.webhookUrl, g_Config.discord.username);
-            std::string deathUrl = g_Config.discord.deathWebhookUrl.empty() ? g_Config.discord.webhookUrl
-                                                                            : g_Config.discord.deathWebhookUrl;
-            Discord::Start(Discord::Channel::Deaths, deathUrl, g_Config.discord.username);
-            if (Discord::IsEnabled(Discord::Channel::Chat)) {
-                DomChat::AddListener([](const DomChat::Message& message) {
-                    std::string sender = message.senderName.empty() ? "Unknown" : message.senderName;
-                    Discord::Post(Discord::Channel::Chat, "**" + sender + "**: " + message.body);
-                });
-            }
-        }
+        // Chat and deaths go to the /api/events feed; the Discord bot relays them.
+        DomChat::AddListener([](const DomChat::Message& message) {
+            EventLog::Event event;
+            event.type = "chat";
+            event.name = message.senderName.empty() ? "Unknown" : message.senderName;
+            event.netId = message.senderNetId;
+            event.characterGuid = message.characterGuid;
+            event.playerId = message.playerId;
+            event.message = message.body;
+            LogVerbose("Chat: " + event.name + ": " + event.message);
+            EventLog::Push(std::move(event));
+        });
+        LogMessage("Events: chat and death feed live at /api/events");
 
         DomBans::Load();
 
@@ -145,7 +188,8 @@ void InitThread() {
         std::map<std::string, std::chrono::steady_clock::time_point> deathPosted;
         std::mutex deathMutex;
 
-        auto reportDeath = [&](const std::string& key, const std::string& name, const std::string& where) {
+        auto reportDeath = [&](const std::string& key, const std::string& name, const std::string& where,
+                               const std::string& netId) {
             auto now = std::chrono::steady_clock::now();
             {
                 std::lock_guard<std::mutex> lock(deathMutex);
@@ -154,10 +198,13 @@ void InitThread() {
                 deathPosted[key] = now;
             }
             LogMessage("Deaths: " + name + " died" + (where.empty() ? "" : " at " + where));
-            if (Discord::IsEnabled(Discord::Channel::Deaths)) {
-                Discord::Post(Discord::Channel::Deaths,
-                              ":skull: **" + name + "** died" + (where.empty() ? "" : " at `" + where + "`"));
-            }
+
+            EventLog::Event event;
+            event.type = "death";
+            event.name = name;
+            event.netId = netId;
+            event.location = where;
+            EventLog::Push(std::move(event));
         };
 
         DomChat::AddEventListener([&](const DomChat::PlayerEvent& event) {
@@ -180,7 +227,7 @@ void InitThread() {
                 where = buffer;
                 break;
             }
-            reportDeath(key, name, where);
+            reportDeath(key, name, where, event.senderNetId);
         });
 
         while (!g_Shutdown) {
@@ -205,7 +252,7 @@ void InitThread() {
                 std::string name = player.characterName.empty() ? player.name : player.characterName;
                 char where[96];
                 snprintf(where, sizeof(where), "%.0f, %.0f, %.0f", player.x, player.y, player.z);
-                reportDeath(player.uniqueNetId, name, where);
+                reportDeath(player.uniqueNetId, name, where, player.uniqueNetId);
             }
             wasDead.swap(nowDead);
         }

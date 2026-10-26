@@ -55,19 +55,11 @@ struct RconConfig {
     int maxConnections = 16;
 };
 
-struct DiscordConfig {
-    bool enabled = false;
-    std::string webhookUrl;
-    std::string deathWebhookUrl;
-    std::string username = "Dragonwilds";
-};
-
 struct APIConfig {
     bool enableLogging = true;
     bool verboseLogging = true;
     RestConfig rest;
     RconConfig rcon;
-    DiscordConfig discord;
 
     bool Load(const std::string& configPath) {
         std::ifstream file(configPath);
@@ -148,15 +140,7 @@ struct APIConfig {
         file << "MaxFailedAuth=" << rcon.maxFailedAuth << "\n";
         file << "FailWindowSeconds=" << rcon.failWindowSeconds << "\n";
         file << "BanSeconds=" << rcon.banSeconds << "\n";
-        file << "MaxConnections=" << rcon.maxConnections << "\n\n";
-
-        file << "[Discord]\n";
-        file << "# Relays in-game chat and player deaths to Discord webhooks. Off by default.\n";
-        file << "# DeathWebhookUrl falls back to WebhookUrl when empty.\n";
-        file << "Enabled=" << Bool(discord.enabled) << "\n";
-        file << "WebhookUrl=" << discord.webhookUrl << "\n";
-        file << "DeathWebhookUrl=" << discord.deathWebhookUrl << "\n";
-        file << "Username=" << discord.username << "\n";
+        file << "MaxConnections=" << rcon.maxConnections << "\n";
     }
 
     static std::string GenerateSecureToken(size_t bytes) {
@@ -212,14 +196,6 @@ private:
             else if (key == "FailWindowSeconds") rcon.failWindowSeconds = atoi(value.c_str());
             else if (key == "BanSeconds") rcon.banSeconds = atoi(value.c_str());
             else if (key == "MaxConnections") rcon.maxConnections = atoi(value.c_str());
-            return;
-        }
-
-        if (section == "Discord") {
-            if (key == "Enabled") discord.enabled = ParseBool(value);
-            else if (key == "WebhookUrl") discord.webhookUrl = value;
-            else if (key == "DeathWebhookUrl") discord.deathWebhookUrl = value;
-            else if (key == "Username") discord.username = value;
             return;
         }
     }
