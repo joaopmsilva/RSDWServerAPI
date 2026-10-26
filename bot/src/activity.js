@@ -1,6 +1,5 @@
-import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
-import { formatDuration, summaryEmbed } from './embeds.js';
+import { joinEmbed, leaveEmbed, levelUpEmbed, maxedEmbed, summaryEmbed } from './embeds.js';
 import { dayKey } from './history.js';
 import { levelInfo, MAX_LEVEL } from './levels.js';
 import { logger } from './log.js';
@@ -111,11 +110,13 @@ export class Activity {
         this.lastXp.set(key, Object.fromEntries(skills.map(s => [s.skill, s.currentXP | 0])));
         if (!known) return [];
 
+        const described = describeSkills(skills);
+        const totalLevel = described.reduce((n, s) => n + s.info.level, 0);
         const ups = [];
-        for (const s of describeSkills(skills)) {
+        for (const s of described) {
             if (known[s.id] === undefined) continue;
             const from = levelInfo(known[s.id]).level;
-            if (s.info.level > from && s.info.level >= config.levelUpMinLevel) ups.push({ key, name, skill: s, from });
+            if (s.info.level > from && s.info.level >= config.levelUpMinLevel) ups.push({ key, name, skill: s, from, totalLevel });
         }
         return ups;
     }
@@ -132,23 +133,14 @@ export class Activity {
         }
         if (!config.levelUpNotices) return;
 
-        const maxed = ups.filter(u => u.skill.info.level >= MAX_LEVEL);
-        for (const u of maxed) {
-            const embed = new EmbedBuilder()
-                .setColor(0xf1c40f)
-                .setTitle(`⭐ ${u.name} reached 99 ${u.skill.name}!`)
-                .setDescription(`${u.skill.emoji} The highest level there is. Congratulations!`);
-            if (u.skill.icon) embed.setThumbnail(u.skill.icon);
-            await this.send(config.levelUpChannelId, { embeds: [embed] });
+        // 99s first, then the rest; Discord takes ten embeds per message.
+        const embeds = [
+            ...ups.filter(u => u.skill.info.level >= MAX_LEVEL).map(maxedEmbed),
+            ...ups.filter(u => u.skill.info.level < MAX_LEVEL).map(levelUpEmbed),
+        ];
+        for (let i = 0; i < embeds.length; i += 10) {
+            await this.send(config.levelUpChannelId, { embeds: embeds.slice(i, i + 10) });
         }
-
-        const lines = ups
-            .filter(u => u.skill.info.level < MAX_LEVEL)
-            .map(u => {
-                const jump = u.skill.info.level - u.from > 1 ? ` (from ${u.from})` : '';
-                return `🎉 **${escapeMarkdown(u.name)}** reached **${u.skill.emoji} ${u.skill.name} ${u.skill.info.level}**${jump}`;
-            });
-        if (lines.length) await this.send(config.levelUpChannelId, { content: lines.join('\n').slice(0, 2000) });
     }
 
     announce(type, netId, name, count) {
@@ -158,14 +150,19 @@ export class Activity {
         log.info(`player ${type === 'join' ? 'joined' : 'left'}: ${name}`);
         if (!config.joinLeaveNotices) return;
 
-        const max = config.maxPlayers ? `/${config.maxPlayers}` : '';
-        const online = count >= 0 ? ` · ${count}${max} online` : '';
-        const who = `**${escapeMarkdown(name)}**`;
-        const text =
-            type === 'join'
-                ? `➡️ ${who} joined${online}`
-                : `⬅️ ${who} left${started && Date.now() - started >= 60000 ? ` after ${formatDuration((Date.now() - started) / 1000)}` : ''}${online}`;
-        this.send(config.chatChannelId, { content: text });
+        const embed = type === 'join' ? joinEmbed(name, count) : leaveEmbed(name, count, started ? (Date.now() - started) / 1000 : 0);
+        this.queuePresence(embed);
+    }
+
+    // Joins and leaves that land together (a poll, a burst of events) share one message.
+    queuePresence(embed) {
+        (this.presenceQueue ||= []).push(embed);
+        if (this.presenceTimer) return;
+        this.presenceTimer = setTimeout(async () => {
+            const embeds = this.presenceQueue.splice(0);
+            this.presenceTimer = null;
+            for (let i = 0; i < embeds.length; i += 10) await this.send(config.chatChannelId, { embeds: embeds.slice(i, i + 10) });
+        }, 1000);
     }
 
     // From the relay (mod 0.3.0+): join / leave as they happen.

@@ -97,15 +97,17 @@ Set `CHAT_CHANNEL_ID` and the channel becomes the game's chat:
 
 ## 🎉 Player activity
 
-Posted in the chat channel as it happens:
+Posted in the chat channel as small cards, the moment they happen:
 
-```text
-🎉 Smurfy reached 🪓 Woodcutting 43
-⭐ Smurfy reached 99 Mining!            ← its own embed
-➡️ Bobby joined · 3/16 online
-⬅️ Bobby left after 1h 20m · 2/16 online
-💀 Smurfy has died · Drowned
-```
+| Card | Looks like |
+| ---- | ---------- |
+| 🎉 **Level up** | In the skill's colour with its icon: **Smurfy** reached **Woodcutting 43** · `40 → 43 · +3 levels` · `▰▱▱▱▱` 6% to 44 · *Total level 178* |
+| ⭐ **Level 99** | Gold, with the skill icon: **Smurfy mastered Mining!** |
+| ➡️ **Join** | Green: **Bobby** joined the server · *👥 3/16 online* |
+| ⬅️ **Leave** | Grey: **Bobby** left · played 1h 20m · *👥 2/16 online* |
+| 💀 **Death** | Dark red: **Smurfy** has died · Drowned · *📍 location* |
+
+Several at once (a few level-ups, people joining together) share one message.
 
 - Level-ups start at `LEVELUP_MIN_LEVEL` (10) - the first levels come every few seconds.
 - With mod 0.3.0+, joins and leaves are instant; with older mods they arrive at the next poll.

@@ -1,4 +1,4 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
 import { CATEGORIES } from './skills.js';
@@ -214,6 +214,55 @@ export function leaderboardEmbed(rows, skill, page) {
         })
         .setTimestamp();
     if (skill?.icon) embed.setThumbnail(skill.icon);
+    return embed;
+}
+
+// ---- live activity -------------------------------------------------------
+
+const onlineCount = count => (count >= 0 ? `👥 ${count}${config.maxPlayers ? `/${config.maxPlayers}` : ''} online` : null);
+
+// u: { name, skill, from, totalLevel } from the activity tracker.
+export function levelUpEmbed(u) {
+    const s = u.skill;
+    const lines = [`**${escapeMarkdown(u.name)}** reached **${s.name} ${s.info.level}**`];
+    if (s.info.level - u.from > 1) lines.push(`${u.from} → ${s.info.level} · +${s.info.level - u.from} levels`);
+    if (!s.info.maxed) lines.push(`\`${progressBar(s.info.progress, 10)}\` ${pct(s.info.progress)}% to ${s.info.level + 1}`);
+
+    const embed = new EmbedBuilder()
+        .setColor(s.category.color)
+        .setAuthor({ name: `${s.emoji} Level up!` })
+        .setDescription(lines.join('\n'))
+        .setFooter({ text: `Total level ${fmt(u.totalLevel)}` })
+        .setTimestamp();
+    if (s.icon) embed.setThumbnail(s.icon);
+    return embed;
+}
+
+export function maxedEmbed(u) {
+    const s = u.skill;
+    const embed = new EmbedBuilder()
+        .setColor(0xf1c40f)
+        .setAuthor({ name: '⭐ Level 99' })
+        .setTitle(`${u.name} mastered ${s.name}!`)
+        .setDescription(`${s.emoji} The highest level there is - congratulations!\n\`${progressBar(1, 14)}\` **MAX**`)
+        .setFooter({ text: `Total level ${fmt(u.totalLevel)}` })
+        .setTimestamp();
+    if (s.icon) embed.setThumbnail(s.icon);
+    return embed;
+}
+
+export function joinEmbed(name, count) {
+    const embed = new EmbedBuilder().setColor(COLOR.online).setDescription(`➡️ **${escapeMarkdown(name)}** joined the server`).setTimestamp();
+    const footer = onlineCount(count);
+    if (footer) embed.setFooter({ text: footer });
+    return embed;
+}
+
+export function leaveEmbed(name, count, playedSeconds) {
+    const played = playedSeconds >= 60 ? ` · played ${formatDuration(playedSeconds)}` : '';
+    const embed = new EmbedBuilder().setColor(COLOR.offline).setDescription(`⬅️ **${escapeMarkdown(name)}** left${played}`).setTimestamp();
+    const footer = onlineCount(count);
+    if (footer) embed.setFooter({ text: footer });
     return embed;
 }
 
