@@ -54,6 +54,30 @@ export class PlayerStore {
         return Object.values(this.players);
     }
 
+    byKey(key) {
+        return this.players[key] || null;
+    }
+
+    remove(key) {
+        if (!this.players[key]) return;
+        delete this.players[key];
+        this.dirty = true;
+    }
+
+    // [key, record] pairs, for stats that need both.
+    entries() {
+        return Object.entries(this.players);
+    }
+
+    // The character last seen with this net id (one account can have several).
+    keyOfNetId(netId) {
+        let best = null;
+        for (const [key, p] of Object.entries(this.players)) {
+            if (p.uniqueNetId === netId && (!best || p.lastSeen > this.players[best].lastSeen)) best = key;
+        }
+        return best;
+    }
+
     flush() {
         if (!this.dirty) return;
         const tmp = this.file + '.tmp';

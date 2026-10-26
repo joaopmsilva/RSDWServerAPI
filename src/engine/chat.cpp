@@ -41,6 +41,7 @@ constexpr uintptr_t kControllerChatComponent = 0x1288;
 constexpr uintptr_t kControllerScanEnd = 0x2000;
 uintptr_t g_ChatComponentOffset = kControllerChatComponent;
 bool g_ChatComponentMissingLogged = false;
+bool g_ChatComponentVerified = false;
 
 typedef void (*ExecThunk)(void* context, void* frame, void* result);
 
@@ -176,7 +177,10 @@ uintptr_t ChatComponentOf(uintptr_t controller) {
     if (!controller || !g_Engine) return 0;
 
     uintptr_t component = Mem::ReadPtr(controller + g_ChatComponentOffset);
-    if (IsChatComponent(component)) return component;
+    if (IsChatComponent(component)) {
+        g_ChatComponentVerified = true;
+        return component;
+    }
 
     for (uintptr_t offset = 0x28; offset < kControllerScanEnd; offset += sizeof(uintptr_t)) {
         component = Mem::ReadPtr(controller + offset);
@@ -185,6 +189,7 @@ uintptr_t ChatComponentOf(uintptr_t controller) {
         LogMessage("Chat: PlayerChatComponent found at controller +" + HexString(offset) +
                    " (the SDK said +" + HexString(kControllerChatComponent) + ")");
         g_ChatComponentOffset = offset;
+        g_ChatComponentVerified = true;
         return component;
     }
 
@@ -380,6 +385,25 @@ void SendThunk(void* context, void* frame, void* result) {
 
 bool IsHooked() { return g_Hooked; }
 const std::string& Status() { return g_Status; }
+
+bool CanBroadcast() { return g_ReceiveFunction != 0; }
+bool CanCheckAdmin() { return g_AdminFunction != 0 && g_AdminLibrary != 0; }
+
+int ChatComponentState(std::string& detail) {
+    if (g_ChatComponentVerified) {
+        detail = "at controller +" + HexString(g_ChatComponentOffset);
+        if (g_ChatComponentOffset != kControllerChatComponent) {
+            detail += " (moved from the SDK's +" + HexString(kControllerChatComponent) + ", found by scanning)";
+        }
+        return 1;
+    }
+    if (g_ChatComponentMissingLogged) {
+        detail = "no PlayerChatComponent on the player controller";
+        return 0;
+    }
+    detail = "checked once someone is online";
+    return -1;
+}
 
 void AddListener(Listener listener) {
     std::lock_guard<std::mutex> lock(g_ListenerMutex);

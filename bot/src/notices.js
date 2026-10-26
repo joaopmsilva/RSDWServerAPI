@@ -39,6 +39,8 @@ export class Notices {
         this.downTicks = 0;
         this.lastUptime = null;
         this.queue = Promise.resolve();
+        // (kind, details) for every notice, posted or not - the admin alerts use it.
+        this.onNotice = null;
     }
 
     get enabled() {
@@ -59,7 +61,7 @@ export class Notices {
     }
 
     async check(state) {
-        if (!this.enabled || state.status === 'unknown') return;
+        if (state.status === 'unknown') return;
 
         const prev = this.shown;
         const uptime = state.health?.uptimeSeconds ?? null;
@@ -109,6 +111,12 @@ export class Notices {
 
     async post(kind, details) {
         log.info(`server notice: ${kind}`);
+        try {
+            this.onNotice?.(kind, details);
+        } catch (err) {
+            log.error('notice hook failed:', err);
+        }
+        if (!this.enabled) return;
         try {
             const channel = await this.client.channels.fetch(config.statusChannelId);
             await channel.send({ embeds: [noticeEmbed(kind, details)], allowedMentions: { parse: [] } });

@@ -103,7 +103,7 @@ grep -E "loaded|data directory|Failed to bind|engine ready|not found|Events" /ho
 
 You should see:
 
-- `RSDWRestAPI 0.2.1 loaded`
+- `RSDWRestAPI 0.3.0 loaded`
 - `RSDWRestAPI: engine ready, endpoints are live`
 - `Events: chat and death feed live at /api/events`
 
@@ -118,7 +118,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 
 `health` should say `"engineReady":true`.
 
-If there is no `0.2.1 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
+If there is no `0.3.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
 ## 7. Install the bot
@@ -255,6 +255,10 @@ Administrator permission. Replies are only visible to you.
 by default 2 minutes ahead when someone is online and straight away when nobody is, or pick
 `minutes` (0-10). In game there's a second warning a minute before. `/server cancel` calls a
 planned one off. A planned restart or stop is forgotten if the bot itself restarts.
+
+`/server backup` runs `BACKUP_SCRIPT` (your `backup.sh`) straight away. With `ADMIN_USER_IDS` set
+you also get private alerts for crashes, a failing mod self-check and a VPS running hot - make
+sure your Discord privacy settings allow messages from server members.
 
 ## Updating
 

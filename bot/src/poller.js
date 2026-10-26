@@ -19,6 +19,8 @@ export class Poller {
         this.knownPlayers = null;
         this.timer = null;
         this.onTick = null;
+        // (players, health) before snapshots are saved; players is null while not online.
+        this.onPlayers = null;
     }
 
     start() {
@@ -37,6 +39,7 @@ export class Poller {
             if (state.health.engineReady) {
                 state.players = await api.players();
                 state.status = 'online';
+                this.emitPlayers(state.players, state.health);
                 const now = Date.now();
                 for (const player of state.players) this.store.update(player, now);
                 try {
@@ -47,6 +50,7 @@ export class Poller {
             } else {
                 state.status = 'starting';
                 state.players = [];
+                this.emitPlayers(null, state.health);
             }
             state.error = null;
         } catch (err) {
@@ -54,12 +58,21 @@ export class Poller {
             state.players = [];
             state.error = err.message;
             if (err.kind !== 'starting') state.health = null;
+            this.emitPlayers(null, state.health);
         }
         state.updatedAt = Date.now();
 
         this.logChanges();
         this.updatePresence();
         this.onTick?.(state);
+    }
+
+    emitPlayers(players, health) {
+        try {
+            this.onPlayers?.(players, health);
+        } catch (err) {
+            log.error('player tracking failed:', err);
+        }
     }
 
     logChanges() {

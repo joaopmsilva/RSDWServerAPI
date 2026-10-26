@@ -35,4 +35,10 @@ void Poll();
 
 bool Broadcast(const std::string& body, std::string& outError);
 
+// For /api/diagnostics.
+bool CanBroadcast();
+bool CanCheckAdmin();
+// 1 found, 0 missing, -1 not checked yet (nobody has been online). detail says where.
+int ChatComponentState(std::string& detail);
+
 }

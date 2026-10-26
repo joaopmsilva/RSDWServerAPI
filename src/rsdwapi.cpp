@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <thread>
 #include <utility>
+#include <vector>
 
 APIConfig g_Config;
 
@@ -189,7 +190,7 @@ void InitThread() {
         std::mutex deathMutex;
 
         auto reportDeath = [&](const std::string& key, const std::string& name, const std::string& where,
-                               const std::string& netId) {
+                               const std::string& netId, const std::string& cause) {
             auto now = std::chrono::steady_clock::now();
             {
                 std::lock_guard<std::mutex> lock(deathMutex);
@@ -197,13 +198,15 @@ void InitThread() {
                 if (it != deathPosted.end() && now - it->second < std::chrono::seconds(10)) return;
                 deathPosted[key] = now;
             }
-            LogMessage("Deaths: " + name + " died" + (where.empty() ? "" : " at " + where));
+            LogMessage("Deaths: " + name + " died" + (where.empty() ? "" : " at " + where) +
+                       (cause.empty() ? "" : " (" + cause + ")"));
 
             EventLog::Event event;
             event.type = "death";
             event.name = name;
             event.netId = netId;
             event.location = where;
+            event.cause = cause;
             EventLog::Push(std::move(event));
         };
 
@@ -227,8 +230,22 @@ void InitThread() {
                 where = buffer;
                 break;
             }
-            reportDeath(key, name, where, event.senderNetId);
+            reportDeath(key, name, where, event.senderNetId, event.tag);
         });
+
+        // Join / leave, by net id. A player still loading in has no id or name yet,
+        // so they count once both are readable.
+        std::map<std::string, std::string> wasOnline;
+        auto pushPresence = [](const char* type, const std::string& netId, const std::string& name, size_t online) {
+            LogMessage(std::string("Players: ") + name + (type[0] == 'j' ? " joined" : " left") + ", " +
+                       std::to_string(online) + " online");
+            EventLog::Event event;
+            event.type = type;
+            event.name = name;
+            event.netId = netId;
+            event.players = (int32_t)online;
+            EventLog::Push(std::move(event));
+        };
 
         while (!g_Shutdown) {
             for (int i = 0; i < 20 && !g_Shutdown; i++) {
@@ -240,8 +257,24 @@ void InitThread() {
             DomBans::Enforce();
             DomChat::Poll();
 
+            std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
+
+            std::map<std::string, std::string> nowOnline;
+            for (const DomEngine::PlayerInfo& player : players) {
+                if (player.uniqueNetId.empty()) continue;
+                std::string name = player.characterName.empty() ? player.name : player.characterName;
+                if (!name.empty()) nowOnline[player.uniqueNetId] = name;
+            }
+            for (const auto& entry : nowOnline) {
+                if (!wasOnline.count(entry.first)) pushPresence("join", entry.first, entry.second, nowOnline.size());
+            }
+            for (const auto& entry : wasOnline) {
+                if (!nowOnline.count(entry.first)) pushPresence("leave", entry.first, entry.second, nowOnline.size());
+            }
+            wasOnline.swap(nowOnline);
+
             std::map<std::string, bool> nowDead;
-            for (const DomEngine::PlayerInfo& player : DomEngine::g_Engine->GetAllPlayers()) {
+            for (const DomEngine::PlayerInfo& player : players) {
                 if (player.uniqueNetId.empty() || !player.hasHealth) continue;
                 nowDead[player.uniqueNetId] = player.isDead;
 
@@ -252,7 +285,7 @@ void InitThread() {
                 std::string name = player.characterName.empty() ? player.name : player.characterName;
                 char where[96];
                 snprintf(where, sizeof(where), "%.0f, %.0f, %.0f", player.x, player.y, player.z);
-                reportDeath(player.uniqueNetId, name, where, player.uniqueNetId);
+                reportDeath(player.uniqueNetId, name, where, player.uniqueNetId, "");
             }
             wasDead.swap(nowDead);
         }

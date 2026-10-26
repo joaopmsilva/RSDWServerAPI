@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// In-memory feed of chat and death events, read through GET /api/events.
+// In-memory feed of chat, death, join and leave events, read through GET /api/events.
 // Ids start at 1 each boot; BootId tells a reader the server restarted.
 namespace EventLog {
 
@@ -18,6 +18,8 @@ struct Event {
     int32_t playerId = 0;
     std::string message;
     std::string location;
+    std::string cause;    // death: the game's event tag, when it sent one
+    int32_t players = -1; // join / leave: players online afterwards
 };
 
 void Push(Event event);

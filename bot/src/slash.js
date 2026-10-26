@@ -1,4 +1,6 @@
 import { InteractionContextType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { removedChoices } from './admin.js';
+import { api } from './api.js';
 import { logger } from './log.js';
 import { skillChoices } from './skills.js';
 
@@ -28,6 +30,28 @@ export const definitions = [
         ),
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
     new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
+    new SlashCommandBuilder()
+        .setName('gains')
+        .setDescription('XP gained - top gainers, or one player skill by skill')
+        .addStringOption(o => o.setName('player').setDescription('Leave empty for the top gainers').setAutocomplete(true))
+        .addStringOption(o =>
+            o
+                .setName('period')
+                .setDescription('Default: this week')
+                .addChoices(
+                    { name: 'today', value: 'today' },
+                    { name: 'this week', value: 'week' },
+                    { name: 'this month', value: 'month' },
+                ),
+        ),
+    new SlashCommandBuilder()
+        .setName('playtime')
+        .setDescription('Time played - most played this week, or one player')
+        .addStringOption(o => o.setName('player').setDescription('Leave empty for the most played').setAutocomplete(true)),
+    new SlashCommandBuilder()
+        .setName('deaths')
+        .setDescription('Deaths - who died most, or one player')
+        .addStringOption(o => o.setName('player').setDescription('Leave empty for everyone').setAutocomplete(true)),
     new SlashCommandBuilder().setName('system').setDescription("The VPS's CPU, RAM, disk and network use"),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),
 
@@ -35,7 +59,7 @@ export const definitions = [
     // ADMIN_USER_IDS, so a Discord admin who isn't listed still can't use them.
     new SlashCommandBuilder()
         .setName('server')
-        .setDescription('Start, stop or restart the game server (admins)')
+        .setDescription('Start, stop, restart or back up the game server (admins)')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(o =>
             o
@@ -47,6 +71,7 @@ export const definitions = [
                     { name: 'stop', value: 'stop' },
                     { name: 'start', value: 'start' },
                     { name: 'cancel a planned restart or stop', value: 'cancel' },
+                    { name: 'backup now', value: 'backup' },
                 ),
         )
         .addIntegerOption(o =>
@@ -85,7 +110,29 @@ export const definitions = [
                 .setName('say')
                 .setDescription('Announce to players in game and in the status channel')
                 .addStringOption(o => o.setName('message').setDescription('What to say').setRequired(true).setMaxLength(200)),
-        ),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('give')
+                .setDescription('Give an item to an online player')
+                .addStringOption(playerOption)
+                .addStringOption(o => o.setName('item').setDescription('Start typing to search').setRequired(true).setAutocomplete(true))
+                .addIntegerOption(o => o.setName('count').setDescription('Default 1').setMinValue(1).setMaxValue(9999)),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('remove')
+                .setDescription('Take a player off the leaderboards and delete their saved stats')
+                .addStringOption(playerOption),
+        )
+        .addSubcommand(s =>
+            s
+                .setName('restore')
+                .setDescription('Let a removed player back on the leaderboards')
+                .addStringOption(o => o.setName('player').setDescription('A removed player').setRequired(true).setAutocomplete(true)),
+        )
+        .addSubcommand(s => s.setName('bans').setDescription('Everyone who is banned'))
+        .addSubcommand(s => s.setName('diagnostics').setDescription("The mod's self-check of what it reads from the game")),
 ].map(c => c.setContexts(InteractionContextType.Guild).toJSON());
 
 // Registered per server rather than globally: guild commands show up at once,
@@ -122,8 +169,26 @@ function playerChoices(ctx, query) {
     return choices;
 }
 
+// The game's item names, fetched from the mod and kept for ten minutes.
+let itemCache = { items: [], at: 0 };
+async function itemChoices(query) {
+    if (Date.now() - itemCache.at > 10 * 60 * 1000) {
+        try {
+            itemCache = { items: (await api.items()).map(i => i.name).sort(), at: Date.now() };
+        } catch (err) {
+            log.debug(`item list unavailable: ${err.message}`);
+        }
+    }
+    const q = query.trim().toLowerCase();
+    return itemCache.items.filter(name => !q || name.toLowerCase().includes(q)).map(name => ({ name: name.slice(0, 100), value: name.slice(0, 100) }));
+}
+
 export async function autocomplete(interaction, ctx) {
     const focused = interaction.options.getFocused(true);
-    const choices = focused.name === 'skill' ? skillChoices(focused.value) : playerChoices(ctx, focused.value);
+    let choices;
+    if (focused.name === 'skill') choices = skillChoices(focused.value);
+    else if (focused.name === 'item') choices = await itemChoices(focused.value);
+    else if (interaction.commandName === 'admin' && interaction.options.getSubcommand(false) === 'restore') choices = removedChoices(ctx, focused.value);
+    else choices = playerChoices(ctx, focused.value);
     await interaction.respond(choices.slice(0, MAX_CHOICES));
 }

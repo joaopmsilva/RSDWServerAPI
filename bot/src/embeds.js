@@ -217,6 +217,115 @@ export function leaderboardEmbed(rows, skill, page) {
     return embed;
 }
 
+// ---- gains, playtime, deaths, weekly recap -------------------------------
+
+const place = i => MEDALS[i] || `\`${String(i + 1).padStart(2)}.\``;
+const prettyDay = day => new Date(`${day}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const duration = seconds => (seconds < 60 ? `${Math.round(seconds)}s` : formatDuration(seconds));
+const PERIOD_LABEL = { today: 'today', week: 'this week', month: 'this month' };
+
+export function gainsEmbed(name, period, g) {
+    const label = PERIOD_LABEL[period];
+    const embed = new EmbedBuilder().setColor(COLOR.online).setAuthor({ name }).setTitle(`📈 XP gained ${label}`).setTimestamp();
+    if (!g?.total) return embed.setColor(COLOR.offline).setDescription(`No XP gained ${label}.`);
+
+    const lines = g.skills.map(
+        s => `${s.emoji} **${s.name}** +${fmt(s.gained)} xp${s.info.level > s.fromLevel ? ` · ${s.fromLevel} → **${s.info.level}**` : ''}`,
+    );
+    const levels = g.levels ? ` · +${g.levels} level${g.levels === 1 ? '' : 's'}` : '';
+    return embed.setDescription(`### +${fmt(g.total)} xp${levels}\n${lines.join('\n')}`).setFooter({ text: `Since ${prettyDay(g.since)}` });
+}
+
+export function gainersEmbed(rows, period) {
+    const label = PERIOD_LABEL[period];
+    const lines = rows.slice(0, 10).map((r, i) => `${place(i)} **${r.name}** +${fmt(r.total)} xp · best ${r.skills[0].emoji} ${r.skills[0].name}`);
+    return new EmbedBuilder()
+        .setColor(0xf1c40f)
+        .setTitle(`📈 Top XP gainers ${label}`)
+        .setDescription(lines.join('\n') || `Nobody has gained XP ${label} yet.`)
+        .setFooter({ text: '/gains player shows one player skill by skill' })
+        .setTimestamp();
+}
+
+export function playtimeEmbed(name, pt) {
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setAuthor({ name })
+        .setTitle('⏱️ Playtime')
+        .addFields(
+            { name: 'Today', value: duration(pt.today), inline: true },
+            { name: 'This week', value: duration(pt.week), inline: true },
+            { name: 'Total', value: duration(pt.total), inline: true },
+        )
+        .setFooter({ text: 'Counted while the bot is running' })
+        .setTimestamp();
+}
+
+export function playtimeBoardEmbed(rows) {
+    const lines = rows.slice(0, 10).map((r, i) => `${place(i)} **${r.name}** ${duration(r.recent)} · ${duration(r.total)} total`);
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle('⏱️ Most played this week')
+        .setDescription(lines.join('\n') || 'Nobody has played this week yet.')
+        .setTimestamp();
+}
+
+export function deathsEmbed(name, d) {
+    return new EmbedBuilder()
+        .setColor(0x8b0000)
+        .setAuthor({ name })
+        .setTitle('💀 Deaths')
+        .addFields({ name: 'This week', value: String(d.week), inline: true }, { name: 'Total', value: String(d.total), inline: true })
+        .setTimestamp();
+}
+
+export function deathBoardEmbed(rows) {
+    const lines = rows.slice(0, 10).map((r, i) => `${place(i)} **${r.name}** ${r.recent} this week · ${r.total} total`);
+    return new EmbedBuilder()
+        .setColor(0x8b0000)
+        .setTitle('💀 Deaths')
+        .setDescription(lines.join('\n') || 'Nobody has died yet. Impressive.')
+        .setTimestamp();
+}
+
+export function summaryEmbed({ gainers, milestones, played, deaths }) {
+    const embed = new EmbedBuilder().setColor(0xf1c40f).setTitle(`📅 Weekly recap · ${config.serverName}`).setTimestamp();
+    const top = gainers.slice(0, 5).map((r, i) => `${place(i)} **${r.name}** +${fmt(r.total)} xp`);
+    embed.addFields({ name: '📈 Top XP gainers', value: top.join('\n') || 'Nobody gained XP this week.' });
+    if (milestones.length) {
+        embed.addFields({ name: '⭐ New 99s', value: milestones.map(m => `**${m.name}** · ${m.skill}`).join('\n').slice(0, 1024) });
+    }
+    if (played.length) {
+        embed.addFields({ name: '⏱️ Most played', value: played.slice(0, 3).map((r, i) => `${place(i)} **${r.name}** ${duration(r.recent)}`).join('\n'), inline: true });
+    }
+    const died = deaths.filter(r => r.recent > 0);
+    if (died.length) {
+        const total = died.reduce((n, r) => n + r.recent, 0);
+        embed.addFields({ name: '💀 Deaths', value: `${total} this week\nMost: **${died[0].name}** (${died[0].recent})`, inline: true });
+    }
+    return embed;
+}
+
+// ---- admin --------------------------------------------------------------
+
+export function bansEmbed(bans) {
+    const lines = bans.slice(0, 25).map(b => `• **${b.name || 'unknown'}** \`${b.netId}\`${b.reason ? ` · ${b.reason}` : ''}`);
+    if (bans.length > 25) lines.push(`…and ${bans.length - 25} more`);
+    return new EmbedBuilder().setColor(COLOR.error).setTitle(`🔨 Bans — ${bans.length}`).setDescription(lines.join('\n') || 'Nobody is banned.');
+}
+
+export function diagnosticsEmbed(diag) {
+    const icon = ok => (ok === true ? '✅' : ok === false ? '❌' : '⏳');
+    const lines = diag.checks.map(c => `${icon(c.ok)} **${c.name}** · ${c.detail}`);
+    const failing = diag.checks.filter(c => c.ok === false).length;
+    return new EmbedBuilder()
+        .setColor(failing ? COLOR.error : COLOR.online)
+        .setTitle(`🩺 Mod diagnostics · v${diag.version}`)
+        .setDescription(lines.join('\n').slice(0, 4000))
+        .setFooter({ text: failing ? `${failing} problem(s) · ⏳ = checked once someone is online` : '⏳ = checked once someone is online' })
+        .setTimestamp();
+}
+
 // ---- system -------------------------------------------------------------
 
 function bytes(n) {
@@ -296,6 +405,8 @@ export function helpEmbed() {
             { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
             { name: '/status', value: 'Is the server up, and who is on it.' },
             { name: '/online', value: 'Everyone connected right now, with ping.' },
+            { name: '/gains', value: 'Who gained the most XP, or one player skill by skill. Today, this week or this month.' },
+            { name: '/playtime · /deaths', value: 'Most played and most deaths, or one player.' },
             { name: '/system', value: "The VPS's CPU, RAM, disk and network use right now." },
         )
         .setFooter({ text: 'Players can be looked up by character or account name, even while offline.' });
@@ -304,7 +415,7 @@ export function helpEmbed() {
         embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> are shown in game chat.` });
     }
     if (config.adminUserIds.length) {
-        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop or restart the server · `/admin` kick, ban, unban, say' });
+        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop, restart, back up · `/admin` kick, ban, give, say, remove from leaderboards, diagnostics' });
     }
     return embed;
 }

@@ -17,10 +17,15 @@ first (🟢), then everyone the bot has seen before (⚫).
 | `/leaderboard [skill]` | Top players by total level, or by XP in one skill |
 | `/status` | Online / starting / offline, players, uptime |
 | `/online` | Everyone connected, with ping |
+| `/gains [player] [period]` | Top XP gainers, or one player skill by skill - today, this week (default) or this month |
+| `/playtime [player]` | Most played this week, or one player: today, this week, total |
+| `/deaths [player]` | Most deaths, or one player: this week and total |
 | `/system` | The VPS's CPU, RAM, swap, disk and network use right now |
 | `/help` | Command list |
-| `/server action [minutes]` | Admins: start, stop, restart, or cancel a planned one |
-| `/admin kick` · `ban` · `unban` · `say` | Admins: moderation and announcements |
+| `/server action [minutes]` | Admins: start, stop, restart, back up, or cancel a planned restart / stop |
+| `/admin kick` · `ban` · `unban` · `bans` · `give` · `say` | Admins: moderation, items and announcements |
+| `/admin remove` · `restore` | Admins: take a player off the leaderboards (and delete their stats), or let them back |
+| `/admin diagnostics` | Admins: the mod's self-check |
 
 Players are found by character name or account name, case-insensitively, and partial names
 work. Skills accept short forms too: `wc`, `rc`, `mage`, `agi`, `con`, `cook` and so on.
@@ -52,6 +57,40 @@ from members without Administrator. Their replies are only shown to the admin.
   `minutes`. `/server cancel` calls it off. `/server start` starts a stopped server.
 - `/admin kick` / `ban` / `unban` use the mod's API; `/admin say` tells players in game and
   posts in the status channel.
+
+## Player activity
+
+Posted in the chat channel (`LEVELUP_CHANNEL_ID` / `SUMMARY_CHANNEL_ID` to move them):
+
+- **Level-ups**: "🎉 **Name** reached **🪓 Woodcutting 43**", from level `LEVELUP_MIN_LEVEL` (10) up, since
+  the first levels come every few seconds. A 99 gets its own ⭐ embed.
+- **Joins and leaves**: "➡️ **Name** joined · 3/16 online", "⬅️ **Name** left after 1h 20m". With mod
+  0.3.0+ they're instant; with older mods they show up at the next poll.
+- **Weekly recap**, Sundays from 20:00 (VPS time): top XP gainers, new 99s, most played, deaths.
+
+The numbers behind `/gains`, `/playtime`, `/deaths` and the recap are kept in `data/history.json`:
+
+- **Gains** compare each player's XP now with the first time the bot saw them in the period - since
+  midnight for *today*, the last 7 days for *this week*, 30 for *this month*. Someone first seen on
+  Wednesday counts from Wednesday; the footer says from when.
+- **Playtime** is counted while the bot is running and the player is online.
+- **Deaths** come from the mod's death events.
+
+Five weeks of days are kept. `/admin remove` deletes everything about a player and keeps them off
+every board and the recap; `/admin restore` lets them back with a fresh start.
+
+## Admin alerts
+
+Everyone in `ADMIN_USER_IDS` gets a private message when:
+
+- the server goes offline or restarts **without** a planned restart or stop, and when it's back;
+- the mod's self-check (`/admin diagnostics`, mod 0.3.0+) finds a problem - usually right after a
+  game update moved something - and again when it's fixed;
+- CPU stays over `ALERT_CPU`% for 5 minutes, RAM over `ALERT_RAM`% for 3, or the disk goes over
+  `ALERT_DISK`% (all 90 by default; 0 turns one off), and when it settles.
+
+You need to share a server with the bot and allow DMs from server members. `ADMIN_ALERTS=false`
+turns them all off.
 
 ## Levels
 
@@ -160,7 +199,10 @@ updates, relay batches and undelivered chat too.
 | `src/bridge.js` | Discord → game chat |
 | `src/notices.js` | Online / offline / restart notices |
 | `src/announce.js`, `src/announcer.js` | Notices for scripts and /server |
-| `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart |
+| `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart / backup |
+| `src/activity.js` | Level-ups, joins and leaves, playtime, deaths, weekly recap |
+| `src/history.js`, `src/stats.js` | Saved history and the gains / playtime / death numbers |
+| `src/alerts.js` | Private alerts to the admins |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |
 | `src/store.js` | Saved player snapshots |
 | `src/api.js`, `src/config.js`, `src/log.js` | API client, settings, logging |

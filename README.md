@@ -193,7 +193,7 @@ Health and max health come from the character's attributes component, not from
 
 ### GET /api/events
 
-In-game chat and player deaths, oldest first. Pass the last `id` you have seen as `?since=`
+In-game chat, player deaths, joins and leaves, oldest first. Pass the last `id` you have seen as `?since=`
 to get only newer events; `?limit=` caps the count (default 100, max 500). The last 500
 events are kept in memory.
 
@@ -205,13 +205,36 @@ events are kept in memory.
     { "id": 41, "time": 1793042790000, "type": "chat", "name": "Adventurer", "netId": "7656...",
       "characterGuid": "...", "playerId": 256, "message": "hello", "location": "" },
     { "id": 42, "time": 1793042795000, "type": "death", "name": "Adventurer", "netId": "7656...",
-      "characterGuid": "", "playerId": 0, "message": "", "location": "10360, 186410, -3070" }
+      "characterGuid": "", "playerId": 0, "message": "", "location": "10360, 186410, -3070",
+      "cause": "", "players": -1 },
+    { "id": 43, "time": 1793042799000, "type": "join", "name": "Adventurer", "netId": "7656...",
+      "characterGuid": "", "playerId": 0, "message": "", "location": "", "cause": "", "players": 3 }
   ]
 }
 ```
 
+`cause` on a death is the game's own event tag when the death came from one (empty when it was
+spotted from the player's health). `players` on a join or leave is how many are online after it.
+
 Ids restart at 1 when the server restarts; `bootId` changes at the same time, so a reader
 knows to start over from `since=0`.
+
+### GET /api/diagnostics
+
+A self-check of what the mod reads from the game, so a game update that moves something
+shows up here instead of a feature quietly doing nothing. Each check has `ok` `true`,
+`false`, or `null` when it can't be checked yet (most need someone online).
+
+```json
+{
+  "version": "0.3.0",
+  "checks": [
+    { "name": "engine", "ok": true, "detail": "141532 objects" },
+    { "name": "chatComponent", "ok": true, "detail": "at controller +0x12A0 (moved from the SDK's +0x1288, found by scanning)" },
+    { "name": "playerSkills", "ok": null, "detail": "checked once someone is online" }
+  ]
+}
+```
 
 ### POST /api/kick
 
@@ -265,7 +288,7 @@ Deliberately minimal, because authentication can be turned off and this therefor
 safe to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
-{"status":"healthy","version":"0.2.1","uptimeSeconds":41.2,"engineReady":true}
+{"status":"healthy","version":"0.3.0","uptimeSeconds":41.2,"engineReady":true}
 ```
 
 `status` is `starting` until the world has loaded. Engine discovery detail goes to the log

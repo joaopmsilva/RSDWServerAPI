@@ -50,6 +50,7 @@ export function describeSkills(raw = []) {
         if (def?.unreleased && xp <= 0) continue;
 
         entries.push({
+            id: s.skill,
             key: def?.key || normalize(s.skill),
             name: def?.name || prettify(s.skill),
             emoji: def?.emoji || '📘',

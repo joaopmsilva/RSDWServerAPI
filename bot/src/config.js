@@ -51,6 +51,17 @@ export const config = {
     bridgeMaxLength: Math.max(20, int('BRIDGE_MAX_LENGTH', 200)),
     serverNotices: bool('SERVER_NOTICES', true),
     backupNotices: bool('BACKUP_NOTICES', true),
+    levelUpNotices: bool('LEVELUP_NOTICES', true),
+    levelUpMinLevel: Math.max(2, int('LEVELUP_MIN_LEVEL', 10)),
+    levelUpChannelId: id('LEVELUP_CHANNEL_ID') || chatChannelId,
+    joinLeaveNotices: bool('JOIN_LEAVE_NOTICES', true),
+    weeklySummary: bool('WEEKLY_SUMMARY', true),
+    summaryChannelId: id('SUMMARY_CHANNEL_ID') || chatChannelId,
+    adminAlerts: bool('ADMIN_ALERTS', true),
+    alertCpu: int('ALERT_CPU', 90),
+    alertRam: int('ALERT_RAM', 90),
+    alertDisk: int('ALERT_DISK', 90),
+    backupScript: (process.env.BACKUP_SCRIPT || '/home/dragonwilds/scripts/backup.sh').trim(),
     adminUserIds: (process.env.ADMIN_USER_IDS || '')
         .split(',')
         .map(s => s.trim())

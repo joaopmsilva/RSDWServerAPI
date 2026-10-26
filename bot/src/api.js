@@ -48,4 +48,9 @@ export const api = {
     kick: (player, reason) => request('/api/kick', { method: 'POST', body: reason ? { player, reason } : { player }, timeout: 15000 }),
     ban: (player, reason) => request('/api/ban', { method: 'POST', body: reason ? { player, reason } : { player }, timeout: 15000 }),
     unban: player => request('/api/unban', { method: 'POST', body: { player } }),
+    give: (player, item, count) => request('/api/give', { method: 'POST', body: { player, item, count }, timeout: 15000 }),
+    items: async () => (await request('/api/items')).items || [],
+    bans: async () => (await request('/api/bans')).bans || [],
+    // Mod 0.3.0+; older mods answer 404.
+    diagnostics: () => request('/api/diagnostics'),
 };

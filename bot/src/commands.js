@@ -3,6 +3,13 @@ import {
     LEADERBOARD_PAGE_SIZE,
     ONLINE_PAGE_SIZE,
     ambiguousEmbed,
+    deathBoardEmbed,
+    deathsEmbed,
+    displayName,
+    gainersEmbed,
+    gainsEmbed,
+    playtimeBoardEmbed,
+    playtimeEmbed,
     errorEmbed,
     helpEmbed,
     leaderboardEmbed,
@@ -14,6 +21,7 @@ import {
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
+import { deathBoard, gainsFor, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
 import { systemStats } from './system.js';
 
@@ -75,7 +83,7 @@ function buildProfile(player, online) {
 
 // Online players come from a fresh API call so the numbers are live; anyone
 // else falls back to their last snapshot.
-async function resolvePlayer(ctx, query) {
+export async function resolvePlayer(ctx, query) {
     const live = await fetchLive(ctx);
 
     const onlineMatches = live ? matchPlayers(live, query) : [];
@@ -156,6 +164,7 @@ function rankings(ctx, skill) {
     const online = new Set(ctx.poller.state.players.map(PlayerStore.key));
     const rows = [];
     for (const player of ctx.store.all()) {
+        if (ctx.history?.isHidden(PlayerStore.key(player))) continue;
         const skills = describeSkills(player.skills);
         const row = { player, online: online.has(PlayerStore.key(player)) };
         if (skill) {
@@ -180,11 +189,44 @@ async function leaderboard(ctx, skillQuery) {
     return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => leaderboardEmbed(rows, skill, page));
 }
 
+// One player by name, or null with a reply to send instead.
+async function findOne(ctx, query) {
+    const result = await resolvePlayer(ctx, query);
+    if (result.ambiguous) return { reply: { reply: { embeds: [ambiguousEmbed(query, result.ambiguous)] } } };
+    if (result.notFound) return { reply: notFoundReply(query, result) };
+    return { profile: result.profile, name: displayName(result.profile.player) };
+}
+
+// No player: who gained the most. A player: what they gained, skill by skill.
+async function gains(ctx, query, period) {
+    if (!query) return { reply: { embeds: [gainersEmbed(topGainers(ctx, period), period)] } };
+    const found = await findOne(ctx, query);
+    if (found.reply) return found.reply;
+    return { reply: { embeds: [gainsEmbed(found.name, period, gainsFor(ctx, found.profile.key, period))] } };
+}
+
+async function playtime(ctx, query) {
+    if (!query) return { reply: { embeds: [playtimeBoardEmbed(playtimeBoard(ctx))] } };
+    const found = await findOne(ctx, query);
+    if (found.reply) return found.reply;
+    return { reply: { embeds: [playtimeEmbed(found.name, ctx.history.playtime(found.profile.key))] } };
+}
+
+async function deaths(ctx, query) {
+    if (!query) return { reply: { embeds: [deathBoardEmbed(deathBoard(ctx))] } };
+    const found = await findOne(ctx, query);
+    if (found.reply) return found.reply;
+    return { reply: { embeds: [deathsEmbed(found.name, ctx.history.deaths(found.profile.key))] } };
+}
+
 // Keyed by slash command name; each gets the interaction and returns the reply.
 export const commands = {
     levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
     level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
     leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
+    gains: (i, ctx) => gains(ctx, i.options.getString('player'), i.options.getString('period') || 'week'),
+    playtime: (i, ctx) => playtime(ctx, i.options.getString('player')),
+    deaths: (i, ctx) => deaths(ctx, i.options.getString('player')),
     status: (i, ctx) => status(ctx),
     online: (i, ctx) => online(ctx),
     system: async () => {

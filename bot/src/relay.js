@@ -8,13 +8,23 @@ import { logger } from './log.js';
 const log = logger('relay');
 const NO_MENTIONS = { parse: [] };
 
+// The game's death event tag (mod 0.3.0+), e.g. "Player.Death.Drowned" -> " · Drowned".
+// Words that only say "a player died" are dropped; nothing left means no cause.
+const GENERIC_TAG = /^(death|deaths|died|die|dead|player|players|event|events|gameplay|tag|chat|notification|message)$/i;
+function causeText(tag) {
+    const words = (tag || '').split('.').filter(w => w && !GENERIC_TAG.test(w));
+    const last = words.at(-1);
+    return last ? ` · ${last.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}` : '';
+}
+
 // Relays in-game chat and deaths from the mod's /api/events feed to Discord.
 // The cursor is saved so a bot restart neither repeats nor skips events; a
 // changed bootId means the server restarted and its event ids began again.
 export class Relay {
-    constructor(client, bridge = null) {
+    constructor(client, bridge = null, activity = null) {
         this.client = client;
         this.bridge = bridge;
+        this.activity = activity;
         this.file = path.join(config.dataDir, 'relay.json');
         this.cursor = null;
         this.timer = null;
@@ -27,16 +37,9 @@ export class Relay {
         }
     }
 
-    get enabled() {
-        return Boolean(config.chatChannelId || config.deathChannelId);
-    }
-
+    // Always runs: deaths, joins and leaves feed the stats even with no channels set.
     start() {
-        if (!this.enabled) {
-            log.info('CHAT_CHANNEL_ID not set, chat and death relay is off');
-            return;
-        }
-        log.info(`relaying chat to ${config.chatChannelId || '(off)'}, deaths to ${config.deathChannelId}, every ${config.relaySeconds}s`);
+        log.info(`following the event feed every ${config.relaySeconds}s - chat to ${config.chatChannelId || '(off)'}, deaths to ${config.deathChannelId || '(off)'}`);
         this.timer = setInterval(() => this.tick(), config.relaySeconds * 1000);
     }
 
@@ -107,7 +110,12 @@ export class Relay {
         const chat = events.filter(e => e.type === 'chat' && !this.bridge?.isEcho(e));
         const deaths = events.filter(e => e.type === 'death');
 
-        if (chat.length) {
+        for (const e of events) {
+            if (e.type === 'join' || e.type === 'leave') this.activity?.presence(e);
+            if (e.type === 'death') this.activity?.death(e);
+        }
+
+        if (chat.length && config.chatChannelId) {
             const channel = await this.channel(config.chatChannelId);
             if (channel) {
                 // Batch lines into as few messages as fit Discord's 2000 character limit.
@@ -124,13 +132,14 @@ export class Relay {
             }
         }
 
-        if (deaths.length) {
+        for (const e of deaths) log.info(`death: ${e.name}${e.location ? ` at ${e.location}` : ''}${e.cause ? ` (${e.cause})` : ''}`);
+        if (deaths.length && config.deathChannelId) {
             const channel = await this.channel(config.deathChannelId);
             if (channel) {
                 const embeds = deaths.map(e => {
                     const embed = new EmbedBuilder()
                         .setColor(0x8b0000)
-                        .setDescription(`💀 **${escapeMarkdown(e.name || 'Someone')}** has died`)
+                        .setDescription(`💀 **${escapeMarkdown(e.name || 'Someone')}** has died${causeText(e.cause)}`)
                         .setTimestamp(e.time ? new Date(e.time) : new Date());
                     if (e.location) embed.setFooter({ text: `📍 ${e.location}` });
                     return embed;
@@ -138,7 +147,6 @@ export class Relay {
                 for (let i = 0; i < embeds.length; i += 10) {
                     await channel.send({ embeds: embeds.slice(i, i + 10), allowedMentions: NO_MENTIONS });
                 }
-                for (const e of deaths) log.info(`death: ${e.name}${e.location ? ` at ${e.location}` : ''}`);
             }
         }
     }

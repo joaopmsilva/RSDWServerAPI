@@ -1,9 +1,12 @@
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { Activity } from './activity.js';
 import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
+import { Alerts } from './alerts.js';
 import { Bridge } from './bridge.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
 import { errorEmbed } from './embeds.js';
+import { History } from './history.js';
 import { initLogFile, logger } from './log.js';
 import { attachMenu } from './menus.js';
 import { Notices } from './notices.js';
@@ -31,20 +34,27 @@ const client = new Client({
 log.info(`starting - API ${config.apiUrl}, data in ${config.dataDir}`);
 
 const store = new PlayerStore(config.dataDir);
+const history = new History(config.dataDir);
 const poller = new Poller(client, store);
+const activity = new Activity(client, store, history);
 const bridge = new Bridge();
-const relay = new Relay(client, bridge);
+const relay = new Relay(client, bridge, activity);
 const notices = new Notices(client);
+const alerts = new Alerts(client, poller);
 const control = new ServerControl(client);
-const ctx = { store, poller, control };
+const ctx = { store, history, poller, control };
 const lastUse = new Map();
 
+poller.onPlayers = (players, health) => activity.observe(players, health);
 poller.onTick = state => notices.observe(state);
+notices.onNotice = (kind, details) => alerts.notice(kind, details);
 
 client.once(Events.ClientReady, async c => {
     log.info(`logged in as ${c.user.tag}, in ${c.guilds.cache.size} server(s), polling every ${config.pollSeconds}s`);
     for (const guild of c.guilds.cache.values()) await registerCommands(guild);
     notices.start();
+    alerts.start();
+    activity.start();
     poller.start();
     relay.start();
     bridge.start();
@@ -126,6 +136,8 @@ function shutdown(signal) {
     log.info(`${signal} received, shutting down`);
     poller.stop();
     relay.stop();
+    alerts.stop();
+    activity.stop();
     try {
         store.flush();
     } catch (err) {
