@@ -213,44 +213,63 @@ otherwise, change `ANNOUNCE=` at the top of each. To test without waiting for cr
 /usr/bin/node /home/dragonwilds/rsdw-bot/src/announce.js say "Testing notices"
 ```
 
-## Updating the bot
+## Updating
 
-The bot is separate from the game server, so updating it never needs a server restart:
-players stay connected, and only the bot is gone for a couple of seconds.
+Three scripts do the work:
 
-From PowerShell on your PC:
+| Script | Runs on | Does |
+| ------ | ------- | ---- |
+| `deploy\upload.ps1` | your PC | packs the project, uploads it, unpacks it into `~/RSDWServerAPI` on the VPS, and with `-Bot` / `-Mod` runs the two below |
+| `deploy/update-bot.sh` | VPS | copies the bot into `/home/dragonwilds/rsdw-bot` (keeping `.env` and `data/`), installs packages, restarts it, lists new `.env` settings |
+| `deploy/update-mod.sh` | VPS | builds the mod and swaps it in for the next server start |
+
+The bot is separate from the game server, so updating it never needs a server restart.
+The mod is loaded when the server starts, so a new build takes effect at the next restart -
+the daily one at 05:00, or now with `--restart`.
+
+### One-time: log in with a key instead of a password
+
+So the scripts don't ask for your password (twice) every time. In PowerShell:
 
 ```powershell
-cd C:\Users\parad\Desktop\rsdwapi
-tar --exclude=node_modules --exclude=.git --exclude=bot/data --exclude=bot/.env -czf rsdw.tgz RSDWServerAPI
-scp rsdw.tgz USER@VPS_IP:/tmp/
+ssh-keygen -t ed25519
 ```
 
-On the VPS:
+Press Enter at every question. Then copy the key to the VPS (this asks for the password one
+last time):
+
+```powershell
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ubuntu@VPS_IP "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+```
+
+`ssh ubuntu@VPS_IP` should now log in without asking. Windows may block running downloaded
+scripts; allow your own with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, once.
+
+### Every update
+
+From PowerShell, in the project folder:
+
+```powershell
+cd C:\Users\parad\Desktop\rsdwapi\RSDWServerAPI
+.\deploy\upload.ps1 -Bot          # bot changes: live in a few seconds
+.\deploy\upload.ps1 -Mod          # mod changes: built now, loaded at the 05:00 restart
+.\deploy\upload.ps1 -Bot -Mod     # both
+```
+
+The VPS address is at the top of `upload.ps1` (`-Target`).
+
+On the VPS, after uploading, the mod script also takes:
 
 ```bash
-cd ~ && rm -rf RSDWServerAPI && tar xzf /tmp/rsdw.tgz
-rsync -a --delete --exclude=.env --exclude=data/ --exclude=node_modules/ ~/RSDWServerAPI/bot/ /home/dragonwilds/rsdw-bot/
-cd /home/dragonwilds/rsdw-bot && npm install --omit=dev
-sudo systemctl restart rsdw-bot
-journalctl -u rsdw-bot -n 30 --no-pager
+~/RSDWServerAPI/deploy/update-mod.sh --restart    # build, warn players, restart in 2 minutes
+~/RSDWServerAPI/deploy/update-mod.sh --rollback   # put the previous mod back for the next start
 ```
 
-`rsync` replaces the code but leaves `.env` and `data/` (saved players, relay position, logs)
-alone. Then check `.env.example` for settings your `.env` doesn't have yet:
+`update-mod.sh` never overwrites the mod the server is running: it copies the new build next
+to it and renames it over, and keeps the previous one as `librsdwapi.so.old`. Don't `cp` a
+new build straight onto `librsdwapi.so` while the server runs - that can crash it.
 
-```bash
-diff <(grep -o '^[A-Z_]*=' .env.example | sort) <(grep -o '^[A-Z_]*=' .env | sort)
-```
-
-Lines starting with `<` are new settings. Missing ones use their defaults, so adding them is
-only needed to change something.
-
-## Updating the mod
-
-Only needed when the mod itself changes. Copy the project over (step 2), `make -j"$(nproc)"`,
-then at a quiet moment stop the server, copy `dist/librsdwapi.so` into place and start it
-again (steps 4-6).
+If `update-bot.sh` says the cron scripts differ, copy them over as in step 10.
 
 ## Troubleshooting
 
