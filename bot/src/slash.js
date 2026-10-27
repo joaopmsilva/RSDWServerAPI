@@ -78,6 +78,7 @@ export const definitions = [
                     { name: 'backup now', value: 'backup' },
                     { name: 'list backups', value: 'backups' },
                     { name: 'restore a backup', value: 'restore' },
+                    { name: 'update the game server', value: 'update' },
                 ),
         )
         .addIntegerOption(o =>

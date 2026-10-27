@@ -7,7 +7,7 @@
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.4.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.5.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.6.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -45,6 +45,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Server notices** - online, offline, restarting, backups
 - **Weekly recap** every Sunday: top gainers, new 99s, most played
 - **Live status board** - one self-updating message with how to join and who's on
+- **Game update watcher** - warns when Steam has a new server build, then backs up, updates and restarts by itself
 - The bot's status shows `🟢 3/16 players online`
 
 </td>

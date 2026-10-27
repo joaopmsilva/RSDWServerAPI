@@ -669,3 +669,44 @@ export function noticeEmbed(kind, { minutes = 0, message = '', downtimeMs = 0, a
         .setFooter({ text: config.serverName })
         .setTimestamp();
 }
+
+// ---- game updates -------------------------------------------------------
+
+const ago = ms => (ms ? ` · ${relative(ms)}` : '');
+
+// mode: scheduled (backing up and updating in `minutes`), offline (server is
+// stopped), manual (AUTO_UPDATE is off, or this build's update already ran).
+export function updateOutdatedEmbed({ installed, latest, mode, minutes }) {
+    const next = {
+        scheduled:
+            `🔄 **Backing up, updating and restarting ${minutes > 1 ? `in ${minutes} minutes` : 'in a minute'}** · ${relative(Date.now() + minutes * 60000)}\n` +
+            'Players in game have been warned. Admins can wait for the daily update instead with `/server cancel`.',
+        offline: 'The server is stopped. An admin can update it with `/server update` - it starts again afterwards.',
+        manual: 'It updates at the next daily restart, or right away with `/server update`.',
+    }[mode];
+    return new EmbedBuilder()
+        .setColor(0xe67e22)
+        .setTitle('⚠️ Server is out of date')
+        .setDescription(`A game update is out on Steam. Until the server has it, players on the new version may not be able to join.\n\n${next}`)
+        .addFields(
+            { name: '📦 Installed', value: `Build \`${installed.buildId}\`${ago(installed.updated)}`, inline: true },
+            { name: '🆕 Latest', value: `Build \`${latest.buildId}\`${ago(latest.released)}`, inline: true },
+        )
+        .setTimestamp();
+}
+
+export function updateDoneEmbed({ from, to }) {
+    return new EmbedBuilder()
+        .setColor(COLOR.online)
+        .setTitle('🆕 Server updated')
+        .setDescription(`${from && to && from !== to ? `Build \`${from}\` → \`${to}\`. ` : ''}It's starting up - the online notice follows once it's ready.`)
+        .setTimestamp();
+}
+
+export function updateFailedEmbed(reason) {
+    return new EmbedBuilder()
+        .setColor(COLOR.error)
+        .setTitle('❌ Server update failed')
+        .setDescription(`${reason.slice(0, 1500)}\n\nThe server is back on the old build. The daily update tries again, or use \`/server update\`.`)
+        .setTimestamp();
+}

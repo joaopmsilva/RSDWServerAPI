@@ -17,6 +17,7 @@ import { Relay } from './relay.js';
 import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
+import { UpdateWatcher } from './update-watch.js';
 
 initLogFile(config.dataDir);
 
@@ -49,6 +50,8 @@ const control = new ServerControl(client);
 const ctx = { store, history, poller, control };
 const board = new StatusBoard(client, poller, ctx);
 const commandsPost = new CommandsPost(client);
+const updates = new UpdateWatcher(client, poller, control);
+ctx.updates = updates;
 const lastUse = new Map();
 
 poller.onPlayers = (players, health) => activity.observe(players, health);
@@ -66,6 +69,7 @@ client.once(Events.ClientReady, async c => {
     activity.start();
     board.start();
     commandsPost.start();
+    updates.start();
     poller.start();
     relay.start();
     bridge.start();

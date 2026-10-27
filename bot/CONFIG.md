@@ -16,7 +16,7 @@ role or user and pick *Copy ID*.
 
 [**Connection**](#-connection) · [**General**](#-general) · [**Channels**](#-channels) ·
 [**Chat**](#-chat) · [**Notices & activity**](#-notices--activity) · [**Status board**](#-status-board) ·
-[**Admin**](#%EF%B8%8F-admin) · [**Misc**](#-misc) · [**Example**](#-a-full-example)
+[**Admin**](#%EF%B8%8F-admin) · [**Game updates**](#-game-updates) · [**Misc**](#-misc) · [**Example**](#-a-full-example)
 
 ---
 
@@ -96,7 +96,7 @@ to keep it off the board.
 | Setting | Default | What it does |
 | ------- | ------- | ------------ |
 | `ADMIN_USER_IDS` | *(nobody)* | Comma-separated Discord user IDs allowed to use `/server` and `/admin`, and who get private alerts. Empty means nobody can. |
-| `SERVER_SERVICE` | `dragonwilds` | The game server's systemd service, for `/server start`, `stop`, `restart` and `restore`. |
+| `SERVER_SERVICE` | `dragonwilds` | The game server's systemd service, for `/server start`, `stop`, `restart`, `restore` and `update`. |
 | `BACKUP_SCRIPT` | `/home/dragonwilds/scripts/backup.sh` | What `/server backup` runs. |
 | `BACKUP_DIR` | `/home/dragonwilds/backups` | Where the backups are, for `/server backups` and `/server restore`. |
 | `SAVE_DIR` | `/home/dragonwilds/rs_server/RSDragonwilds/Saved/SaveGames` | Where the world's `.sav` files are - what `/server restore` replaces and `/admin save` checks. |
@@ -106,11 +106,26 @@ to keep it off the board.
 | `ALERT_RAM` | `90` | RAM % that triggers an alert. `0` turns this one off. |
 | `ALERT_DISK` | `90` | Disk % that triggers an alert. `0` turns this one off. |
 
+## 🆕 Game updates
+
+| Setting | Default | What it does |
+| ------- | ------- | ------------ |
+| `UPDATE_WATCH` | `true` | Check Steam for a new build of the dedicated server. When the installed one is out of date, a *⚠️ Server is out of date* notice goes to the status channel, once per build. |
+| `UPDATE_CHECK_MINUTES` | `15` | How often to check (minimum `5`). |
+| `AUTO_UPDATE` | `true` | After the notice, update by itself: back up (saving the world first), stop, update with steamcmd, start. Players in game get a warning, and `/server cancel` stops it - the daily update then takes care of it. Each build is tried once, so a failed or cancelled update isn't retried in a loop. A stopped server isn't started for this; the notice says to use `/server update`. `false` only warns. |
+| `AUTO_UPDATE_MINUTES` | `20` | How long players get before the update. With nobody online it goes after a minute. |
+| `STEAM_APP_ID` | `4019830` | The dedicated server's Steam app. |
+| `SERVER_DIR` | `/home/dragonwilds/rs_server` | Where the server is installed. The installed build is read from `steamapps/appmanifest_<app>.acf` there; without it the watcher stays off. |
+| `STEAMCMD` | `/home/dragonwilds/steamcmd/steamcmd.sh` | steamcmd, run as the bot's user. |
+
+The latest build comes from [api.steamcmd.net](https://api.steamcmd.net), or from steamcmd itself if
+that's down.
+
 ## 🧰 Misc
 
 | Setting | Default | What it does |
 | ------- | ------- | ------------ |
-| `DATA_DIR` | `bot/data` | Where player stats, history, the chat position, the status board and command list messages, the item list and `bot.log` are kept. A relative path is relative to `bot/`. |
+| `DATA_DIR` | `bot/data` | Where player stats, history, the chat position, the status board and command list messages, the update watcher's state, the item list and `bot.log` are kept. A relative path is relative to `bot/`. |
 | `DEBUG` | `false` | Log extra detail: presence updates, relay batches, undelivered chat. |
 
 ---
@@ -175,6 +190,15 @@ ADMIN_ALERTS=true
 ALERT_CPU=90
 ALERT_RAM=90
 ALERT_DISK=90
+
+# --- Game updates ---
+UPDATE_WATCH=true
+UPDATE_CHECK_MINUTES=15
+AUTO_UPDATE=true
+AUTO_UPDATE_MINUTES=20
+STEAM_APP_ID=4019830
+SERVER_DIR=/home/dragonwilds/rs_server
+STEAMCMD=/home/dragonwilds/steamcmd/steamcmd.sh
 
 # --- Misc ---
 DATA_DIR=

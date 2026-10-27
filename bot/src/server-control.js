@@ -4,6 +4,7 @@ import { restoreFiles } from './backups.js';
 import { config } from './config.js';
 import { logger } from './log.js';
 import { clearPlan } from './notices.js';
+import { installedBuild, isNewer, updateServer } from './steam.js';
 
 const log = logger('server');
 const SYSTEMCTL = '/bin/systemctl';
@@ -19,6 +20,18 @@ function systemctl(action) {
                 ? ' - add the sudoers line from DEPLOY.md ("Discord admin commands")'
                 : '';
             reject(new Error(text + hint));
+        });
+    });
+}
+
+// Runs BACKUP_SCRIPT, as the bot's user. The script saves the world first and
+// posts its own "Backup complete" notice. Resolves with its output.
+export function runBackupScript() {
+    return new Promise((resolve, reject) => {
+        execFile('bash', [config.backupScript], { timeout: 5 * 60 * 1000 }, (err, stdout, stderr) => {
+            const output = `${stdout}${stderr}`.trim();
+            if (err) return reject(Object.assign(err, { output }));
+            resolve(output);
         });
     });
 }
@@ -50,7 +63,7 @@ export class ServerControl {
         const post = embed => this.post(embed);
         const message = 'Restoring a backup';
 
-        this.pending = { action: 'restore', timers: [], by };
+        this.pending = { action: 'restore', timers: [], by, running: true };
         try {
             if (playersOnline) {
                 await announce('stop', { minutes: 1, message, post });
@@ -107,16 +120,79 @@ export class ServerControl {
         this.pending = { action, at: Date.now() + minutes * 60000, timers, by };
     }
 
+    // Back up, stop, update with steamcmd, start - after warning players for
+    // `minutes`. target is the build being updated to (from the update watcher):
+    // if the server already has it by then (the daily update got there first),
+    // nothing happens. done(result, err) is called when it's over. notice: false
+    // leaves the Discord restart notice out, for when the caller posts its own.
+    update(minutes, by, { reason = 'Game update', target = null, done, notice = true } = {}) {
+        if (this.pending) throw new Error(`a ${this.pending.action} is already planned - use cancel first`);
+        log.info(`update requested by ${by}${minutes ? ` in ${minutes} min` : ''}`);
+        const post = embed => this.post(embed);
+
+        const execute = async () => {
+            this.pending.running = true;
+            try {
+                const installed = installedBuild()?.buildId;
+                if (target && installed && !isNewer(target, installed)) {
+                    log.info(`already on build ${installed}, nothing to update`);
+                    clearPlan();
+                    await announce('say', { message: 'The server is already up to date - no restart needed.', post });
+                    return { from: installed, to: installed, skipped: true };
+                }
+                try {
+                    await runBackupScript();
+                    log.info('backup before the update done');
+                } catch (err) {
+                    // Better updated without a fresh backup than not at all - the hourly ones are still there.
+                    log.error(`backup before the update failed: ${err.message}`);
+                }
+                await announce('restart', { minutes: 0, message: reason, gameOnly: true });
+                await systemctl('stop');
+                try {
+                    const result = await updateServer();
+                    log.info(`server updated: build ${result.from} -> ${result.to}`);
+                    return result;
+                } finally {
+                    await systemctl('start');
+                }
+            } finally {
+                this.pending = null;
+            }
+        };
+        const run = () =>
+            execute().then(
+                result => done?.(result, null),
+                err => {
+                    log.error(`update failed: ${err.message}`);
+                    done?.(null, err);
+                },
+            );
+
+        const timers = [];
+        this.pending = { action: 'update', at: Date.now() + minutes * 60000, timers, by };
+        announce('restart', { minutes, message: reason, post: notice ? post : undefined })
+            .catch(err => log.warn(`could not announce the update: ${err.message}`))
+            .then(() => {
+                if (!this.pending || this.pending.timers !== timers) return;
+                timers.push(setTimeout(run, minutes * 60000));
+                if (minutes > 1) {
+                    timers.push(setTimeout(() => announce('restart', { minutes: 1, message: reason, gameOnly: true }), (minutes - 1) * 60000));
+                }
+            });
+    }
+
     async cancel(by) {
         if (!this.pending) return null;
-        if (this.pending.action === 'restore') throw new Error("a backup restore is under way and can't be cancelled");
+        if (this.pending.running) throw new Error(`the ${this.pending.action} is already under way and can't be cancelled`);
         const { action, timers } = this.pending;
         for (const timer of timers) clearTimeout(timer);
         this.pending = null;
         clearPlan();
         log.info(`${action} cancelled by ${by}`);
 
-        const text = `The planned ${action === 'stop' ? 'shutdown' : 'restart'} is cancelled.`;
+        const text = `The planned ${action === 'stop' ? 'shutdown' : action === 'update' ? 'update and restart' : 'restart'} is cancelled.`;
+        this.onCancel?.(action);
         await announce('say', { message: text, post: embed => this.post(embed) });
         return action;
     }

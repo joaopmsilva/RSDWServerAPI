@@ -79,5 +79,12 @@ export const config = {
         .map(s => s.trim())
         .filter(Boolean),
     serverService: (process.env.SERVER_SERVICE || 'dragonwilds').trim(),
+    updateWatch: bool('UPDATE_WATCH', true),
+    updateCheckMinutes: Math.max(5, int('UPDATE_CHECK_MINUTES', 15)),
+    autoUpdate: bool('AUTO_UPDATE', true),
+    autoUpdateMinutes: Math.max(1, int('AUTO_UPDATE_MINUTES', 20)),
+    steamAppId: (process.env.STEAM_APP_ID || '4019830').trim(),
+    serverDir: (process.env.SERVER_DIR || '/home/dragonwilds/rs_server').trim(),
+    steamcmd: (process.env.STEAMCMD || '/home/dragonwilds/steamcmd/steamcmd.sh').trim(),
     dataDir: path.resolve(botRoot, process.env.DATA_DIR || 'data'),
 };

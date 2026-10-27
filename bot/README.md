@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.5.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.6.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -197,6 +197,14 @@ with these calls in.
 
 </details>
 
+### 🆕 Game updates
+
+The bot checks Steam every 15 minutes. When a new build of the server is out, the status channel
+gets a **⚠️ Server is out of date** notice with the installed and latest builds, and 20 minutes later
+(players in game are warned) the bot backs up, updates with steamcmd and restarts - straight away if
+nobody's on. `/server cancel` leaves it for the daily update instead. Then *🆕 Server updated*, and
+the usual online notice once it's up. `AUTO_UPDATE=false` only warns.
+
 ## 🛡️ For admins
 
 Only the Discord users in `ADMIN_USER_IDS` can use these, they're hidden from members without
@@ -210,6 +218,7 @@ Administrator, and the replies are only visible to you.
 | 💾 **`/server backup`** | Runs the backup script now |
 | 🗂️ **`/server backups`** | Every backup with its age and size |
 | ⏪ **`/server restore`** `backup` | Puts a backup back after you confirm - warns players, stops the server, keeps a copy of the current world, starts it again |
+| 🆕 **`/server update`** `[minutes]` | Back up, update the game server with steamcmd and start it again |
 | 👢 **`/admin kick`** · **`ban`** · **`unban`** · **`bans`** | Moderation |
 | 🎁 **`/admin give`** `player` `item` `[count]` | Item names fill in as you type |
 | 📢 **`/admin say`** `message` | In game and in the status channel |
@@ -277,6 +286,7 @@ presence updates, relay batches and undelivered chat.
 | `src/system.js` | VPS CPU, RAM, disk and network |
 | `src/board.js` | The live status board |
 | `src/commands-post.js` | The pinned command list |
+| `src/update-watch.js`, `src/steam.js` | Watching Steam for game updates, updating with steamcmd |
 | `src/backups.js`, `src/world-save.js`, `src/save-world.js` | Backups, restoring, saving the world before a backup |
 | `src/items.js`, `src/wiki.js` | Item list and lookup, wiki summaries |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |

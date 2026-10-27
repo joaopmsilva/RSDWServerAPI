@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { announce } from './announcer.js';
 import { api } from './api.js';
@@ -16,6 +15,7 @@ import {
     saveCandidatesEmbed,
 } from './embeds.js';
 import { logger } from './log.js';
+import { runBackupScript } from './server-control.js';
 import { saveWorld } from './world-save.js';
 
 const log = logger('admin');
@@ -31,22 +31,16 @@ const ok = text => ({ reply: { embeds: [okEmbed(text)] } });
 const fail = text => ({ reply: { embeds: [errorEmbed(text)] } });
 const tail = output => (output ? '\n```\n' + output.slice(-1500) + '\n```' : '');
 
-// Runs BACKUP_SCRIPT now, as the bot's user. The script posts its own
-// "Backup complete" notice.
-function backup(by) {
+async function backup(by) {
     log.info(`backup requested by ${by}`);
-    return new Promise(resolve => {
-        execFile('bash', [config.backupScript], { timeout: 5 * 60 * 1000 }, (err, stdout, stderr) => {
-            const output = `${stdout}${stderr}`.trim();
-            if (err) {
-                log.error(`backup failed: ${err.message}`);
-                resolve(fail(`The backup failed: ${err.message.split('\n')[0]}${tail(output)}`));
-            } else {
-                log.info('backup done');
-                resolve(ok(`Backup done.${tail(output)}`));
-            }
-        });
-    });
+    try {
+        const output = await runBackupScript();
+        log.info('backup done');
+        return ok(`Backup done.${tail(output)}`);
+    } catch (err) {
+        log.error(`backup failed: ${err.message}`);
+        return fail(`The backup failed: ${err.message.split('\n')[0]}${tail(err.output)}`);
+    }
 }
 
 async function server(i, ctx) {
@@ -66,6 +60,7 @@ async function server(i, ctx) {
     if (action === 'backup') return backup(by);
     if (action === 'backups') return { reply: { embeds: [backupsEmbed(listBackups())] } };
     if (action === 'restore') return restore(i, ctx, by);
+    if (action === 'update') return update(i, ctx, by);
 
     if (action === 'start') {
         const { status } = poller.state;
@@ -88,6 +83,21 @@ async function server(i, ctx) {
     if (!minutes) return ok(action === 'stop' ? 'Server stopped.' : 'Server restarting - the status channel says when it is back.');
     const what = action === 'stop' ? 'Shutdown' : 'Restart';
     return ok(`${what} in ${minutes} minute${minutes === 1 ? '' : 's'}. Players have been warned. \`/server cancel\` stops it.`);
+}
+
+// Back up, update with steamcmd and restart - the update watcher does the same
+// by itself when Steam has a new build. Warns online players first.
+function update(i, ctx, by) {
+    const { control, poller, updates } = ctx;
+    const given = i.options.getInteger('minutes');
+    const minutes = given ?? (poller.state.players.length ? 5 : 0);
+    try {
+        control.update(minutes, by, { done: (result, err) => updates?.finished(result, err) });
+    } catch (err) {
+        return fail(`The update failed: ${err.message}`);
+    }
+    const when = minutes ? `in ${minutes} minute${minutes === 1 ? '' : 's'}` : 'now';
+    return ok(`Backing up, updating and restarting ${when}. The status channel says when it's back.${minutes ? ' `/server cancel` stops it.' : ''}`);
 }
 
 // Asks first with buttons; index.js runs confirm() when the admin presses Restore.
