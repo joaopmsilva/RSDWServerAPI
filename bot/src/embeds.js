@@ -622,7 +622,7 @@ export function helpEmbed() {
         embed.addFields({
             name: '🛡️ Admins only',
             value:
-                '`/server` start, stop, restart, cancel, back up, list and restore backups\n' +
+                '`/server` start, stop, restart, cancel, update, back up, list and restore backups\n' +
                 '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics',
         });
     }
