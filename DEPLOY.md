@@ -143,7 +143,7 @@ node --version          # needs v18.17 or newer
 mv ~/RSDWServerAPI/bot /home/dragonwilds/rsdw-bot
 cd /home/dragonwilds/rsdw-bot
 npm install --omit=dev
-cp .env.example .env
+cp .env.example .env   # every setting is explained in CONFIG.md
 nano .env
 ```
 

@@ -227,8 +227,8 @@ them all off. Discord has to allow DMs from server members.
 
 ## ⚙️ Configuration
 
-Everything lives in `.env` - [`.env.example`](.env.example) explains each option. Only these are
-needed to start:
+Everything lives in `.env` - **[CONFIG.md](CONFIG.md) explains every setting**, with defaults and a
+full example. Only these are needed to start:
 
 | Setting | |
 | ------- | - |
