@@ -18,6 +18,9 @@ User=dragonwilds
 WorkingDirectory=/home/dragonwilds/rs_server
 Environment=LD_PRELOAD=/home/dragonwilds/rs_server/librsdwapi.so
 ExecStart=/home/dragonwilds/rs_server/RSDragonwildsServer.sh -log -port=7777
+# One line per run with how it ended (time, result, exited/killed/dumped, code or
+# signal). The Discord bot reads it to explain unplanned restarts.
+ExecStopPost=/bin/sh -c 'echo "$$(date +%%s) $$SERVICE_RESULT $$EXIT_CODE $$EXIT_STATUS" >> /home/dragonwilds/rs_server/rsdwapi/exits.log'
 # Come back after a crash; a stop through systemctl stays stopped.
 Restart=on-failure
 RestartSec=15

@@ -134,10 +134,13 @@ void RegisterSystem(HttpServer& server) {
             add("processEvent", GameThread::HasProcessEvent() ? 1 : -1,
                 GameThread::HasProcessEvent() ? "found" : "learned once a player has joined");
             add("chatHook", DomChat::IsHooked() ? 1 : 0, DomChat::Status());
+            std::string looking = DomChat::StillLooking() ? " yet - still looking" : "";
             add("broadcast", DomChat::CanBroadcast() ? 1 : 0,
-                DomChat::CanBroadcast() ? "Client_ReceiveChatMessage found" : "Client_ReceiveChatMessage not found");
+                DomChat::CanBroadcast() ? "Client_ReceiveChatMessage found"
+                                        : "Client_ReceiveChatMessage not found" + looking);
             add("adminCheck", DomChat::CanCheckAdmin() ? 1 : 0,
-                DomChat::CanCheckAdmin() ? "ControllerIsOwnerOrAdmin found" : "ControllerIsOwnerOrAdmin not found");
+                DomChat::CanCheckAdmin() ? "ControllerIsOwnerOrAdmin found"
+                                         : "ControllerIsOwnerOrAdmin not found" + looking);
 
             std::string componentDetail;
             int componentState = DomChat::ChatComponentState(componentDetail);

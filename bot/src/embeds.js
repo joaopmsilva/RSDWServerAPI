@@ -506,6 +506,35 @@ export function diagnosticsEmbed(diag) {
         .setTimestamp();
 }
 
+// ---- crash reports ------------------------------------------------------
+
+const CAUSE_ICON = { oom: '🧠', 'mod-crash': '🧩', crash: '💥', killed: '🔪', stopped: '⏹️', reboot: '🔁', exited: '🚪', unknown: '❓' };
+
+export function crashReportEmbed({ verdict, uptimeSeconds, exit, mod, name }) {
+    const fields = [];
+    if (uptimeSeconds != null) fields.push({ name: 'Had been up', value: formatDuration(uptimeSeconds), inline: true });
+    if (exit?.at) fields.push({ name: 'How it ended', value: `\`${exit.result} · ${exit.code} ${exit.status}\``, inline: true });
+    const memory = mod?.heartbeat.match(/using (\d+) MB/)?.[1];
+    if (memory) fields.push({ name: 'Server memory (last check)', value: `${fmt(memory)} MB`, inline: true });
+    return new EmbedBuilder()
+        .setColor(COLOR.error)
+        .setTitle(`${CAUSE_ICON[verdict.cause] || '❓'} Why the server went down`)
+        .setDescription(verdict.text)
+        .addFields(fields)
+        .setFooter({ text: `Full report: ${name} · /admin crashes lists past ones` })
+        .setTimestamp();
+}
+
+export function crashesEmbed(entries) {
+    const lines = entries.slice(0, 10).map(e => `${CAUSE_ICON[e.cause] || '❓'} <t:${Math.floor(e.at / 1000)}:f> · ${e.verdict.replace(/\*\*/g, '').split('\n')[0].slice(0, 180)}`);
+    return new EmbedBuilder()
+        .setColor(entries.length ? COLOR.error : COLOR.online)
+        .setTitle('💥 Unplanned restarts')
+        .setDescription(lines.join('\n') || 'None recorded - the server has not gone down unexpectedly since the bot started keeping reports.')
+        .setFooter({ text: entries.length ? 'The newest full report is attached' : config.serverName })
+        .setTimestamp();
+}
+
 // ---- system -------------------------------------------------------------
 
 function bytes(n) {
@@ -623,7 +652,7 @@ export function helpEmbed() {
             name: '🛡️ Admins only',
             value:
                 '`/server` start, stop, restart, cancel, update, back up, list and restore backups\n' +
-                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics',
+                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics, crashes',
         });
     }
     return embed;

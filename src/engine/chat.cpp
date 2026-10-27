@@ -58,6 +58,15 @@ uintptr_t g_SystemMessageFunction = 0;
 bool g_Hooked = false;
 std::string g_Status = "not initialised";
 
+// The chat and privilege classes live in plugins the game can load after the
+// engine is up, so whatever isn't found at start is looked for again.
+using Clock = std::chrono::steady_clock;
+bool g_LookupDone = false;
+int g_Lookups = 0;
+Clock::time_point g_FirstLookup;
+Clock::time_point g_NextLookup;
+bool g_CandidatesLogged = false;
+
 std::mutex g_ListenerMutex;
 std::vector<Listener> g_Listeners;
 std::vector<EventListener> g_EventListeners;
@@ -381,6 +390,140 @@ void SendThunk(void* context, void* frame, void* result) {
     if (!suppress && g_OriginalSend) g_OriginalSend(context, frame, result);
 }
 
+struct Wanted {
+    const char* className;
+    const char* function;
+    uintptr_t* slot;
+    // Also accepted on another class whose name contains this, for when a game
+    // update renames the class.
+    const char* looseOuter;
+    std::string fallbackOuter;
+    uintptr_t fallback = 0;
+};
+
+// One pass over GObjects for every function still missing.
+void FindMissing(std::vector<Wanted>& wanted, bool logCandidates) {
+    Engine* engine = g_Engine;
+    int logged = 0;
+    int32_t count = engine->GetObjectCount();
+    for (int32_t i = 0; i < count; i++) {
+        uintptr_t object = engine->GetObjectByIndex(i);
+        if (!object) continue;
+        std::string name = engine->GetObjectName(object);
+
+        bool interesting = false;
+        for (const Wanted& w : wanted) interesting |= name == w.function;
+        bool candidate = logCandidates && logged < 30 &&
+                         (name.find("ChatMessage") != std::string::npos ||
+                          name.find("OwnerOrAdmin") != std::string::npos);
+        if (!interesting && !candidate) continue;
+        if (engine->GetObjectClassName(object) != "Function") continue;
+
+        std::string outer = engine->GetObjectName(Mem::ReadPtr(object + Offsets::UObject_Outer));
+        if (candidate) {
+            LogMessage("Chat:   candidate " + outer + "." + name);
+            logged++;
+        }
+        for (Wanted& w : wanted) {
+            if (name != w.function || *w.slot) continue;
+            if (outer == w.className) {
+                *w.slot = object;
+            } else if (!w.fallback && outer.find(w.looseOuter) != std::string::npos) {
+                w.fallback = object;
+                w.fallbackOuter = outer;
+            }
+        }
+    }
+
+    for (Wanted& w : wanted) {
+        if (*w.slot || !w.fallback) continue;
+        *w.slot = w.fallback;
+        LogMessage("Chat: " + std::string(w.function) + " found on " + w.fallbackOuter + " (expected " +
+                   w.className + ")");
+    }
+}
+
+bool InstallSendHook() {
+    uintptr_t original = Mem::ReadPtr(g_SendFunction + kExecFunction);
+    if (!original || !Mem::InImage((void*)original)) {
+        g_Status = "Server_SendChatMessage has no usable thunk";
+        return false;
+    }
+    g_OriginalSend = (ExecThunk)original;
+    *(uintptr_t*)(g_SendFunction + kExecFunction) = (uintptr_t)&SendThunk;
+    g_Hooked = true;
+    g_Status = "hooked";
+    LogMessage("Chat: reading messages from PlayerChatComponent.Server_SendChatMessage" +
+               std::string(g_Lookups > 1 ? " (found on try " + std::to_string(g_Lookups) + ")" : ""));
+    return true;
+}
+
+// Looks up whatever is still missing. Runs at start, then from Poll every 10s for
+// the first ten minutes and every minute after that, until everything is found.
+void Lookup() {
+    Engine* engine = g_Engine;
+    if (g_LookupDone || !engine || !engine->IsInitialized()) return;
+
+    auto now = Clock::now();
+    if (g_Lookups && now < g_NextLookup) return;
+    if (!g_Lookups) g_FirstLookup = now;
+    g_Lookups++;
+    g_NextLookup = now + (now - g_FirstLookup < std::chrono::minutes(10) ? std::chrono::seconds(10)
+                                                                          : std::chrono::seconds(60));
+
+    bool hadReceive = g_ReceiveFunction != 0;
+    bool hadAdmin = g_AdminFunction && g_AdminLibrary;
+
+    std::vector<Wanted> wanted;
+    auto want = [&](const char* className, const char* function, uintptr_t* slot, const char* looseOuter) {
+        if (!*slot) wanted.push_back({className, function, slot, looseOuter, "", 0});
+    };
+    want("PlayerChatComponent", "Server_SendChatMessage", &g_SendFunction, "Chat");
+    want("PlayerChatComponent", "Client_ReceiveChatMessage", &g_ReceiveFunction, "Chat");
+    want("PlayerChatComponent", "Client_ReceivePlayerEvent", &g_ClientEventFunction, "Chat");
+    want("PlayerChatComponent", "Server_SendPlayerEvent", &g_ServerEventFunction, "Chat");
+    want("PlayerChatComponent", "Client_ReceiveSystemMessage", &g_SystemMessageFunction, "Chat");
+    want("PrivilegeFunctionLibrary", "ControllerIsOwnerOrAdmin", &g_AdminFunction, "");
+
+    // Still missing after two minutes: list what the game has instead, once.
+    bool logCandidates = !g_CandidatesLogged && now - g_FirstLookup >= std::chrono::minutes(2) &&
+                         (!g_SendFunction || !g_ReceiveFunction || !g_AdminFunction);
+    if (logCandidates) {
+        g_CandidatesLogged = true;
+        LogMessage("Chat: functions still missing after 2 minutes; similar ones in the game:");
+    }
+    if (!wanted.empty()) FindMissing(wanted, logCandidates);
+
+    // The library object is the default object of whichever class has the function.
+    if (g_AdminFunction && !g_AdminLibrary) {
+        std::string library = engine->GetObjectName(Mem::ReadPtr(g_AdminFunction + Offsets::UObject_Outer));
+        g_AdminLibrary = engine->FindObject(library.c_str(), true);
+    }
+
+    if (!g_Hooked && g_SendFunction) InstallSendHook();
+    if (!g_Hooked && !g_SendFunction) {
+        g_Status = "Server_SendChatMessage not found yet - still looking (try " + std::to_string(g_Lookups) + ")";
+    }
+
+    if (g_Lookups == 1) {
+        if (!g_SendFunction) LogMessage("Chat: Server_SendChatMessage not loaded yet, will keep looking");
+        if (!g_ReceiveFunction) LogMessage("Chat: Client_ReceiveChatMessage not loaded yet, will keep looking");
+        if (!g_AdminFunction || !g_AdminLibrary) LogMessage("Chat: ControllerIsOwnerOrAdmin not loaded yet, will keep looking");
+    } else {
+        if (!hadReceive && g_ReceiveFunction) {
+            LogMessage("Chat: Client_ReceiveChatMessage found on try " + std::to_string(g_Lookups) + ", broadcast is live");
+        }
+        if (!hadAdmin && g_AdminFunction && g_AdminLibrary) {
+            LogMessage("Chat: ControllerIsOwnerOrAdmin found on try " + std::to_string(g_Lookups) +
+                       ", chat commands are live");
+        }
+    }
+
+    g_LookupDone = g_Hooked && g_ReceiveFunction && g_AdminFunction && g_AdminLibrary &&
+                   (g_ClientEventFunction || g_ServerEventFunction);
+    if (g_LookupDone && g_Lookups > 1) LogMessage("Chat: everything found");
+}
+
 }
 
 bool IsHooked() { return g_Hooked; }
@@ -388,6 +531,7 @@ const std::string& Status() { return g_Status; }
 
 bool CanBroadcast() { return g_ReceiveFunction != 0; }
 bool CanCheckAdmin() { return g_AdminFunction != 0 && g_AdminLibrary != 0; }
+bool StillLooking() { return !g_LookupDone && g_Lookups > 0; }
 
 int ChatComponentState(std::string& detail) {
     if (g_ChatComponentVerified) {
@@ -417,14 +561,16 @@ void AddEventListener(EventListener listener) {
 
 void Poll() {
     Engine* engine = g_Engine;
-    if (!engine || !engine->IsInitialized() || !g_Hooked) return;
-    if (!g_ClientEventFunction && !g_ServerEventFunction && !g_SystemMessageFunction) return;
-    if (GameThread::VTableIndex() < 0) return;
+    if (!engine || !engine->IsInitialized()) return;
+    Lookup();
+
+    bool watchEvents = (g_ClientEventFunction || g_ServerEventFunction || g_SystemMessageFunction) &&
+                       GameThread::VTableIndex() >= 0;
 
     for (const PlayerInfo& player : engine->GetAllPlayers()) {
         if (!player.controllerPtr) continue;
         uintptr_t component = ChatComponentOf(player.controllerPtr);
-        if (!component) continue;
+        if (!component || !watchEvents) continue;
         uintptr_t vtable = Mem::ReadPtr(component);
         if (!vtable) continue;
 
@@ -445,45 +591,15 @@ void Poll() {
     }
 }
 
+// Anything not loaded yet is looked for again from Poll.
 bool Initialize() {
-    if (g_Hooked) return true;
-
     Engine* engine = g_Engine;
     if (!engine || !engine->IsInitialized()) {
         g_Status = "engine not initialised";
         return false;
     }
-
-    g_SendFunction = engine->FindFunction("PlayerChatComponent", "Server_SendChatMessage");
-    g_ReceiveFunction = engine->FindFunction("PlayerChatComponent", "Client_ReceiveChatMessage");
-    g_AdminFunction = engine->FindFunction("PrivilegeFunctionLibrary", "ControllerIsOwnerOrAdmin");
-    g_AdminLibrary = engine->FindObject("PrivilegeFunctionLibrary", true);
-    g_ClientEventFunction = engine->FindFunction("PlayerChatComponent", "Client_ReceivePlayerEvent");
-    g_ServerEventFunction = engine->FindFunction("PlayerChatComponent", "Server_SendPlayerEvent");
-    g_SystemMessageFunction = engine->FindFunction("PlayerChatComponent", "Client_ReceiveSystemMessage");
-
-    if (!g_SendFunction) {
-        g_Status = "Server_SendChatMessage not found";
-        LogMessage("Chat: " + g_Status);
-        return false;
-    }
-
-    uintptr_t original = Mem::ReadPtr(g_SendFunction + kExecFunction);
-    if (!original || !Mem::InImage((void*)original)) {
-        g_Status = "Server_SendChatMessage has no usable thunk";
-        LogMessage("Chat: " + g_Status);
-        return false;
-    }
-
-    g_OriginalSend = (ExecThunk)original;
-    *(uintptr_t*)(g_SendFunction + kExecFunction) = (uintptr_t)&SendThunk;
-
-    g_Hooked = true;
-    g_Status = "hooked";
-    LogMessage("Chat: reading messages from PlayerChatComponent.Server_SendChatMessage");
-    if (!g_ReceiveFunction) LogMessage("Chat: Client_ReceiveChatMessage not found, broadcast unavailable");
-    if (!g_AdminFunction || !g_AdminLibrary) LogMessage("Chat: ControllerIsOwnerOrAdmin not found, chat commands unavailable");
-    return true;
+    Lookup();
+    return g_Hooked;
 }
 
 bool Whisper(const PlayerInfo& player, const std::string& body) {

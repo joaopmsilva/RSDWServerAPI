@@ -4,10 +4,12 @@ import { api } from './api.js';
 import { findBackup, listBackups } from './backups.js';
 import { resolvePlayer } from './commands.js';
 import { config } from './config.js';
+import { crashReportPath, listCrashReports } from './crash-report.js';
 import {
     backupChoice,
     backupsEmbed,
     bansEmbed,
+    crashesEmbed,
     diagnosticsEmbed,
     errorEmbed,
     okEmbed,
@@ -150,6 +152,11 @@ async function save(i) {
 async function admin(i, ctx) {
     const sub = i.options.getSubcommand();
     if (sub === 'save') return save(i);
+    if (sub === 'crashes') {
+        const entries = listCrashReports();
+        const files = entries.length ? [{ attachment: crashReportPath(entries[0]), name: entries[0].file }] : [];
+        return { reply: { embeds: [crashesEmbed(entries)], files } };
+    }
     const player = i.options.getString('player');
     const reason = i.options.getString('reason') || '';
 

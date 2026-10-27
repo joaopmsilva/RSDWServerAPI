@@ -104,7 +104,7 @@ grep -E "loaded|data directory|Failed to bind|engine ready|not found|Events" /ho
 
 You should see:
 
-- `RSDWRestAPI 0.4.0 loaded`
+- `RSDWRestAPI 0.5.0 loaded`
 - `RSDWRestAPI: engine ready, endpoints are live`
 - `Events: chat and death feed live at /api/events`
 
@@ -119,7 +119,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 
 `health` should say `"engineReady":true`.
 
-If there is no `0.4.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
+If there is no `0.5.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
 **Run it as a service.** `/server` in Discord and the cron scripts start and stop the server
@@ -135,6 +135,20 @@ sudo systemctl enable --now dragonwilds
 
 From then on use `sudo systemctl start|stop|restart dragonwilds`, and `journalctl -u dragonwilds`
 for the server's own output.
+
+**Crash reports.** The service file writes one line per run to `rs_server/rsdwapi/exits.log` saying
+how it ended (normal stop, crash signal, out-of-memory kill), and the mod writes a backtrace to
+`rsdwapi/logs/crash.log` if the server crashes. When the server goes down without a planned
+restart, the bot combines those with the game's log and crash report into one file and DMs it to
+the admins (`/admin crashes` shows past ones). On an older install, `update-mod.sh` adds the
+exit-log line to your existing service file, and `update-bot.sh` lets the bot's user read the
+systemd and kernel logs (that's how it spots out-of-memory kills). To do it by hand instead:
+copy the service file in again as above, then
+
+```bash
+sudo usermod -aG systemd-journal dragonwilds
+sudo systemctl restart rsdw-bot
+```
 
 ## 7. Install the bot
 
@@ -394,6 +408,7 @@ If `update-bot.sh` says the cron scripts differ, copy them over as in step 10.
 | No server notices | `STATUS_CHANNEL_ID` or `CHAT_CHANNEL_ID` set, `SERVER_NOTICES` not false |
 | No ◀️ ▶️ on long lists | the bot needs *Add Reactions* and *Read Message History* |
 | `Discord login failed` | `DISCORD_TOKEN` wrong or reset |
-| No chat in Discord | `CHAT_CHANNEL_ID` set? `Chat: ... not found` in `api.log` means the game patch moved something |
+| No chat in Discord | `CHAT_CHANNEL_ID` set? The mod keeps looking for the chat functions while the game loads; `Chat: functions still missing after 2 minutes` in `api.log`, followed by a list of similar ones, means a game patch renamed them |
+| The server went down by itself | `/admin crashes`, or the newest file in the bot's `data/crashes/` |
 | `Failed to bind on 0.0.0.0:8080` in `api.log` | step 4 - something else holds the port |
 | Levels look wrong | compare with in-game; the table is in `bot/src/levels.js` |

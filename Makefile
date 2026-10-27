@@ -30,7 +30,8 @@ SRC := src/rsdwapi.cpp \
        src/rcon/rcon_commands.cpp \
        src/rcon/commands_system.cpp \
        src/rcon/commands_players.cpp \
-       src/utils/memory.cpp
+       src/utils/memory.cpp \
+       src/utils/crash_log.cpp
 
 OBJ := $(SRC:.cpp=.o)
 OUT := dist/librsdwapi.so

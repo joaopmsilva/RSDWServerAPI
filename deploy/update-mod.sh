@@ -45,13 +45,26 @@ else
     echo "== Installed the new mod. The previous one is kept as $MOD.old"
 fi
 
+# The service records how each run ends for the bot's crash reports. Older
+# installs lack that line; add it without touching the rest of the unit. The
+# server keeps running - it applies from the next stop.
+UNIT=/etc/systemd/system/$SERVICE.service
+if sudo test -f "$UNIT" && ! sudo grep -q '^ExecStopPost=.*exits.log' "$UNIT"; then
+    LINE="ExecStopPost=/bin/sh -c 'echo \"\$\$(date +%%s) \$\$SERVICE_RESULT \$\$EXIT_CODE \$\$EXIT_STATUS\" >> $SERVER_DIR/rsdwapi/exits.log'"
+    sudo awk -v line="$LINE" '{ print } /^ExecStart=/ { print line }' "$UNIT" > /tmp/rsdw-unit.service
+    sudo install -m 644 /tmp/rsdw-unit.service "$UNIT"
+    rm -f /tmp/rsdw-unit.service
+    sudo systemctl daemon-reload
+    echo "== Added the exit log to $UNIT (for crash reports)"
+fi
+
 if [ "${1:-}" = "--restart" ]; then
     echo "== Warning players, restarting in $WARN_MINUTES minutes"
     sudo -u "$SERVER_USER" $ANNOUNCE restart "$WARN_MINUTES" "Mod update" || true
     sleep $((WARN_MINUTES * 60))
     sudo systemctl restart "$SERVICE"
     echo "== Restarted. In a minute or two, check the log:"
-    echo "   sudo grep -E 'loaded|PlayerChatComponent|engine ready' $SERVER_DIR/rsdwapi/logs/api.log"
+    echo "   sudo grep -E 'loaded|Chat:|engine ready' $SERVER_DIR/rsdwapi/logs/api.log"
 else
     echo "== It loads at the next server start (for example a daily restart from cron)."
 fi

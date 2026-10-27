@@ -26,6 +26,7 @@ struct PlayerEvent {
 using Listener = std::function<void(const Message&)>;
 using EventListener = std::function<void(const PlayerEvent&)>;
 
+// Whatever the game hasn't loaded yet is looked for again by Poll.
 bool Initialize();
 bool IsHooked();
 const std::string& Status();
@@ -33,6 +34,7 @@ const std::string& Status();
 void AddListener(Listener listener);
 void AddEventListener(EventListener listener);
 
+// Every two seconds, from the init thread.
 void Poll();
 
 bool Broadcast(const std::string& body, std::string& outError);
@@ -46,6 +48,8 @@ bool IsPlayerAdmin(const DomEngine::PlayerInfo& player);
 // For /api/diagnostics.
 bool CanBroadcast();
 bool CanCheckAdmin();
+// True while some chat function hasn't been found and is still being looked for.
+bool StillLooking();
 // 1 found, 0 missing, -1 not checked yet (nobody has been online). detail says where.
 int ChatComponentState(std::string& detail);
 

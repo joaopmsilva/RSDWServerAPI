@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.6.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.7.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -113,7 +113,7 @@ one message there up to date by itself:
 …or find Ashenvale by HostName in the server list
 🔑 Password  ▒▒▒▒▒▒   ← a spoiler, click to see
 
-👥 Playing now        ⏱️ Uptime 2h 1m   🧩 Mod v0.4.0   🔄 Daily restart 05:00
+👥 Playing now        ⏱️ Uptime 2h 1m   🧩 Mod v0.5.0   🔄 Daily restart 05:00
 📈 Top XP today       🖥️ Server load  CPU 23% · RAM 37%
 ```
 
@@ -225,12 +225,17 @@ Administrator, and the replies are only visible to you.
 | 💾 **`/admin save`** `[function]` | Save the world now - the first time, it finds which game function does it |
 | 🧹 **`/admin remove`** · **`restore`** | Take a player off every leaderboard and delete their stats - or let them back |
 | 🩺 **`/admin diagnostics`** | The mod's self-check |
+| 💥 **`/admin crashes`** | Every unplanned restart with its likely cause, and the newest full report |
 
 ### 🔔 Private alerts
 
 You get a DM when:
 
 - 🔴 the server goes down or restarts **without** a planned restart - and when it's back;
+- 💥 a minute later, **why**: crash (and whether the mod was involved), out of memory, killed,
+  stopped by hand or a VPS reboot - with a report attached that holds the systemd exit, the mod's
+  crash backtrace, the end of the game and mod logs and the game's own crash report. Reports are
+  kept in `data/crashes/` (the last 30). Setup: "Crash reports" in [DEPLOY.md](../DEPLOY.md);
 - 🩺 the mod's self-check finds a problem (usually right after a game update) - and when it's fixed;
 - 🔥 CPU stays over 90% for 5 minutes, RAM for 3, or the disk fills past 90% - and when it settles.
 

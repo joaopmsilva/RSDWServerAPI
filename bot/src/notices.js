@@ -70,6 +70,7 @@ export class Notices {
             this.downTicks = 0;
             // Online on both polls but uptime went backwards: it restarted in between.
             const restartedQuietly = prev === 'online' && uptime !== null && this.lastUptime !== null && uptime < this.lastUptime;
+            const uptimeBefore = this.lastUptime;
             this.lastUptime = uptime;
             this.shown = 'online';
 
@@ -77,7 +78,7 @@ export class Notices {
             if (prev === 'online') {
                 // A single missed poll, never announced.
                 this.downSince = null;
-                if (restartedQuietly) await this.post('restarted');
+                if (restartedQuietly) await this.post('restarted', { uptimeSeconds: uptimeBefore });
             } else {
                 const plan = readPlan();
                 await this.post('online', { downtimeMs: this.downSince ? Date.now() - this.downSince : 0, after: plan?.kind });
@@ -98,7 +99,7 @@ export class Notices {
             // The engine never goes back to loading, so this is a new server process.
             this.downTicks = 0;
             this.shown = 'starting';
-            if (prev === 'online' && !readPlan()) await this.post('restarting');
+            if (prev === 'online' && !readPlan()) await this.post('restarting', { uptimeSeconds: this.lastUptime });
             return;
         }
 
@@ -106,7 +107,7 @@ export class Notices {
         if (prev === 'offline') return;
         if (++this.downTicks < 2) return;
         this.shown = 'offline';
-        if (prev === 'online' && !readPlan()) await this.post('offline');
+        if (prev === 'online' && !readPlan()) await this.post('offline', { uptimeSeconds: this.lastUptime });
     }
 
     async post(kind, details) {

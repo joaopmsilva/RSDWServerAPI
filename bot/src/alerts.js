@@ -1,13 +1,19 @@
+import os from 'node:os';
 import { EmbedBuilder } from 'discord.js';
 import { api } from './api.js';
 import { config } from './config.js';
-import { formatDuration } from './embeds.js';
+import { buildCrashReport } from './crash-report.js';
+import { crashReportEmbed, formatDuration } from './embeds.js';
 import { logger } from './log.js';
 import { systemStats } from './system.js';
 
 const log = logger('alerts');
 const RESOURCE_EVERY_MS = 60 * 1000;
 const DIAGNOSTICS_EVERY_MS = 5 * 60 * 1000;
+// Long enough for systemd to log the exit and the new run to rotate the old logs.
+const REPORT_DELAY_MS = 45 * 1000;
+// A bot starting on a VPS up for less than this means the VPS rebooted.
+const REBOOT_WINDOW_S = 15 * 60;
 // Consecutive minutes over the limit before alerting, so a short spike stays quiet.
 const SUSTAINED = { cpu: 5, ram: 3, disk: 1 };
 const RESOURCE_NAMES = { cpu: 'CPU', ram: 'RAM', disk: 'Disk' };
@@ -32,6 +38,11 @@ export class Alerts {
     }
 
     start() {
+        // A reboot restarts the bot too, so no notice ever sees it go down.
+        if (process.platform === 'linux' && os.uptime() < REBOOT_WINDOW_S) {
+            const downAt = Date.now() - os.uptime() * 1000;
+            setTimeout(() => this.report('reboot', downAt, null), 2 * 60 * 1000);
+        }
         if (!this.enabled) {
             log.info(config.adminUserIds.length ? 'admin alerts are off' : 'no ADMIN_USER_IDS, admin alerts are off');
             return;
@@ -49,25 +60,47 @@ export class Alerts {
 
     async dm(title, text, color) {
         const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(text).setFooter({ text: config.serverName }).setTimestamp();
+        await this.send({ embeds: [embed] });
+        log.info(`alert: ${title}`);
+    }
+
+    async send(message) {
         for (const id of config.adminUserIds) {
             try {
                 const user = await this.client.users.fetch(id);
-                await user.send({ embeds: [embed] });
+                await user.send(message);
             } catch (err) {
                 log.warn(`could not message admin ${id}: ${err.message} - they need to share a server with the bot and allow DMs`);
             }
         }
-        log.info(`alert: ${title}`);
+    }
+
+    // Saved to data/crashes/ whether or not admin alerts are on; /admin crashes lists them.
+    async report(kind, downAt, uptimeSeconds) {
+        let report;
+        try {
+            report = await buildCrashReport({ kind, downAt, uptimeSeconds });
+        } catch (err) {
+            log.error('crash report failed:', err);
+            return;
+        }
+        if (!this.enabled) return;
+        await this.send({ embeds: [crashReportEmbed(report)], files: [{ attachment: report.file, name: report.name }] });
+        log.info(`alert: crash report ${report.name}`);
     }
 
     // From the server notices. Offline / restarting / restarted are only
     // posted when nothing was planned, so each one is a crash or a manual stop.
     notice(kind, details) {
+        if (kind === 'offline' || kind === 'restarting' || kind === 'restarted') {
+            const downAt = Date.now();
+            setTimeout(() => this.report(kind, downAt, details?.uptimeSeconds ?? null), REPORT_DELAY_MS);
+        }
         if (!this.enabled) return;
         if (kind === 'offline' || kind === 'restarting' || kind === 'restarted') {
             if (kind !== 'restarted') this.crashedAt = Date.now();
             const what = { offline: 'went offline', restarting: 'restarted by itself', restarted: 'restarted by itself' }[kind];
-            this.dm(`⚠️ Server ${what}`, 'There was no planned restart or stop. Check `journalctl -u ' + config.serverService + '` if it keeps happening.', 0xe74c3c);
+            this.dm(`⚠️ Server ${what}`, 'There was no planned restart or stop. Working out why - a report follows in about a minute.', 0xe74c3c);
         } else if (kind === 'online' && this.crashedAt) {
             const down = formatDuration((details?.downtimeMs ?? Date.now() - this.crashedAt) / 1000);
             this.crashedAt = 0;

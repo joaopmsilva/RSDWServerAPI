@@ -32,6 +32,12 @@ for script in backup.sh update-and-restart.sh; do
     fi
 done
 
+# Crash reports read the server's systemd log and the kernel log (out-of-memory kills).
+if ! id -nG "$BOT_USER" | grep -qw systemd-journal; then
+    sudo usermod -aG systemd-journal "$BOT_USER"
+    echo "== Let $BOT_USER read the system journal (for crash reports)"
+fi
+
 echo "== Restarting the bot"
 sudo systemctl restart rsdw-bot
 sleep 4

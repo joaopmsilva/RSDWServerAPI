@@ -10,6 +10,7 @@
 #include "rcon/rcon_commands.h"
 #include "rcon/rcon_server.h"
 #include "runtime.h"
+#include "utils/crash_log.h"
 #include "utils/logger.h"
 #include "utils/memory.h"
 
@@ -39,6 +40,8 @@ std::atomic<bool> g_StoppedCleanly{false};
 
 void ShutdownListeners() {
     if (g_StoppedCleanly.exchange(true)) return;
+    // A log that ends without this line means the server crashed or was killed.
+    LogMessage("RSDWRestAPI: server is shutting down normally");
     g_Shutdown = true;
 
     if (g_HttpServer) g_HttpServer->Stop();
@@ -241,6 +244,10 @@ void InitThread() {
     if (!g_Shutdown && DomEngine::g_Engine->IsInitialized()) {
         LogMessage("RSDWRestAPI: engine ready, endpoints are live");
 
+        std::string crashLog = GetLogDir() + "/crash.log";
+        CrashLog::Install(crashLog);
+        LogMessage("RSDWRestAPI: a crash writes its backtrace to " + crashLog);
+
         NativeCall::LogImageSymbolReport();
 
         DomEngine::DiscoveryInfo discovery = DomEngine::g_Engine->GetDiscoveryInfo();
@@ -330,6 +337,10 @@ void InitThread() {
             EventLog::Push(std::move(event));
         };
 
+        // A line every ten minutes, so the log shows memory climbing before an
+        // out-of-memory kill and roughly when a crash happened.
+        auto nextHeartbeat = std::chrono::steady_clock::now();
+
         while (!g_Shutdown) {
             for (int i = 0; i < 20 && !g_Shutdown; i++) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -341,6 +352,13 @@ void InitThread() {
             DomChat::Poll();
 
             std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
+
+            if (std::chrono::steady_clock::now() >= nextHeartbeat) {
+                nextHeartbeat += std::chrono::minutes(10);
+                LogMessage("Heartbeat: up " + std::to_string((long)(Runtime::UptimeSeconds() / 60)) + " min, " +
+                           std::to_string(players.size()) + " online, server using " +
+                           std::to_string(CrashLog::ResidentMegabytes()) + " MB");
+            }
 
             std::map<std::string, std::string> nowOnline;
             for (const DomEngine::PlayerInfo& player : players) {

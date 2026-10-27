@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.4.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.6.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.5.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.7.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -520,7 +520,7 @@ Deliberately minimal, because authentication can be turned off and this therefor
 to serve to anyone. No ports, no owner id, no server GUID, no memory addresses.
 
 ```json
-{"status":"healthy","version":"0.4.0","uptimeSeconds":41.2,"engineReady":true}
+{"status":"healthy","version":"0.5.0","uptimeSeconds":41.2,"engineReady":true}
 ```
 
 `status` is `starting` until the world has loaded. Engine discovery detail goes to the log at
