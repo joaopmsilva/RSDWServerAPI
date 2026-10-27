@@ -574,8 +574,7 @@ export function errorEmbed(text) {
     return new EmbedBuilder().setColor(COLOR.error).setDescription(`❌ ${text}`);
 }
 
-// /help, and the card COMMANDS_POST puts in the chat channel. 🔒 replies are
-// only shown to whoever used the command (PRIVATE_COMMANDS in index.js).
+// /help, and the card COMMANDS_POST puts in the chat channel.
 export function helpEmbed() {
     const embed = new EmbedBuilder()
         .setColor(COLOR.info)
@@ -606,15 +605,15 @@ export function helpEmbed() {
                 value: [
                     '`/status` · is it up, and who is on',
                     '`/online` · everyone connected, with ping',
-                    '`/system` 🔒 · the VPS\'s CPU, RAM, disk and network',
+                    '`/system` · the VPS\'s CPU, RAM, disk and network',
                 ].join('\n'),
             },
             {
                 name: '🎒 Other',
-                value: ['`/item item` 🔒 · what an item is and does, from the wiki', '`/help` 🔒 · this list'].join('\n'),
+                value: ['`/item item` · what an item is and does, from the wiki', '`/help` · this list'].join('\n'),
             },
         )
-        .setFooter({ text: '[ ] = optional  ·  🔒 = only you see the answer' });
+        .setFooter({ text: '[ ] = optional' });
 
     if (config.bridgeToGame && config.chatChannelId) {
         embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> show up in game chat.` });
