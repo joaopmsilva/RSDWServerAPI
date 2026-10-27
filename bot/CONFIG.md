@@ -48,6 +48,7 @@ Anything left empty falls back to `CHAT_CHANNEL_ID`.
 | `LEVELUP_CHANNEL_ID` | chat channel | 🎉 Level-ups and ⭐ 99s - nothing else. |
 | `STATUS_CHANNEL_ID` | chat channel | 🟢🔴 Server online / offline / restarting, planned restarts and backups. |
 | `SUMMARY_CHANNEL_ID` | chat channel | 📅 The Sunday weekly recap. |
+| `COMMANDS_CHANNEL_ID` | chat channel | 📋 The pinned list of commands - see `COMMANDS_POST`. |
 | `STATUS_BOARD_CHANNEL_ID` | *(off)* | The live status board - see [Status board](#-status-board). This one has no fallback: empty turns the board off. |
 
 \* Not strictly needed to start, but almost everything is posted there.
@@ -74,6 +75,7 @@ The bot needs *View Channel*, *Send Messages*, *Embed Links* and *Read Message H
 | `LEVELUP_MIN_LEVEL` | `10` | Level-ups below this are quiet - the first levels come every few seconds. 99s are always posted. Minimum `2`. |
 | `JOIN_LEAVE_NOTICES` | `true` | *Tobin joined the server* and *Tobin left · played 1h 20m* in the chat channel. |
 | `WEEKLY_SUMMARY` | `true` | The recap every Sunday from 20:00 (VPS time): top gainers, new 99s, most played, deaths. |
+| `COMMANDS_POST` | `true` | Post the list of every command once, and pin it if the bot has *Pin Messages*. When the commands change in an update, the same message is edited. If you delete it, it stays gone - delete `data/commands-post.json` and restart the bot to post it again. |
 
 ## 📌 Status board
 
@@ -108,7 +110,7 @@ to keep it off the board.
 
 | Setting | Default | What it does |
 | ------- | ------- | ------------ |
-| `DATA_DIR` | `bot/data` | Where player stats, history, the chat position, the status board message, the item list and `bot.log` are kept. A relative path is relative to `bot/`. |
+| `DATA_DIR` | `bot/data` | Where player stats, history, the chat position, the status board and command list messages, the item list and `bot.log` are kept. A relative path is relative to `bot/`. |
 | `DEBUG` | `false` | Log extra detail: presence updates, relay batches, undelivered chat. |
 
 ---
@@ -135,6 +137,7 @@ DEATH_CHANNEL_ID=
 LEVELUP_CHANNEL_ID=222222222222222222
 STATUS_CHANNEL_ID=
 SUMMARY_CHANNEL_ID=
+COMMANDS_CHANNEL_ID=
 STATUS_BOARD_CHANNEL_ID=333333333333333333
 
 # --- Chat ---
@@ -151,6 +154,7 @@ LEVELUP_NOTICES=true
 LEVELUP_MIN_LEVEL=10
 JOIN_LEAVE_NOTICES=true
 WEEKLY_SUMMARY=true
+COMMANDS_POST=true
 
 # --- Status board ---
 CONNECT_ADDRESS=203.0.113.10:7777

@@ -41,6 +41,9 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 🖥️ **`/system`** 🔒 | The VPS's CPU, RAM, disk and network right now |
 | ❓ **`/help`** 🔒 | All of the above |
 
+The bot also posts this list once in the chat channel and pins it, so new players can find it
+(`COMMANDS_POST`, `COMMANDS_CHANNEL_ID`). It's edited in place when the commands change.
+
 🔒 Only the person who used the command sees the answer, so lookups don't clutter the channel.
 The list is `PRIVATE_COMMANDS` at the top of [`src/index.js`](src/index.js).
 
@@ -273,6 +276,7 @@ presence updates, relay batches and undelivered chat.
 | `src/alerts.js` | Private alerts to the admins |
 | `src/system.js` | VPS CPU, RAM, disk and network |
 | `src/board.js` | The live status board |
+| `src/commands-post.js` | The pinned command list |
 | `src/backups.js`, `src/world-save.js`, `src/save-world.js` | Backups, restoring, saving the world before a backup |
 | `src/items.js`, `src/wiki.js` | Item list and lookup, wiki summaries |
 | `src/skills.js`, `src/levels.js` | Skill list and XP table |

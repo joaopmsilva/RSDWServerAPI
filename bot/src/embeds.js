@@ -574,29 +574,58 @@ export function errorEmbed(text) {
     return new EmbedBuilder().setColor(COLOR.error).setDescription(`❌ ${text}`);
 }
 
+// /help, and the card COMMANDS_POST puts in the chat channel. 🔒 replies are
+// only shown to whoever used the command (PRIVATE_COMMANDS in index.js).
 export function helpEmbed() {
     const embed = new EmbedBuilder()
         .setColor(COLOR.info)
-        .setTitle(`🐉 ${config.serverName} — Commands`)
-        .setDescription('Type `/` and pick a command. Player and skill names fill in as you type.')
-        .addFields(
-            { name: '/levels', value: 'Every skill for a player, total level and max health.' },
-            { name: '/level', value: 'One skill in detail for a player, with a progress bar.' },
-            { name: '/leaderboard', value: 'Top players by total level, or by one skill if you pick it.' },
-            { name: '/status', value: 'Is the server up, and who is on it.' },
-            { name: '/online', value: 'Everyone connected right now, with ping.' },
-            { name: '/gains', value: 'Who gained the most XP, or one player skill by skill. Today, this week or this month.' },
-            { name: '/playtime · /deaths', value: 'Most played and most deaths, or one player.' },
-            { name: '/item', value: 'Look up any item in the game.' },
-            { name: '/system', value: "The VPS's CPU, RAM, disk and network use right now." },
+        .setTitle(`🐉 ${config.serverName} · Commands`)
+        .setDescription(
+            'Type **`/`** and pick one - player, skill and item names fill in as you type. ' +
+                'Players can be looked up by character or account name, even while offline.',
         )
-        .setFooter({ text: 'Players can be looked up by character or account name, even while offline.' });
+        .addFields(
+            {
+                name: '📊 Skills',
+                value: [
+                    '`/levels player` · every skill, total level and max health',
+                    '`/level skill player` · one skill, with progress to the next level',
+                    '`/leaderboard [skill]` · top players by total level, or one skill',
+                ].join('\n'),
+            },
+            {
+                name: '📈 Activity',
+                value: [
+                    '`/gains [player] [period]` · most XP today, this week or this month',
+                    '`/playtime [player]` · most played this week',
+                    '`/deaths [player]` · most deaths',
+                ].join('\n'),
+            },
+            {
+                name: '🐉 Server',
+                value: [
+                    '`/status` · is it up, and who is on',
+                    '`/online` · everyone connected, with ping',
+                    '`/system` 🔒 · the VPS\'s CPU, RAM, disk and network',
+                ].join('\n'),
+            },
+            {
+                name: '🎒 Other',
+                value: ['`/item item` 🔒 · what an item is and does, from the wiki', '`/help` 🔒 · this list'].join('\n'),
+            },
+        )
+        .setFooter({ text: '[ ] = optional  ·  🔒 = only you see the answer' });
 
     if (config.bridgeToGame && config.chatChannelId) {
-        embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> are shown in game chat.` });
+        embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> show up in game chat.` });
     }
     if (config.adminUserIds.length) {
-        embed.addFields({ name: '🛡️ Admins', value: '`/server` start, stop, restart, back up, list and restore backups · `/admin` kick, ban, give, say, save, remove from leaderboards, diagnostics' });
+        embed.addFields({
+            name: '🛡️ Admins only',
+            value:
+                '`/server` start, stop, restart, cancel, back up, list and restore backups\n' +
+                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics',
+        });
     }
     return embed;
 }

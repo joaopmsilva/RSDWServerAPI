@@ -72,6 +72,8 @@ export const config = {
     serverPassword: (process.env.SERVER_PASSWORD || '').trim(),
     dailyRestart: (process.env.DAILY_RESTART || '').trim(),
     boardShowVps: bool('BOARD_SHOW_VPS', true),
+    commandsPost: bool('COMMANDS_POST', true),
+    commandsChannelId: id('COMMANDS_CHANNEL_ID') || chatChannelId,
     adminUserIds: (process.env.ADMIN_USER_IDS || '')
         .split(',')
         .map(s => s.trim())

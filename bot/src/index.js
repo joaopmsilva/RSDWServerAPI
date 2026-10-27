@@ -4,6 +4,7 @@ import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
 import { Alerts } from './alerts.js';
 import { StatusBoard } from './board.js';
 import { Bridge } from './bridge.js';
+import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
 import { errorEmbed, okEmbed } from './embeds.js';
@@ -47,6 +48,7 @@ const alerts = new Alerts(client, poller);
 const control = new ServerControl(client);
 const ctx = { store, history, poller, control };
 const board = new StatusBoard(client, poller, ctx);
+const commandsPost = new CommandsPost(client);
 const lastUse = new Map();
 
 poller.onPlayers = (players, health) => activity.observe(players, health);
@@ -63,6 +65,7 @@ client.once(Events.ClientReady, async c => {
     alerts.start();
     activity.start();
     board.start();
+    commandsPost.start();
     poller.start();
     relay.start();
     bridge.start();
