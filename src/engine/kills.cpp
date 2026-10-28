@@ -8,7 +8,9 @@
 
 #include <chrono>
 #include <deque>
+#include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace DomKills {
@@ -34,6 +36,15 @@ bool g_FirstKillLogged = false;
 std::deque<std::pair<uintptr_t, Clock::time_point>> g_Recent;
 // Creature class -> (its name in game, whether it's a boss), read once each.
 std::unordered_map<uintptr_t, std::pair<std::string, bool>> g_Names;
+std::mutex g_Mutex;
+
+// The scan: damage components whose FatalDamageInfo is set (the owner is
+// dead, with KilledBy saying who did it). Kept between scans so each death
+// counts once; the first scan only takes note of the dead already lying around.
+std::unordered_set<uintptr_t> g_DeadSeen;
+bool g_FirstScan = true;
+std::unordered_map<uintptr_t, int> g_DamageClasses; // class -> 1 if a DamageComponent
+bool g_FirstScanKillLogged = false;
 
 bool CountedAlready(uintptr_t killed) {
     auto now = Clock::now();
@@ -55,17 +66,11 @@ bool IsPlayers(uintptr_t instigator, uintptr_t controller, uintptr_t pawn) {
     return false;
 }
 
-void Report(uintptr_t component, uintptr_t killed, uintptr_t instigator) {
+// A kill by the player of this controller. Called from the hook (game thread)
+// and the scan (init thread), hence the lock.
+void ReportFor(uintptr_t controller, uintptr_t killed) {
     Engine* engine = g_Engine;
-    if (!engine || !killed) return;
-    // The component sits on the controller in the SDK; on the character or the
-    // player state, find the controller from there.
-    uintptr_t controller = Mem::ReadPtr(component + Offsets::UObject_Outer);
-    if (controller && engine->IsA(controller, "Pawn")) controller = Mem::ReadPtr(controller + Offsets::Pawn_Controller);
-    else if (controller && engine->IsA(controller, "PlayerState")) controller = Mem::ReadPtr(controller + Offsets::Actor_Owner);
-    if (!controller || !engine->IsA(controller, "PlayerController")) return;
-    uintptr_t pawn = Mem::ReadPtr(controller + Offsets::Controller_Pawn);
-    if (instigator && !IsPlayers(instigator, controller, pawn)) return; // someone else's kill
+    std::lock_guard<std::mutex> lock(g_Mutex);
     if (CountedAlready(killed)) return;
 
     uintptr_t state = Mem::ReadPtr(controller + Offsets::Controller_PlayerState);
@@ -104,6 +109,20 @@ void Report(uintptr_t component, uintptr_t killed, uintptr_t instigator) {
     EventLog::Push(std::move(event));
 }
 
+void Report(uintptr_t component, uintptr_t killed, uintptr_t instigator) {
+    Engine* engine = g_Engine;
+    if (!engine || !killed) return;
+    // The component sits on the controller in the SDK; on the character or the
+    // player state, find the controller from there.
+    uintptr_t controller = Mem::ReadPtr(component + Offsets::UObject_Outer);
+    if (controller && engine->IsA(controller, "Pawn")) controller = Mem::ReadPtr(controller + Offsets::Pawn_Controller);
+    else if (controller && engine->IsA(controller, "PlayerState")) controller = Mem::ReadPtr(controller + Offsets::Actor_Owner);
+    if (!controller || !engine->IsA(controller, "PlayerController")) return;
+    uintptr_t pawn = Mem::ReadPtr(controller + Offsets::Controller_Pawn);
+    if (instigator && !IsPlayers(instigator, controller, pawn)) return; // someone else's kill
+    ReportFor(controller, killed);
+}
+
 void KillThunk(void* context, void* frame, void* result) {
     if (GameThread::FrameLayoutReady() && g_KilledOffset >= 0) {
         uintptr_t locals = Mem::ReadPtr((uintptr_t)frame + GameThread::FrameLocalsOffset());
@@ -116,6 +135,53 @@ void KillThunk(void* context, void* frame, void* result) {
     if (g_Original) g_Original(context, frame, result);
 }
 
+}
+
+void Scan(const std::vector<PlayerInfo>& players) {
+    Engine* engine = g_Engine;
+    if (!engine || !engine->IsInitialized() || players.empty()) return;
+    uintptr_t damageType = Reflect::FindType("DamageComponent");
+    uintptr_t aiType = Reflect::FindType("DominionAICharacter");
+    int32_t infoOffset = Reflect::Offset("DamageComponent", "FatalDamageInfo");
+    int32_t byOffset = Reflect::Offset("FatalDamageInfo", "KilledBy");
+    int32_t setOffset = Reflect::Offset("FatalDamageInfo", "bIsSet");
+    if (!damageType || !aiType || infoOffset < 0 || byOffset < 0 || setOffset < 0) return;
+
+    std::unordered_set<uintptr_t> dead;
+    int32_t count = engine->GetObjectCount();
+    for (int32_t i = 0; i < count; i++) {
+        uintptr_t object = engine->GetObjectByIndex(i);
+        if (!object) continue;
+        uintptr_t cls = Mem::ReadPtr(object + Offsets::UObject_Class);
+        auto kind = g_DamageClasses.find(cls);
+        if (kind == g_DamageClasses.end()) {
+            int is = 0;
+            for (uintptr_t c = cls, d = 0; c && d < 16 && !is; c = Mem::ReadPtr(c + Offsets::UStruct_SuperStruct), d++) is = c == damageType;
+            kind = g_DamageClasses.emplace(cls, is).first;
+        }
+        if (!kind->second) continue;
+        if (Mem::ReadI32(object + Offsets::UObject_Flags) & 0x30) continue; // default object or archetype
+        uintptr_t info = object + (uintptr_t)infoOffset;
+        if (!(Mem::ReadU8(info + (uintptr_t)setOffset) & 1)) continue;
+        uintptr_t creature = Mem::ReadPtr(object + Offsets::UObject_Outer);
+        if (!Reflect::IsA(creature, aiType)) continue; // a player, not a creature
+        dead.insert(object);
+        if (g_FirstScan || g_DeadSeen.count(object)) continue;
+
+        // KilledBy is a TWeakObjectPtr: { ObjectIndex, SerialNumber }.
+        uintptr_t killer = engine->GetObjectByIndex(Mem::ReadI32(info + (uintptr_t)byOffset));
+        for (const PlayerInfo& p : players) {
+            if (!p.controllerPtr || !IsPlayers(killer, p.controllerPtr, p.pawnPtr)) continue;
+            if (!g_FirstScanKillLogged) {
+                g_FirstScanKillLogged = true;
+                LogMessage("Kills: first kill seen by the scan - " + p.name + " killed a " + engine->GetObjectClassName(creature));
+            }
+            ReportFor(p.controllerPtr, creature);
+            break;
+        }
+    }
+    g_DeadSeen.swap(dead);
+    g_FirstScan = false;
 }
 
 void Poll() {

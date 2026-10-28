@@ -354,6 +354,7 @@ void InitThread() {
             DomKills::Poll();
 
             std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
+            DomKills::Scan(players);
 
             if (std::chrono::steady_clock::now() >= nextHeartbeat) {
                 nextHeartbeat += std::chrono::minutes(10);
