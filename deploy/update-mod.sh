@@ -13,6 +13,8 @@ SERVER_DIR=/home/dragonwilds/rs_server
 SERVER_USER=dragonwilds
 SERVICE=dragonwilds
 ANNOUNCE="/usr/bin/node /home/dragonwilds/rsdw-bot/src/announce.js"
+ONLINE_COUNT="/usr/bin/node /home/dragonwilds/rsdw-bot/src/online.js"
+# Only when someone is online; otherwise it restarts at once.
 WARN_MINUTES=2
 
 MOD="$SERVER_DIR/librsdwapi.so"
@@ -59,9 +61,16 @@ if sudo test -f "$UNIT" && ! sudo grep -q '^ExecStopPost=.*exits.log' "$UNIT"; t
 fi
 
 if [ "${1:-}" = "--restart" ]; then
-    echo "== Warning players, restarting in $WARN_MINUTES minutes"
-    sudo -u "$SERVER_USER" $ANNOUNCE restart "$WARN_MINUTES" "Mod update" || true
-    sleep $((WARN_MINUTES * 60))
+    # Unknown (an older bot without online.js) counts as someone being on.
+    ONLINE=$(sudo -u "$SERVER_USER" $ONLINE_COUNT 2>/dev/null) || ONLINE=unknown
+    if [ "$ONLINE" = "0" ]; then
+        echo "== Nobody online, restarting now"
+        sudo -u "$SERVER_USER" $ANNOUNCE restart "Mod update" || true
+    else
+        echo "== Players online: $ONLINE - warning them, restarting in $WARN_MINUTES minutes"
+        sudo -u "$SERVER_USER" $ANNOUNCE restart "$WARN_MINUTES" "Mod update" || true
+        sleep $((WARN_MINUTES * 60))
+    fi
     sudo systemctl restart "$SERVICE"
     echo "== Restarted. In a minute or two, check the log:"
     echo "   sudo grep -E 'loaded|Chat:|engine ready' $SERVER_DIR/rsdwapi/logs/api.log"

@@ -224,7 +224,7 @@ planned restarts it can't see, so scripts announce them. Two ready-made scripts 
 
 - `backup.sh` copies the world saves with a timestamp, keeps the newest 10, and posts
   "💾 Backup complete" (`BACKUP_NOTICES=false` in the bot's `.env` keeps that quiet).
-- `update-and-restart.sh` warns on Discord and in game 5 minutes before (and in game again 1
+- `update-and-restart.sh` warns on Discord and in game 5 minutes before if anyone is on (in game again 1
   minute before), stops the server, updates it with steamcmd and starts it again. Once it's
   back the bot posts "🟢 Server is online - Restart complete". `WARN_MINUTES=0` skips the
   wait. It stops and starts the `dragonwilds` service with `sudo`, so it needs the sudoers line
@@ -370,7 +370,7 @@ cd path\to\RSDWServerAPI
 .\deploy\upload.ps1 -Bot          # bot changes: live in a few seconds
 .\deploy\upload.ps1 -Mod          # mod changes: built now, loaded at the next server restart
 .\deploy\upload.ps1 -Bot -Mod     # both
-.\deploy\upload.ps1 -Mod -Restart # mod now: build, warn players, restart in 2 minutes
+.\deploy\upload.ps1 -Mod -Restart # mod now: build, restart (2 min warning if anyone is on)
 ```
 
 A new mod only loads when the server starts. Without `-Restart` that's your next restart; you
@@ -384,7 +384,7 @@ your paths differ, change the variables at the top of `deploy/update-bot.sh` and
 On the VPS, after uploading, the mod script also takes:
 
 ```bash
-~/RSDWServerAPI/deploy/update-mod.sh --restart    # build, warn players, restart in 2 minutes
+~/RSDWServerAPI/deploy/update-mod.sh --restart    # build, restart (2 min warning if anyone is on)
 ~/RSDWServerAPI/deploy/update-mod.sh --rollback   # put the previous mod back for the next start
 ```
 

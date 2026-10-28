@@ -31,6 +31,49 @@ export class Activity {
         this.lastObserved = 0;
         this.modPresence = false;
         this.timer = null;
+        this.pending = new Map(); // net:/name: key -> seconds played before the character was known
+        this.mergeLooseKeys();
+    }
+
+    // A character just seen with its GUID takes over whatever was counted for
+    // its account or name before the GUID could be read.
+    adopt(key, player, loose) {
+        const held = this.pending.get(loose);
+        if (held) this.history.addPlaytime(key, held);
+        this.pending.delete(loose);
+
+        const name = (player.characterName || player.name || '').toLowerCase();
+        for (const from of [loose, name && `name:${name}`]) {
+            if (!from || !this.history.keys().has(from) && !this.store.byKey(from)) continue;
+            log.info(`merging ${from} into ${key} (${player.characterName || player.name})`);
+            this.history.merge(from, key);
+            this.store.remove(from);
+        }
+    }
+
+    // Older versions counted a player still loading in under their account
+    // (net:) or name (name:), so they showed up twice on the boards. Fold those
+    // into the character they belong to, where that's clear.
+    mergeLooseKeys() {
+        const loose = new Set([...this.history.keys(), ...this.store.entries().map(([key]) => key)]);
+        let merged = 0;
+        for (const from of loose) {
+            if (PlayerStore.isCharacterKey(from)) continue;
+            const [kind, id] = [from.slice(0, from.indexOf(':')), from.slice(from.indexOf(':') + 1)];
+            const to = kind === 'net' ? this.store.keyOfNetId(id) : kind === 'name' ? this.store.keyOfName(id) : null;
+            if (!to) continue;
+            this.history.merge(from, to);
+            this.store.remove(from);
+            merged++;
+        }
+        if (!merged) return;
+        log.info(`merged ${merged} duplicate player entr${merged === 1 ? 'y' : 'ies'} into their characters`);
+        this.flush();
+        try {
+            this.store.flush();
+        } catch (err) {
+            log.error(`could not save players: ${err.message}`);
+        }
     }
 
     start() {
@@ -67,6 +110,7 @@ export class Activity {
         if (!players) {
             this.online = null;
             this.sessions.clear();
+            this.pending.clear();
             this.lastObserved = 0;
             return;
         }
@@ -78,15 +122,26 @@ export class Activity {
 
         const current = new Map();
         const levelUps = [];
+        const hasCharacters = this.store.hasCharacters || players.some(p => PlayerStore.isCharacterKey(PlayerStore.key(p)));
         for (const p of players) {
             const key = PlayerStore.key(p);
             const name = p.characterName || p.name;
-            this.history.name(key, name);
-            if (elapsed) this.history.addPlaytime(key, elapsed);
             if (p.uniqueNetId && name) {
                 current.set(p.uniqueNetId, name);
                 if (!this.sessions.has(p.uniqueNetId)) this.sessions.set(p.uniqueNetId, now);
             }
+
+            // Still loading in: their character isn't known yet, so hold the
+            // time and credit it to the character once it is.
+            const loose = p.uniqueNetId ? `net:${p.uniqueNetId}` : `name:${(p.name || '').toLowerCase()}`;
+            if (!PlayerStore.isCharacterKey(key) && hasCharacters) {
+                this.pending.set(loose, (this.pending.get(loose) || 0) + elapsed);
+                continue;
+            }
+            if (PlayerStore.isCharacterKey(key)) this.adopt(key, p, loose);
+
+            this.history.name(key, name);
+            if (elapsed) this.history.addPlaytime(key, elapsed);
             if (p.skills?.length) {
                 this.history.recordXp(key, p.skills);
                 levelUps.push(...this.findLevelUps(key, name, p.skills));
@@ -178,7 +233,11 @@ export class Activity {
     }
 
     death(event) {
-        const key = (event.netId && this.store.keyOfNetId(event.netId)) || `name:${(event.name || '').toLowerCase()}`;
+        const name = (event.name || '').toLowerCase();
+        const key =
+            (event.netId && this.store.keyOfNetId(event.netId)) ||
+            this.store.keyOfName(name) ||
+            (event.netId ? `net:${event.netId}` : `name:${name}`);
         this.history.name(key, event.name);
         this.history.addDeath(key);
         this.flush();

@@ -103,6 +103,44 @@ export class History {
         return { week: History.within(e, 7), total: e?.total || 0 };
     }
 
+    // Moves everything kept under `from` onto `to`, adding up playtime and deaths.
+    merge(from, to) {
+        const d = this.data;
+        for (const group of [d.playtime, d.deaths]) {
+            const src = group[from];
+            if (!src) continue;
+            const dst = (group[to] ||= { total: 0, days: {} });
+            dst.total += src.total;
+            for (const [day, n] of Object.entries(src.days)) dst.days[day] = (dst.days[day] || 0) + n;
+            delete group[from];
+        }
+        for (const day of Object.values(d.xp)) {
+            if (day[from] && !day[to]) day[to] = day[from];
+            delete day[from];
+        }
+        for (const m of d.milestones) if (m.key === from) m.key = to;
+        if (d.names[from] && !d.names[to]) d.names[to] = d.names[from];
+        delete d.names[from];
+        if (d.hidden.includes(from)) {
+            d.hidden = d.hidden.filter(k => k !== from);
+            if (!d.hidden.includes(to)) d.hidden.push(to);
+        }
+        this.dirty = true;
+    }
+
+    // Every key anything is kept under.
+    keys() {
+        const d = this.data;
+        return new Set([
+            ...Object.keys(d.playtime),
+            ...Object.keys(d.deaths),
+            ...Object.keys(d.names),
+            ...Object.values(d.xp).flatMap(Object.keys),
+            ...d.milestones.map(m => m.key),
+            ...d.hidden,
+        ]);
+    }
+
     // /admin remove: drop everything kept about a character and keep them off
     // the leaderboards from now on. /admin restore lets them back.
     forget(key) {

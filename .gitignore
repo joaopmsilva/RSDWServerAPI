@@ -4,3 +4,4 @@ src/**/*.o
 src/*.o
 RSDWSDK/
 deploy/vps.txt
+.claude/settings.local.json

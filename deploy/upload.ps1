@@ -4,7 +4,7 @@
 #   .\deploy\upload.ps1 -Bot         upload, then update and restart the bot
 #   .\deploy\upload.ps1 -Mod         upload, then build the mod for the next server restart
 #   .\deploy\upload.ps1 -Bot -Mod    both
-#   .\deploy\upload.ps1 -Mod -Restart   build the mod, warn players, restart in 2 minutes
+#   .\deploy\upload.ps1 -Mod -Restart   build the mod, restart (2 min warning if anyone is on)
 #
 # Without -Restart the new mod loads at the next server start (for example a daily restart from cron).
 #

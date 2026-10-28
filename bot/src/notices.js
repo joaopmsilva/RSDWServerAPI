@@ -77,8 +77,17 @@ export class Notices {
             if (prev === null) return;
             if (prev === 'online') {
                 // A single missed poll, never announced.
+                const downtimeMs = this.downSince ? Date.now() - this.downSince : 0;
                 this.downSince = null;
-                if (restartedQuietly) await this.post('restarted', { uptimeSeconds: uptimeBefore });
+                if (!restartedQuietly) return;
+                // A planned restart can be over before two polls miss it.
+                const plan = readPlan();
+                if (plan) {
+                    await this.post('online', { downtimeMs, after: plan.kind });
+                    clearPlan();
+                } else {
+                    await this.post('restarted', { uptimeSeconds: uptimeBefore });
+                }
             } else {
                 const plan = readPlan();
                 await this.post('online', { downtimeMs: this.downSince ? Date.now() - this.downSince : 0, after: plan?.kind });

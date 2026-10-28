@@ -79,7 +79,7 @@ export class UpdateWatcher {
         let minutes = 0;
         if (config.autoUpdate && this.state.attempted !== latest.buildId) {
             mode = up ? 'scheduled' : 'offline';
-            minutes = players.length ? config.autoUpdateMinutes : 1;
+            minutes = players.length ? config.autoUpdateMinutes : 0;
         }
 
         log.info(`server is out of date: build ${installed.buildId}, Steam has ${latest.buildId} - ${mode}`);

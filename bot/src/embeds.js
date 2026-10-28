@@ -707,9 +707,10 @@ const ago = ms => (ms ? ` · ${relative(ms)}` : '');
 // stopped), manual (AUTO_UPDATE is off, or this build's update already ran).
 export function updateOutdatedEmbed({ installed, latest, mode, minutes }) {
     const next = {
-        scheduled:
-            `🔄 **Backing up, updating and restarting ${minutes > 1 ? `in ${minutes} minutes` : 'in a minute'}** · ${relative(Date.now() + minutes * 60000)}\n` +
-            'Players in game have been warned. Admins can wait for the daily update instead with `/server cancel`.',
+        scheduled: minutes
+            ? `🔄 **Backing up, updating and restarting ${minutes > 1 ? `in ${minutes} minutes` : 'in a minute'}** · ${relative(Date.now() + minutes * 60000)}\n` +
+              'Players in game have been warned. Admins can wait for the daily update instead with `/server cancel`.'
+            : '🔄 **Backing up, updating and restarting now** · nobody is online.',
         offline: 'The server is stopped. An admin can update it with `/server update` - it starts again afterwards.',
         manual: 'It updates at the next daily restart, or right away with `/server update`.',
     }[mode];

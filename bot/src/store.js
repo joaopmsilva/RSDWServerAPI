@@ -28,6 +28,16 @@ export class PlayerStore {
         return `name:${(player.name || '').toLowerCase()}`;
     }
 
+    static isCharacterKey(key) {
+        return key.startsWith('guid:');
+    }
+
+    // True once the mod has reported any character GUID. From then on a player
+    // without one is still loading in, and is only counted once it shows up.
+    get hasCharacters() {
+        return Object.keys(this.players).some(PlayerStore.isCharacterKey);
+    }
+
     get(player) {
         return this.players[PlayerStore.key(player)] || null;
     }
@@ -37,6 +47,7 @@ export class PlayerStore {
         if (!player.skills?.length) return;
 
         const key = PlayerStore.key(player);
+        if (!PlayerStore.isCharacterKey(key) && this.hasCharacters) return;
         const maxHealth = player.health?.max > 0 ? player.health.max : this.players[key]?.maxHealth;
         this.players[key] = {
             name: player.name,
@@ -73,9 +84,18 @@ export class PlayerStore {
     keyOfNetId(netId) {
         let best = null;
         for (const [key, p] of Object.entries(this.players)) {
+            if (!PlayerStore.isCharacterKey(key)) continue;
             if (p.uniqueNetId === netId && (!best || p.lastSeen > this.players[best].lastSeen)) best = key;
         }
         return best;
+    }
+
+    // The one character with this name (lower case), or null if none or several.
+    keyOfName(name) {
+        const keys = Object.entries(this.players)
+            .filter(([key, p]) => PlayerStore.isCharacterKey(key) && [p.characterName, p.name].some(n => n?.toLowerCase() === name))
+            .map(([key]) => key);
+        return keys.length === 1 ? keys[0] : null;
     }
 
     flush() {
