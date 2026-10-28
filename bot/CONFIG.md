@@ -49,7 +49,6 @@ Anything left empty falls back to `CHAT_CHANNEL_ID`.
 | `STATUS_CHANNEL_ID` | chat channel | 🟢🔴 Server online / offline / restarting, planned restarts and backups. |
 | `SUMMARY_CHANNEL_ID` | chat channel | 📅 The Sunday weekly recap. |
 | `COMMANDS_CHANNEL_ID` | chat channel | 📋 The pinned list of commands - see `COMMANDS_POST`. Changing it moves the list and removes the old copy. |
-| `EVENTS_CHANNEL_ID` | chat channel | ⚔️ Raid and hunt alerts, with pings for linked players. |
 | `LINK_CHANNEL_ID` | *(off)* | 🔗 The pinned card with the **Link my character** button. `node src/setup-link-channel.js` makes the channel. `/link` works everywhere either way. |
 | `STATUS_BOARD_CHANNEL_ID` | *(off)* | The live status board - see [Status board](#-status-board). This one has no fallback: empty turns the board off. |
 
@@ -77,7 +76,8 @@ The bot needs *View Channel*, *Send Messages*, *Embed Links* and *Read Message H
 | `LEVELUP_MIN_LEVEL` | `10` | Level-ups below this are quiet - the first levels come every few seconds. 99s are always posted. Minimum `2`. |
 | `JOIN_LEAVE_NOTICES` | `true` | *Tobin joined the server* and *Tobin left · played 1h 20m* in the chat channel. |
 | `WEEKLY_SUMMARY` | `true` | The recap every Sunday from 20:00 (VPS time): top gainers, new 99s, most played, deaths. |
-| `RAID_ALERTS` | `true` | Post raids and hunts as they start and end (mod 0.6.0+). |
+| `RAID_ALERTS` | `true` | Raid and hunt DMs for linked players who turn them on (mod 0.6.0+). `false` turns them off for everyone. |
+| `COMMANDS_CLEANUP_MINUTES` | `5` | When the command list has a channel of its own, delete everything else there this often (messages from the last minute wait a round). `0` turns it off. Needs *Manage Messages*. |
 | `COMMANDS_POST` | `true` | Post the list of every command once, and pin it if the bot has *Pin Messages*. When the commands change in an update, the same message is edited. If you delete it, it stays gone - delete `data/commands-post.json` and restart the bot to post it again. |
 
 ## 📌 Status board
@@ -156,7 +156,6 @@ LEVELUP_CHANNEL_ID=222222222222222222
 STATUS_CHANNEL_ID=
 SUMMARY_CHANNEL_ID=
 COMMANDS_CHANNEL_ID=
-EVENTS_CHANNEL_ID=
 LINK_CHANNEL_ID=
 STATUS_BOARD_CHANNEL_ID=333333333333333333
 

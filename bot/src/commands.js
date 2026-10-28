@@ -1,7 +1,6 @@
 import { api } from './api.js';
 import {
     LEADERBOARD_PAGE_SIZE,
-    ONLINE_PAGE_SIZE,
     ambiguousEmbed,
     deathBoardEmbed,
     deathsEmbed,
@@ -13,11 +12,11 @@ import {
     errorEmbed,
     helpEmbed,
     leaderboardEmbed,
-    onlineEmbed,
     renderPlayerPage,
     statusEmbed,
-    systemEmbed,
     itemEmbed,
+    alertButtons,
+    alertsEmbed,
     linkCodeEmbed,
     linkInfoEmbed,
     okEmbed,
@@ -32,7 +31,6 @@ import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
 import { deathBoard, gainsFor, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
-import { systemStats } from './system.js';
 import { findItem, itemsKnown } from './items.js';
 import { wikiInfo } from './wiki.js';
 
@@ -121,18 +119,6 @@ async function levels(ctx, query) {
     return { reply: { embeds: [renderPlayerPage(result.profile, 'overview')] } };
 }
 
-async function level(ctx, skillQuery, playerQuery) {
-    const result = await resolvePlayer(ctx, playerQuery);
-    if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(playerQuery, result.ambiguous)] } };
-    if (result.notFound) return notFoundReply(playerQuery, result);
-
-    const skill = findSkill(result.profile.skills, skillQuery);
-    if (skill) return { reply: { embeds: [renderPlayerPage(result.profile, `skill:${skill.key}`)] } };
-
-    const known = result.profile.skills.map(s => s.name).join(', ') || 'none recorded yet';
-    return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.\nSkills: ${known}`)] } };
-}
-
 async function status(ctx) {
     await ctx.poller.tick();
     return { reply: { embeds: [statusEmbed(ctx.poller.state)] } };
@@ -157,15 +143,6 @@ function paged(count, pageSize, render) {
             },
         },
     };
-}
-
-async function online(ctx) {
-    const players = await fetchLive(ctx);
-    if (!players) {
-        const text = ctx.poller.state.status === 'starting' ? 'The server is still starting.' : 'The server is offline or unreachable.';
-        return { reply: { embeds: [errorEmbed(text)] } };
-    }
-    return paged(players.length, ONLINE_PAGE_SIZE, page => onlineEmbed(players, page));
 }
 
 // Everyone with saved stats, best first: by total level (then total XP), or by
@@ -278,6 +255,12 @@ function link(ctx, interaction) {
     return { reply: { embeds: [linkCodeEmbed(code, minutes, ctx.links.of(interaction.user.id))] } };
 }
 
+function alerts(ctx, user) {
+    const current = ctx.links.of(user.id);
+    if (!current) return { reply: { embeds: [errorEmbed('Link your character first with `/link` - alerts are about what happens to it.')] } };
+    return { reply: { embeds: [alertsEmbed(current)], components: alertButtons(current) } };
+}
+
 function unlink(ctx, user) {
     const removed = ctx.links.unlink(user.id);
     if (!removed) return { reply: { embeds: [linkInfoEmbed(null)] } };
@@ -317,31 +300,23 @@ async function deaths(ctx, query) {
 // Keyed by slash command name; each gets the interaction and returns the reply.
 export const commands = {
     levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
-    level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
     leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
     perks: (i, ctx) => perks(ctx, i.options.getString('player', true)),
     quests: (i, ctx) => quests(ctx, i.options.getString('player'), i.user),
     me: (i, ctx) => me(ctx, i.user),
     link: (i, ctx) => link(ctx, i),
     unlink: (i, ctx) => unlink(ctx, i.user),
+    alerts: (i, ctx) => alerts(ctx, i.user),
     gains: (i, ctx) => gains(ctx, i.options.getString('player'), i.options.getString('period') || 'week'),
     playtime: (i, ctx) => playtime(ctx, i.options.getString('player')),
     deaths: (i, ctx) => deaths(ctx, i.options.getString('player')),
     status: (i, ctx) => status(ctx),
-    online: (i, ctx) => online(ctx),
     item: async i => {
         const query = i.options.getString('item', true);
         const item = await findItem(query);
         if (item) return { reply: { embeds: [itemEmbed(item, await wikiInfo(item.name))] } };
         const why = itemsKnown() ? '' : '\nThe item list loads from the server the first time it is online.';
         return { reply: { embeds: [errorEmbed(`No item found matching **${query}**.${why}`)] } };
-    },
-    system: async () => {
-        try {
-            return { reply: { embeds: [systemEmbed(await systemStats())] } };
-        } catch (err) {
-            return { reply: { embeds: [errorEmbed(`Could not read the VPS stats: ${err.message}`)] } };
-        }
     },
     help: () => ({ reply: { embeds: [helpEmbed()] } }),
 };

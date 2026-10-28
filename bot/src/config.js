@@ -73,8 +73,9 @@ export const config = {
     dailyRestart: (process.env.DAILY_RESTART || '').trim(),
     boardShowVps: bool('BOARD_SHOW_VPS', true),
     commandsPost: bool('COMMANDS_POST', true),
+    // Clear COMMANDS_CHANNEL_ID (all but the pinned list) this often; 0 = never.
+    commandsCleanupMinutes: Math.max(0, int('COMMANDS_CLEANUP_MINUTES', 5)),
     raidAlerts: bool('RAID_ALERTS', true),
-    eventsChannelId: id('EVENTS_CHANNEL_ID') || chatChannelId,
     linkChannelId: id('LINK_CHANNEL_ID'),
     commandsChannelId: id('COMMANDS_CHANNEL_ID') || chatChannelId,
     adminUserIds: (process.env.ADMIN_USER_IDS || '')

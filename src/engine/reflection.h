@@ -18,6 +18,10 @@ int32_t Offset(const std::string& type, const std::string& field);
 // The size of a struct, or 0.
 int32_t Size(const std::string& type);
 
+// The offset of a field in a struct or function given by pointer (a UFunction's
+// fields are its parameters), or -1.
+int32_t OffsetIn(uintptr_t type, const std::string& field);
+
 // Whether object's class is the given class or derives from it, by pointer.
 bool IsA(uintptr_t object, uintptr_t type);
 

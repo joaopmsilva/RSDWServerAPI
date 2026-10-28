@@ -7,13 +7,14 @@ import { Bridge } from './bridge.js';
 import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
-import { errorEmbed, linkButtons, linkHowToEmbed, okEmbed } from './embeds.js';
+import { alertButtons, alertsEmbed, errorEmbed, linkButtons, linkHowToEmbed, okEmbed } from './embeds.js';
 import { History } from './history.js';
 import { Links } from './links.js';
 import { initLogFile, logger } from './log.js';
 import { attachMenu } from './menus.js';
 import { Notices } from './notices.js';
 import { Poller } from './poller.js';
+import { loadQuestTitles } from './progress.js';
 import { Relay } from './relay.js';
 import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
@@ -26,7 +27,7 @@ initLogFile(config.dataDir);
 const log = logger('bot');
 const COOLDOWN_MS = 3000;
 // Commands whose replies only the person who used them sees.
-const PRIVATE_COMMANDS = new Set(['item', 'help', 'system', 'link', 'unlink']);
+const PRIVATE_COMMANDS = new Set(['item', 'help', 'link', 'unlink', 'alerts']);
 
 const client = new Client({
     intents: [
@@ -45,7 +46,7 @@ const history = new History(config.dataDir);
 const poller = new Poller(client, store);
 const activity = new Activity(client, store, history);
 const bridge = new Bridge();
-const links = new Links(config.dataDir, store);
+const links = new Links(config.dataDir, store, client);
 const relay = new Relay(client, bridge, activity, links);
 const notices = new Notices(client);
 const alerts = new Alerts(client, poller);
@@ -82,7 +83,11 @@ client.once(Events.ClientReady, async c => {
     activity.start();
     board.start();
     commandsPost.start();
+    commandsPost.startSweeping(config.commandsCleanupMinutes);
     linkPost.start();
+    links.welcomeAll().catch(err => log.warn(`welcome DMs failed: ${err.message}`));
+    loadQuestTitles();
+    setInterval(loadQuestTitles, 24 * 3600 * 1000);
     updates.start();
     poller.start();
     relay.start();
@@ -108,8 +113,17 @@ client.on(Events.InteractionCreate, async interaction => {
         return;
     }
     // The buttons on the how-to-link card: same as /link, /me and /unlink, answered privately.
+    // Alert switches, on the /alerts reply, the link confirmation and the alert DMs:
+    // flip it and redraw the message it's on.
+    if (interaction.isButton() && interaction.customId.startsWith('alerts:')) {
+        const alert = interaction.customId.slice('alerts:'.length);
+        const link = links.toggleAlert(interaction.user.id, alert);
+        if (!link) return interaction.reply({ embeds: [errorEmbed('Link your character first with `/link`.')], flags: MessageFlags.Ephemeral }).catch(() => {});
+        const embeds = interaction.message.embeds.map(e => (e.title === '🔔 Alerts by DM' ? alertsEmbed(link) : e));
+        return interaction.update({ embeds, components: alertButtons(link) }).catch(err => log.warn(`could not update the alert buttons: ${err.message}`));
+    }
     if (interaction.isButton() && interaction.customId.startsWith('link:')) {
-        const action = { 'link:start': 'link', 'link:me': 'me', 'link:unlink': 'unlink' }[interaction.customId];
+        const action = { 'link:start': 'link', 'link:me': 'me', 'link:alerts': 'alerts', 'link:unlink': 'unlink' }[interaction.customId];
         if (!action) return;
         try {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -155,7 +169,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     try {
         // Lookups can take a few seconds; Discord wants an answer within 3.
-        // Admin replies, /item, /help and /system are only shown to whoever asked.
+        // Admin replies and the PRIVATE_COMMANDS are only shown to whoever asked.
         const private_ = admin || PRIVATE_COMMANDS.has(interaction.commandName);
         await interaction.deferReply(private_ ? { flags: MessageFlags.Ephemeral } : {});
         const { reply, menu, confirm, working } = await run(interaction, ctx);

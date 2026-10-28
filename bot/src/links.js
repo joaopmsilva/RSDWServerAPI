@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { api } from './api.js';
 import { config } from './config.js';
-import { linkedEmbed } from './embeds.js';
+import { alertButtons, alertsEmbed, linkedEmbed, welcomeEmbed } from './embeds.js';
 import { logger } from './log.js';
 import { PlayerStore } from './store.js';
 
@@ -17,8 +17,9 @@ const CODE_LENGTH = 5;
 // the player types "/link CODE" in game chat, and the mod reports it as a
 // "link" event with who sent it. Kept in data/links.json.
 export class Links {
-    constructor(dir, store) {
+    constructor(dir, store, client = null) {
         this.store = store;
+        this.client = client;
         this.file = path.join(dir, 'links.json');
         this.links = {}; // discord user id -> { key, netId, name, at }
         this.pending = new Map(); // code -> { userId, expires, interaction }
@@ -64,11 +65,23 @@ export class Links {
         return link;
     }
 
-    // Discord user ids linked to a character key, or to a net id.
-    usersFor({ key, netId }) {
+    // Discord user ids linked to a character key, or to a net id. With alert
+    // (raid or hunted), only those who turned that alert on.
+    usersFor({ key, netId }, alert = null) {
         return Object.entries(this.links)
             .filter(([, l]) => (key && l.key === key) || (netId && l.netId === netId))
+            .filter(([, l]) => !alert || l.alerts?.[alert])
             .map(([userId]) => userId);
+    }
+
+    // Raid and hunt DMs are off until the player turns them on. Returns the link.
+    toggleAlert(userId, alert) {
+        const link = this.links[userId];
+        if (!link) return null;
+        link.alerts = { ...link.alerts, [alert]: !link.alerts?.[alert] };
+        this.save();
+        log.info(`${userId} turned ${alert} alerts ${link.alerts[alert] ? 'on' : 'off'}`);
+        return link;
     }
 
     // From the relay: someone typed "/link CODE" in game.
@@ -89,16 +102,43 @@ export class Links {
         const key = guidKey || (event.netId && this.store.keyOfNetId(event.netId)) || PlayerStore.key({ name: event.name, uniqueNetId: event.netId });
         // One character per Discord account, one Discord account per character.
         for (const userId of this.usersFor({ key })) if (userId !== pending.userId) delete this.links[userId];
-        this.links[pending.userId] = { key, netId: event.netId || '', name: event.name, at: Date.now() };
+        const alerts = this.links[pending.userId]?.alerts || { raid: false, hunted: false };
+        this.links[pending.userId] = { key, netId: event.netId || '', name: event.name, at: Date.now(), alerts };
         this.save();
         log.info(`linked Discord ${pending.userId} to ${event.name} (${key})`);
 
         let discordName = 'your Discord account';
         if (pending.interaction) {
             discordName = pending.interaction.user.username;
-            await pending.interaction.editReply({ embeds: [linkedEmbed(event.name)] }).catch(err => log.debug(`could not update the /link reply: ${err.message}`));
+            const link = this.links[pending.userId];
+            await pending.interaction
+                .editReply({ embeds: [linkedEmbed(event.name), alertsEmbed(link)], components: alertButtons(link) })
+                .catch(err => log.debug(`could not update the /link reply: ${err.message}`));
         }
         await tell(`Linked to ${discordName} on Discord.`);
+        await this.welcome(pending.userId);
+    }
+
+    // A DM after linking: what the link does, and the alert switches, so the
+    // player can manage alerts from their DMs from then on. Sent once per link.
+    async welcome(userId) {
+        const link = this.links[userId];
+        if (!link || link.welcomed || !this.client) return;
+        try {
+            const user = await this.client.users.fetch(userId);
+            await user.send({ embeds: [welcomeEmbed(link.name), alertsEmbed(link)], components: alertButtons(link) });
+            log.info(`sent the welcome DM to ${link.name}'s Discord`);
+        } catch (err) {
+            log.info(`could not DM ${userId}: ${err.message} - they may have DMs from server members turned off`);
+        }
+        // Not retried either way: a closed DM stays closed, and /alerts works anywhere.
+        link.welcomed = true;
+        this.save();
+    }
+
+    // At start: links made before welcome DMs existed get theirs now.
+    async welcomeAll() {
+        for (const userId of Object.keys(this.links)) await this.welcome(userId);
     }
 }
 

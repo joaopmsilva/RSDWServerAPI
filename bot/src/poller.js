@@ -2,6 +2,7 @@ import { ActivityType } from 'discord.js';
 import { api } from './api.js';
 import { config } from './config.js';
 import { logger } from './log.js';
+import { rememberTotals } from './progress.js';
 import { PlayerStore } from './store.js';
 
 const log = logger('poller');
@@ -73,7 +74,9 @@ export class Poller {
     // World info and running events; null on mods before 0.6.0 or while it can't be read.
     async fetchWorld() {
         try {
-            return await api.world();
+            const world = await api.world();
+            rememberTotals(world);
+            return world;
         } catch (err) {
             if (err.status !== 404 && err.message !== this.lastWorldError) log.debug(`world info unavailable: ${err.message}`);
             this.lastWorldError = err.message;

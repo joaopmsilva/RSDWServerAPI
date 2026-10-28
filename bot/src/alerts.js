@@ -129,7 +129,7 @@ export class Alerts {
                 if (!this.alerted[what] && this.over[what] >= SUSTAINED[what]) {
                     this.alerted[what] = true;
                     const how = SUSTAINED[what] > 1 ? ` for ${SUSTAINED[what]} minutes` : '';
-                    this.dm(`🔥 ${RESOURCE_NAMES[what]} at ${Math.round(usage[what])}%`, `Over ${limit}%${how}. \`/system\` shows the current numbers.`, 0xe67e22);
+                    this.dm(`🔥 ${RESOURCE_NAMES[what]} at ${Math.round(usage[what])}%`, `Over ${limit}%${how}. The status board's footer shows the current load.`, 0xe67e22);
                 }
             } else {
                 this.over[what] = 0;

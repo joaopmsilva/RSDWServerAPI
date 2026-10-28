@@ -72,6 +72,32 @@ export class CommandsPost {
         }
     }
 
+    // Every `minutes`, delete everything in the channel but this card and other
+    // pinned messages, so the card is always what people see. Messages from
+    // the last minute are left for one more round, so a reply isn't taken
+    // away while someone is reading it. Needs Manage Messages.
+    startSweeping(minutes) {
+        if (!this.enabled || !this.channelId || !minutes) return;
+        if (this.channelId === config.chatChannelId) {
+            log.info(`not clearing #${this.channelId}: it's the chat channel - give ${this.what} a channel of its own`);
+            return;
+        }
+        log.info(`clearing the channel of ${this.what} every ${minutes} min`);
+        setInterval(() => this.sweep().catch(err => log.warn(`could not clear the channel: ${err.message} - the bot needs Manage Messages there`)), minutes * 60000);
+    }
+
+    async sweep() {
+        const channel = await this.client.channels.fetch(this.channelId);
+        const cutoff = Date.now() - 60000;
+        const messages = await channel.messages.fetch({ limit: 100 });
+        const old = messages.filter(m => !m.pinned && m.id !== this.saved?.messageId && m.createdTimestamp < cutoff);
+        if (!old.size) return;
+        // bulkDelete skips messages older than two weeks (true); those go one by one.
+        const deleted = await channel.bulkDelete(old, true);
+        for (const m of old.values()) if (!deleted.has(m.id)) await m.delete().catch(() => {});
+        log.debug(`cleared ${old.size} message(s) from #${channel.name}`);
+    }
+
     remember(saved) {
         this.saved = saved;
         try {

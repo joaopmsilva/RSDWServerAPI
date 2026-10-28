@@ -1,22 +1,72 @@
 // Quests, journal, skill perks and the in-game clock, as reported by mod 0.6.0+.
 
-// "Quest_CooksAssistant" -> "Cooks Assistant", for when the game's own name
-// couldn't be read.
+import fs from 'node:fs';
+import path from 'node:path';
+import { config } from './config.js';
+
+// "Quest_FH_MirrorMirror" -> "Mirror Mirror", for when the game's own name
+// couldn't be read (mod 0.6.0 read only a few; 0.6.1 asks the game).
 function prettify(id) {
     return String(id || '')
-        .replace(/^(Quest|DA_Perk|DA_SkillPerk|Perk|BP)_/i, '')
+        .replace(/^(Quest|BP)_/i, '')
+        .replace(/^((DR|FH|SW|UmS|FTUE)_)+/, '')
         .replace(/_C$/, '')
         .replace(/_/g, ' ')
         .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-export const questName = q => q.name || prettify(q.id);
+// Quest titles from the wiki, matched on letters only ("CooksAssistant" ->
+// "Cook's Assistant"), for when the game's own name isn't available.
+const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+let wikiTitles = new Map();
+
+export async function loadQuestTitles() {
+    try {
+        const url = 'https://dragonwilds.runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:Quests&cmlimit=500&cmnamespace=0&format=json';
+        const res = await fetch(url, { headers: { 'User-Agent': 'RSDWServerAPI-bot (Discord bot for a Dragonwilds server)' }, signal: AbortSignal.timeout(10000) });
+        const titles = (await res.json()).query?.categorymembers?.map(m => m.title) || [];
+        wikiTitles = new Map(titles.filter(t => !t.includes('/')).map(t => [squash(t), t]));
+    } catch {
+        // No wiki: names fall back to tidied-up ids.
+    }
+}
+
+// The game's name, else a wiki title the id matches, else the id tidied up.
+export function questName(q) {
+    if (q.name) return q.name;
+    const pretty = prettify(q.id);
+    return wikiTitles.get(squash(pretty)) || wikiTitles.get(squash(String(q.id).replace(/^Quest_/i, ''))) || pretty;
+}
 // "PerkV2_Attack_Parry" -> "Parry"
 export const perkName = p => p.name || prettify(String(p.id || '').replace(/^PerkV2_[A-Za-z]+_/, ''));
-// "Obj_TalkToTheWiseOldMan" -> "Talk To The Wise Old Man"
-export const objectiveName = o => prettify(String(o || '').replace(/^(Obj|Objective)_?/i, ''));
+
+// How many quests and journal entries the game has (mod 0.6.1+), from the last
+// world read; kept in data/totals.json so lookups have it while the server is down.
+const TOTALS_FILE = path.join(config.dataDir, 'totals.json');
+let totals = {};
+try {
+    totals = JSON.parse(fs.readFileSync(TOTALS_FILE, 'utf8'));
+} catch {
+    totals = {};
+}
+
+export function rememberTotals(world) {
+    const next = world?.totals;
+    if (!next || (!next.quests && !next.journal)) return;
+    if (next.quests === totals.quests && next.journal === totals.journal) return;
+    totals = { quests: next.quests || 0, journal: next.journal || 0 };
+    try {
+        fs.writeFileSync(TOTALS_FILE, JSON.stringify(totals));
+    } catch {
+        // Only a nicety - the counts still show without the total.
+    }
+}
+
+// " / 60" when the total is known and not below what the player has.
+export const outOf = (count, kind) => (totals[kind] >= count && totals[kind] > 0 ? ` / ${totals[kind]}` : '');
 
 // null when the player's quests have never been read (an older mod, or they
 // haven't been online since).

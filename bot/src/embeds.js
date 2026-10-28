@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
-import { clock, difficultyLabel, eventName, hardcoreLabel, journalKinds, objectiveName, perkName, questName, questStats } from './progress.js';
+import { clock, difficultyLabel, eventName, hardcoreLabel, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
 
@@ -66,8 +66,8 @@ function overviewPage(profile) {
     const quests = questStats(profile.player);
     const journal = profile.player.journal;
     const extra = [];
-    if (quests) extra.push(`📜 **Quests** \`${quests.done}\` done`);
-    if (journal?.total) extra.push(`📖 **Journal** \`${fmt(journal.total)}\` entries`);
+    if (quests) extra.push(`📜 **Quests** \`${quests.done}${outOf(quests.done, 'quests')}\``);
+    if (journal?.total) extra.push(`📖 **Journal** \`${fmt(journal.total)}${outOf(journal.total, 'journal')}\``);
     if (extra.length) lines.push(extra.join('  ·  '));
     embed.setDescription(lines.join('\n'));
     embed.setFooter({ text: `✨ /perks shows ${profile.player.characterName || profile.player.name || 'their'}'s skill perks` });
@@ -133,67 +133,9 @@ export function formatDuration(seconds) {
     return `${m}m`;
 }
 
-const STATUS_LABEL = {
-    online: '🟢 Online',
-    starting: '🟡 Starting up',
-    offline: '🔴 Offline',
-    unknown: '⚪ Checking…',
-};
-
+// /status: the status board without the banner and today's top XP.
 export function statusEmbed(state) {
-    const count = state.players.length;
-    const embed = new EmbedBuilder()
-        .setColor(COLOR[state.status] || COLOR.info)
-        .setTitle(`🐉 ${config.serverName}`)
-        .setDescription(`### ${STATUS_LABEL[state.status]}`)
-        .setTimestamp(state.updatedAt ? new Date(state.updatedAt) : null);
-
-    if (state.status === 'online') {
-        embed.addFields({
-            name: '👥 Players',
-            value: config.maxPlayers ? `**${count}** / ${config.maxPlayers}` : `**${count}**`,
-            inline: true,
-        });
-    }
-    if (state.health) {
-        // The mod starts with the server process, so its uptime is the server's.
-        embed.addFields(
-            { name: '⏱️ Uptime', value: formatDuration(state.health.uptimeSeconds || 0), inline: true },
-            { name: '🧩 Mod', value: `v${state.health.version || '?'}`, inline: true },
-        );
-    }
-    if (state.status === 'online') embed.addFields(worldFields(state.world));
-    if (count) {
-        const names = state.players.slice(0, 10).map(p => `• ${displayName(p)}`);
-        if (count > 10) names.push(`…and ${count - 10} more`);
-        embed.addFields({ name: '🎮 Online now', value: names.join('\n') });
-    }
-    if (state.status === 'offline') {
-        embed.addFields({ name: '​', value: 'Levels of players seen before are still available with `/levels`.' });
-    }
-    return embed;
-}
-
-export const ONLINE_PAGE_SIZE = 10;
-
-export function onlineEmbed(players, page) {
-    const pages = Math.max(1, Math.ceil(players.length / ONLINE_PAGE_SIZE));
-    page = Math.min(Math.max(0, page), pages - 1);
-    const max = config.maxPlayers ? ` / ${config.maxPlayers}` : '';
-
-    const slice = players.slice(page * ONLINE_PAGE_SIZE, (page + 1) * ONLINE_PAGE_SIZE);
-    const lines = slice.map((p, i) => {
-        const n = page * ONLINE_PAGE_SIZE + i + 1;
-        return `\`${String(n).padStart(2)}\` **${displayName(p)}** · ${p.pingMs ?? '?'} ms`;
-    });
-
-    const embed = new EmbedBuilder()
-        .setColor(players.length ? COLOR.online : COLOR.offline)
-        .setTitle(`👥 Online players — ${players.length}${max}`)
-        .setDescription(lines.join('\n') || 'Nobody is online right now.')
-        .setTimestamp();
-    if (pages > 1) embed.setFooter({ text: `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page` });
-    return embed;
+    return boardEmbed({ state, gainers: [], vps: null, compact: true }).setTimestamp(state.updatedAt ? new Date(state.updatedAt) : null);
 }
 
 // ---- leaderboard --------------------------------------------------------
@@ -270,7 +212,8 @@ export function perksEmbed(profile) {
             value: list.map(p => `**${perkName(p)}**${p.description ? `\n-# ${p.description}` : ''}`).join('\n').slice(0, 1024),
         });
     }
-    const max = perks.max > 0 ? ` of ${perks.max} slots` : '';
+    // The game reports 99 when there's no real limit.
+    const max = perks.max > 0 && perks.max < 50 ? ` of ${perks.max} slots` : '';
     return embed.setFooter({ text: `${perks.active.length} active${max}` });
 }
 
@@ -287,13 +230,8 @@ export function questsEmbed(profile) {
         return names.join('\n').slice(0, 1024);
     };
     const split = [quests.main && `${quests.main} main`, quests.side && `${quests.side} side`, quests.tasks && `${quests.tasks} tasks`].filter(Boolean);
-    embed.setDescription(`### ${quests.done} done${split.length ? ` · ${split.join(' · ')}` : ''}`);
-    if (quests.active.length) {
-        embed.addFields({
-            name: `🧭 In progress · ${quests.active.length}`,
-            value: quests.active.slice(0, 8).map(q => `• **${questName(q)}**${q.objective ? `\n-# ${objectiveName(q.objective)}` : ''}`).join('\n').slice(0, 1024),
-        });
-    }
+    embed.setDescription(`### ${quests.done}${outOf(quests.done, 'quests')} done${split.length ? `\n${split.join(' · ')}` : ''}`);
+    if (quests.active.length) embed.addFields({ name: `🧭 In progress · ${quests.active.length}`, value: list(quests.active, 10) });
     for (const [kind, title] of [['main', '⭐ Main quests'], ['side', '📜 Side quests'], ['task', '📋 Tasks']]) {
         const done = quests.completed.filter(q => q.kind === kind);
         if (done.length) embed.addFields({ name: `${title} · ${done.length}`, value: list(done), inline: true });
@@ -307,16 +245,16 @@ export function progressEmbed(profile, { playtime, deaths }) {
     const quests = questStats(profile.player);
     if (quests) {
         const split = [quests.main && `${quests.main} main`, quests.side && `${quests.side} side`, quests.tasks && `${quests.tasks} tasks`].filter(Boolean);
-        embed.addFields({ name: '📜 Quests done', value: `**${quests.done}**${split.length ? ` · ${split.join(' · ')}` : ''}`, inline: true });
+        embed.addFields({ name: '📜 Quests done', value: `**${quests.done}${outOf(quests.done, 'quests')}**${split.length ? `\n${split.join(' · ')}` : ''}`, inline: true });
         if (quests.active.length) {
-            const lines = quests.active.slice(0, 6).map(q => `• **${questName(q)}**${q.objective ? `\n-# ${objectiveName(q.objective)}` : ''}`);
-            if (quests.active.length > 6) lines.push(`…and ${quests.active.length - 6} more`);
-            embed.addFields({ name: '🧭 In progress', value: lines.join('\n').slice(0, 1024) });
+            const names = quests.active.slice(0, 6).map(q => `• ${questName(q)}`);
+            if (quests.active.length > 6) names.push(`…and ${quests.active.length - 6} more · \`/quests\``);
+            embed.addFields({ name: `🧭 In progress · ${quests.active.length}`, value: names.join('\n').slice(0, 1024), inline: true });
         }
     }
     const kinds = journalKinds(profile.player.journal);
     if (kinds.length) {
-        embed.addFields({ name: `📖 Journal · ${fmt(profile.player.journal.total)}`, value: kinds.map(k => `${k.emoji} ${k.name} **${k.count}**`).join('  ·  ') });
+        embed.addFields({ name: `📖 Journal · ${fmt(profile.player.journal.total)}${outOf(profile.player.journal.total, 'journal')}`, value: kinds.map(k => `${k.emoji} ${k.name} **${k.count}**`).join('  ·  ') });
     }
     if (playtime) {
         embed.addFields({ name: '⏱️ Played', value: `${duration(playtime.week)} this week\n${duration(playtime.total)} in total`, inline: true });
@@ -345,14 +283,15 @@ export function linkHowToEmbed() {
         .setColor(COLOR.info)
         .setTitle('🔗 Link your Discord to your character')
         .setDescription(
-            'Linking lets the bot **ping you when you’re being hunted**, or when **a raid starts** while you’re on - and `/me` shows everything about your character.',
+            'Linking lets `/me` and `/quests` show your own character, and the bot can **DM you when you’re being hunted** or **a raid starts** - if you want it to.',
         )
         .addFields(
             { name: '1️⃣ Press the button', value: 'Press **🔗 Link my character** below. You get a short code only you can see.' },
             { name: '2️⃣ Type it in game', value: 'In the game chat, type **`/link CODE`**. Nobody else sees it.' },
             { name: '3️⃣ Done', value: 'The bot confirms in game and here. **👤 My character** shows your stats.' },
+            { name: '🔔 Raid and hunt alerts', value: 'Off until you turn them on with **🔔 Alerts**. They come by DM, and you can turn them off right from the DM.' },
         )
-        .setFooter({ text: 'Codes work once, for 10 minutes · /link, /me and /unlink work anywhere too' });
+        .setFooter({ text: 'Codes work once, for 10 minutes · /link, /me, /alerts and /unlink work anywhere too' });
 }
 
 // The buttons on that card; index.js handles the presses.
@@ -361,6 +300,7 @@ export function linkButtons() {
         new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('link:start').setLabel('Link my character').setEmoji('🔗').setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId('link:me').setLabel('My character').setEmoji('👤').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('link:alerts').setLabel('Alerts').setEmoji('🔔').setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId('link:unlink').setLabel('Unlink').setStyle(ButtonStyle.Danger),
         ),
     ];
@@ -370,7 +310,46 @@ export function linkedEmbed(name) {
     return new EmbedBuilder()
         .setColor(COLOR.online)
         .setTitle(`✅ Linked to ${name}`)
-        .setDescription("Try `/me`. You'll be pinged here when you're being hunted, or when a raid starts while you're on.");
+        .setDescription('Try `/me` and `/quests`.');
+}
+
+// The DM sent once after linking, above alertsEmbed().
+export function welcomeEmbed(name) {
+    return new EmbedBuilder()
+        .setColor(COLOR.online)
+        .setTitle(`👋 You're linked to ${name}`)
+        .setDescription(
+            [
+                '`/me` and `/quests` now show your own character, wherever you use them.',
+                '',
+                'I can also message you here when a **raid** starts or something is **hunting** you. Both are **off** - turn them on below. Every alert comes with these buttons, so you can switch it off from the alert itself.',
+            ].join('\n'),
+        );
+}
+
+// Which raid / hunt DMs a linked player gets; shown with alertButtons().
+export function alertsEmbed(link) {
+    const on = kind => (link?.alerts?.[kind] ? '🟢 **On**' : '⚫ **Off**');
+    return new EmbedBuilder()
+        .setColor(0xe67e22)
+        .setTitle('🔔 Alerts by DM')
+        .setDescription('The bot can message you when something happens to your character. Press a button to turn one on or off - you can always change it here, with `/alerts`, or from the alert itself.')
+        .addFields(
+            { name: '⚔️ Raids', value: `${on('raid')}\nA raid starts near you - or anywhere, while you're online and nobody is close.`, inline: true },
+            { name: '🎯 Hunts', value: `${on('hunted')}\nSomething is hunting you.`, inline: true },
+        );
+}
+
+export function alertButtons(link) {
+    const button = (kind, label, emoji) => {
+        const on = Boolean(link?.alerts?.[kind]);
+        return new ButtonBuilder()
+            .setCustomId(`alerts:${kind}`)
+            .setLabel(`${label}: ${on ? 'On' : 'Off'}`)
+            .setEmoji(emoji)
+            .setStyle(on ? ButtonStyle.Success : ButtonStyle.Secondary);
+    };
+    return [new ActionRowBuilder().addComponents(button('raid', 'Raid alerts', '⚔️'), button('hunted', 'Hunt alerts', '🎯'))];
 }
 
 export function linkInfoEmbed(link) {
@@ -406,27 +385,6 @@ export function eventEmbed(event, players, { over = false, startedAt = 0 } = {})
         .setColor(COLOR.error)
         .setTitle(`⚔️ Raid!${what ? ` · ${what}` : ''}`)
         .setDescription(players.length ? `${names(players)} ${players.length === 1 ? 'is' : 'are'} under attack - go help!` : 'A base is under attack - anyone online, go help!');
-}
-
-// ---- world info for /status and the board -----------------------------------
-
-function worldFields(world) {
-    const fields = [];
-    const about = [
-        world?.worldName && `🗺️ **${escapeMarkdown(world.worldName)}**`,
-        world?.host && `👑 Host **${escapeMarkdown(world.host)}**`,
-        [difficultyLabel(world), hardcoreLabel(world)].filter(Boolean).join(' · '),
-    ].filter(Boolean);
-    if (about.length) fields.push({ name: '🌍 World', value: about.join('\n'), inline: true });
-    const c = clock(world);
-    if (c) {
-        fields.push({
-            name: '🕰️ In game',
-            value: `${c.emoji} **${c.time}** · Day ${c.day}${c.paused ? ' · ⏸️ paused' : ''}\n${c.next}`,
-            inline: true,
-        });
-    }
-    return fields;
 }
 
 // ---- live activity -------------------------------------------------------
@@ -574,55 +532,61 @@ export function summaryEmbed({ gainers, milestones, played, deaths }) {
 
 // ---- status board -------------------------------------------------------
 
-export function boardEmbed({ state, gainers, vps }) {
+// The game's icon, from the wiki, next to the server name.
+const ICON_URL = 'https://dragonwilds.runescape.wiki/images/RuneScape_Dragonwilds_%28Steam_edition%29_icon.jpg';
+
+// The status board and /status (compact: without today's top XP).
+export function boardEmbed({ state, gainers, vps, compact = false }) {
     const count = state.players.length;
-    const max = config.maxPlayers ? `/${config.maxPlayers}` : '';
+    const online = state.status === 'online';
     const headline = {
-        online: `🟢 Online · ${count}${max} player${count === 1 && !max ? '' : 's'}`,
+        online: '🟢 Online',
         starting: '🟡 Starting up',
         offline: '🔴 Offline',
         unknown: '⚪ Checking…',
     }[state.status];
+    const summary = {
+        online: `**${count}**${config.maxPlayers ? ` of ${config.maxPlayers}` : ''} player${count === 1 && !config.maxPlayers ? '' : 's'} on right now`,
+        starting: 'Loading the world - ready in a minute or two.',
+        offline: "Down right now - it's usually back within a few minutes.",
+    }[state.status];
 
     const embed = new EmbedBuilder()
         .setColor(COLOR[state.status] || COLOR.info)
-        .setTitle(`🐉 ${config.serverName}`)
-        .setDescription(`## ${headline}`)
-        .setFooter({ text: 'Updates by itself · /help for commands' })
+        .setAuthor({ name: config.serverName, iconURL: ICON_URL })
+        .setDescription(`## ${headline}${summary ? `\n${summary}` : ''}`)
+        .setFooter({ text: `${state.health ? `Mod v${state.health.version || '?'} · ` : ''}/help for commands` })
         .setTimestamp();
 
     const join = [];
-    if (config.connectAddress) join.push(`🌐 **Direct connect** \`${config.connectAddress}\``);
+    if (config.connectAddress) join.push(`🌐 **Direct connect**  \`${config.connectAddress}\``);
     const worldName = config.worldName || state.world?.worldName;
     if (worldName) {
         const creator = config.worldCreator || state.world?.host;
-        const by = creator ? ` by **${creator}**` : '';
-        join.push(`${config.connectAddress ? '…or find ' : '🗺️ Find '}**${worldName}**${by} in the server list`);
+        join.push(`🗺️ **Server list**  ${worldName}${creator ? ` by ${creator}` : ''}`);
     }
-    if (config.serverPassword) join.push(`🔑 **Password** ||${config.serverPassword}||`);
+    if (config.serverPassword) join.push(`🔑 **Password**  ||${config.serverPassword}||`);
     if (join.length) embed.addFields({ name: '🎮 How to join', value: join.join('\n') });
 
-    if (state.status === 'online') {
-        const names = state.players.slice(0, 20).map(p => `• ${displayName(p)}`);
-        if (count > 20) names.push(`…and ${count - 20} more`);
-        embed.addFields({ name: `👥 Playing now`, value: names.join('\n') || 'Nobody yet - be the first!' });
-        embed.addFields(worldFields(state.world));
+    if (online) {
+        const world = state.world;
+        const c = clock(world);
+        const about = [difficultyLabel(world), hardcoreLabel(world)].filter(Boolean).join('  ·  ');
+        if (worldName || about) embed.addFields({ name: '🌍 World', value: [worldName && `**${escapeMarkdown(worldName)}**`, about].filter(Boolean).join('\n'), inline: true });
+        if (c) embed.addFields({ name: '🕰️ In game', value: `${c.emoji} **${c.time}**  ·  Day ${c.day}\n${c.next}`, inline: true });
+        const names = state.players.slice(0, 20).map(p => escapeMarkdown(p.characterName || p.name));
+        if (count > 20) names.push(`and ${count - 20} more`);
+        embed.addFields({ name: '👥 Playing now', value: names.length ? names.join('  ·  ') : '*Nobody yet - be the first!*' });
     }
 
-    if (gainers.length) {
-        embed.addFields({ name: '📈 Top XP today', value: gainers.map((r, i) => `${place(i)} **${r.name}** +${fmt(r.total)}`).join('\n') });
+    if (!compact && gainers.length) {
+        embed.addFields({ name: '📈 Top XP today', value: gainers.map((r, i) => `${place(i)} **${r.name}**  +${fmt(r.total)} xp`).join('\n') });
     }
 
     const facts = [];
-    if (state.health) {
-        facts.push({ name: '⏱️ Uptime', value: formatDuration(state.health.uptimeSeconds || 0), inline: true });
-        facts.push({ name: '🧩 Mod', value: `v${state.health.version || '?'}`, inline: true });
-    }
+    if (state.health) facts.push({ name: '⏱️ Uptime', value: formatDuration(state.health.uptimeSeconds || 0), inline: true });
     if (config.dailyRestart) facts.push({ name: '🔄 Daily restart', value: config.dailyRestart, inline: true });
-    if (vps) {
-        const ram = vps.memory.used / vps.memory.total;
-        facts.push({ name: '🖥️ Server load', value: `CPU **${pct(vps.cpu.usage)}%** · RAM **${pct(ram)}%**`, inline: true });
-    }
+    if (vps) facts.push({ name: '🖥️ Load', value: `CPU ${pct(vps.cpu.usage)}%  ·  RAM ${pct(vps.memory.used / vps.memory.total)}%`, inline: true });
     if (facts.length) embed.addFields(facts);
     return embed;
 }
@@ -774,34 +738,6 @@ function bitrate(bytesPerSecond) {
 const usageLine = (used, total) =>
     `\`${progressBar(used / total, 12)}\` **${pct(used / total)}%**\n${bytes(used)} / ${bytes(total)}`;
 
-export function systemEmbed(s) {
-    const { cpu, memory, disk, network } = s;
-    const embed = new EmbedBuilder()
-        .setColor(COLOR.info)
-        .setTitle(`🖥️ VPS · ${s.hostname}`)
-        .addFields(
-            {
-                name: '⚙️ CPU',
-                value: `\`${progressBar(cpu.usage, 12)}\` **${pct(cpu.usage)}%**\n${cpu.cores} cores · load ${cpu.load.map(l => l.toFixed(2)).join(' / ')}`,
-                inline: true,
-            },
-            { name: '🧠 RAM', value: usageLine(memory.used, memory.total), inline: true },
-        )
-        .setFooter({ text: `VPS up ${formatDuration(s.uptimeSeconds)}` })
-        .setTimestamp();
-
-    if (memory.swapTotal) embed.addFields({ name: '🔁 Swap', value: usageLine(memory.swapUsed, memory.swapTotal), inline: true });
-    if (disk) embed.addFields({ name: '💾 Disk', value: usageLine(disk.used, disk.total), inline: true });
-    embed.addFields({
-        name: '🌐 Network',
-        value:
-            `⬇️ **${bitrate(network.rxRate)}** · ⬆️ **${bitrate(network.txRate)}**\n` +
-            `Since boot: ⬇️ ${bytes(network.rxTotal)} · ⬆️ ${bytes(network.txTotal)}`,
-        inline: true,
-    });
-    return embed;
-}
-
 // ---- misc ---------------------------------------------------------------
 
 export function ambiguousEmbed(query, players) {
@@ -834,7 +770,6 @@ export function helpEmbed() {
                 name: '📊 Skills',
                 value: [
                     '`/levels player` · every skill, total level and max health',
-                    '`/level skill player` · one skill, with progress to the next level',
                     '`/perks player` · their active skill perks',
                     '`/quests [player]` · quests done and in progress',
                 ].join('\n'),
@@ -851,8 +786,9 @@ export function helpEmbed() {
             {
                 name: '🔗 You',
                 value: [
-                    '`/link` · link your Discord to your character, to be pinged in raids and hunts',
+                    '`/link` · link your Discord to your character',
                     '`/me` · everything about your character',
+                    '`/alerts` · DMs when a raid starts or you’re hunted (off until you turn them on)',
                     '`/unlink` · remove the link',
                 ].join('\n'),
             },
@@ -865,16 +801,12 @@ export function helpEmbed() {
                 ].join('\n'),
             },
             {
-                name: '🐉 Server',
+                name: '🐉 Server & more',
                 value: [
-                    '`/status` · is it up, and who is on',
-                    '`/online` · everyone connected, with ping',
-                    '`/system` · the VPS\'s CPU, RAM, disk and network',
+                    '`/status` · is it up, who is on, the world and the time in game',
+                    '`/item item` · what an item is and does, from the wiki',
+                    '`/help` · this list',
                 ].join('\n'),
-            },
-            {
-                name: '🎒 Other',
-                value: ['`/item item` · what an item is and does, from the wiki', '`/help` · this list'].join('\n'),
             },
         )
         .setFooter({ text: '[ ] = optional' });

@@ -16,13 +16,6 @@ export const definitions = [
         .setDescription('Skill overview for a player')
         .addStringOption(playerOption),
     new SlashCommandBuilder()
-        .setName('level')
-        .setDescription('One skill in detail for a player')
-        .addStringOption(o =>
-            o.setName('skill').setDescription('Skill, e.g. woodcutting or wc').setRequired(true).setAutocomplete(true),
-        )
-        .addStringOption(playerOption),
-    new SlashCommandBuilder()
         .setName('leaderboard')
         .setDescription('Top players by total level, by one skill, or by quests done')
         .addStringOption(o =>
@@ -39,8 +32,8 @@ export const definitions = [
     new SlashCommandBuilder().setName('me').setDescription('Everything about your linked character'),
     new SlashCommandBuilder().setName('link').setDescription('Link your Discord to your in-game character with a one-time code'),
     new SlashCommandBuilder().setName('unlink').setDescription('Remove the link to your in-game character'),
+    new SlashCommandBuilder().setName('alerts').setDescription('Turn raid and hunt DMs on or off'),
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
-    new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
     new SlashCommandBuilder()
         .setName('gains')
         .setDescription('XP gained - top gainers, or one player skill by skill')
@@ -67,7 +60,6 @@ export const definitions = [
         .setName('item')
         .setDescription('Look up an item')
         .addStringOption(o => o.setName('item').setDescription('Start typing to search').setRequired(true).setAutocomplete(true)),
-    new SlashCommandBuilder().setName('system').setDescription("The VPS's CPU, RAM, disk and network use"),
     new SlashCommandBuilder().setName('help').setDescription('What the bot can do'),
 
     // Admin only. Hidden from members without Administrator; the bot also checks

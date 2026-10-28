@@ -25,6 +25,7 @@ Object.assign(process.env, {
 });
 
 const E = await import('../../src/embeds.js');
+(await import('../../src/progress.js')).rememberTotals({ totals: { quests: 41, journal: 912 } });
 const { describeSkills } = await import('../../src/skills.js');
 const { levelInfo } = await import('../../src/levels.js');
 const { wikiInfo } = await import('../../src/wiki.js');
@@ -116,7 +117,6 @@ const H = 3600;
 const shots = [
     ['status-board', [[null, [E.boardEmbed({ state: { status: 'online', players: online, health, world }, gainers: [{ name: 'Mira', total: 18420 }, { name: 'Elske', total: 9310 }, { name: 'Kit', total: 4120 }], vps: { cpu: { usage: 0.23 }, memory: { used: 5.1, total: 16 } } })]]]],
     ['levels', [['/levels player:Mira', [E.renderPlayerPage(profile('Mira'), 'overview')]]]],
-    ['level', [['/level skill:Woodcutting player:Thorne', [E.renderPlayerPage(profile('Thorne'), 'skill:woodcutting')]]]],
     ['leaderboard', [['/leaderboard', [E.leaderboardEmbed(rowsFor(null), null, 0)]]]],
     [
         'activity',
@@ -163,12 +163,12 @@ const shots = [
     ['quest-leaderboard', [['/leaderboard skill:quests', [E.questLeaderboardEmbed(questRows, 0)]]]],
     ['perks', [['/perks player:Mira', [E.perksEmbed({ ...profile('Mira'), player: { ...player('Mira'), perks } })]]]],
     ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 } })]]]],
-    ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira')], null, true]]],
+    ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira'), E.alertsEmbed({ alerts: { raid: true, hunted: false } })], E.alertButtons({ alerts: { raid: true, hunted: false } }), true]]],
     [
         'raid-alerts',
         [
-            [null, [E.eventEmbed({ type: 'raid', name: 'BP_RaidEvent_Goblins_C' }, [located[0], located[1]])], null, false, '@Mira @Elske'],
-            [null, [E.eventEmbed({ type: 'hunted', name: 'BP_HuntedEvent_Wolves_C' }, [located[2]])], null, false, '@Kit'],
+            [null, [E.eventEmbed({ type: 'raid', name: 'BP_RaidEvent_Goblins_C' }, [located[0], located[1]])], E.alertButtons({ alerts: { raid: true, hunted: false } })],
+            [null, [E.eventEmbed({ type: 'hunted', name: 'BP_HuntedEvent_Wolves_C' }, [located[2]])], E.alertButtons({ alerts: { raid: true, hunted: true } })],
             [null, [E.eventEmbed({ type: 'raid', name: 'BP_RaidEvent_Goblins_C' }, [located[0], located[1]], { over: true, startedAt: Date.now() - 4 * 60000 })]],
         ],
     ],
@@ -283,7 +283,7 @@ a { color:#00a8fc; } b { color:#f2f3f5; font-weight:600; }
 .text { margin-bottom:2px; }
 .buttons { display:flex; gap:8px; margin-top:8px; }
 .button { padding:2px 16px; border-radius:8px; color:#fff; font-size:14px; font-weight:500; line-height:30px; }
-.button.s1 { background:#5865f2; } .button.s2 { background:#4e5058; } .button.s4 { background:#da373c; }
+.button.s1 { background:#5865f2; } .button.s2 { background:#4e5058; } .button.s3 { background:#248046; } .button.s4 { background:#da373c; }
 .only { font-size:12px; color:#949ba4; margin-top:4px; }
 img.emoji { height:1.2em; width:1.2em; vertical-align:-0.25em; margin:0 .05em; }
 .h2 img.emoji, .h3 img.emoji { height:1.1em; width:1.1em; }

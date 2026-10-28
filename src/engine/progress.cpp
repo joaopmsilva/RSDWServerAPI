@@ -1,10 +1,13 @@
 // Quests, journal and skill perks: components on the player controller, read
 // through field offsets looked up by name (reflection.h).
 #include "dom_engine.h"
+#include "native_call.h"
+#include "process_event.h"
 #include "reflection.h"
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
+#include <chrono>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -36,13 +39,65 @@ std::mutex g_TextMutex;
 std::unordered_map<uintptr_t, std::string> g_Texts;
 bool g_FirstTextLogged = false;
 
-std::string CachedText(uintptr_t asset, int32_t offset, const char* what) {
+// The game's own UKismetTextLibrary::Conv_TextToString, which resolves string
+// tables and localisation the way the game does. Looked up once a minute
+// until found.
+uintptr_t g_ToStringFunction = 0;
+uintptr_t g_ToStringLibrary = 0;
+int32_t g_ToStringIn = -1, g_ToStringOut = -1;
+
+bool ResolveToString(const Engine* engine) {
+    if (g_ToStringFunction && g_ToStringLibrary && g_ToStringIn >= 0 && g_ToStringOut >= 0) return true;
+    static std::chrono::steady_clock::time_point lastTry;
+    auto now = std::chrono::steady_clock::now();
+    if (lastTry.time_since_epoch().count() && now - lastTry < std::chrono::seconds(60)) return false;
+    lastTry = now;
+    if (!g_ToStringFunction) g_ToStringFunction = engine->FindFunction("KismetTextLibrary", "Conv_TextToString");
+    if (!g_ToStringLibrary) g_ToStringLibrary = engine->FindObject("KismetTextLibrary", true);
+    g_ToStringIn = Reflect::OffsetIn(g_ToStringFunction, "InText");
+    g_ToStringOut = Reflect::OffsetIn(g_ToStringFunction, "ReturnValue");
+    bool ok = g_ToStringFunction && g_ToStringLibrary && g_ToStringIn >= 0 && g_ToStringOut > g_ToStringIn &&
+              NativeCall::IsNative(g_ToStringFunction);
+    if (!ok) LogMessage("Reflection: Conv_TextToString not usable yet, falling back to reading text directly");
+    return ok;
+}
+
+// "" with ran=false when the game thread couldn't run it (try again later).
+std::string TextToString(const Engine* engine, uintptr_t address, bool& ran) {
+    ran = false;
+    if (!ResolveToString(engine) || !GameThread::IsReady() || !GameThread::FrameLayoutReady()) return "";
+    uint8_t params[0x80] = {};
+    if (g_ToStringOut + 0x10 > (int32_t)sizeof(params) || !Mem::Readable((void*)address, 0x10)) return "";
+    memcpy(params + g_ToStringIn, (void*)address, 0x10); // FText by reference: not copied, not released
+    bool invoked = false;
+    auto call = [&]() { invoked = NativeCall::Invoke(g_ToStringLibrary, g_ToStringFunction, params, (uintptr_t)g_ToStringOut); };
+    if (GameThread::IsGameThread()) {
+        call();
+        ran = true;
+    } else {
+        ran = GameThread::RunSync(call, 2000);
+    }
+    if (!ran || !invoked) {
+        ran = false;
+        return "";
+    }
+    // The returned FString's buffer belongs to the game's allocator; it's left
+    // alone (a few bytes per asset, once).
+    return engine->ReadFString((uintptr_t)params + (uintptr_t)g_ToStringOut);
+}
+
+std::string CachedText(const Engine* engine, uintptr_t asset, int32_t offset, const char* what) {
     if (!asset || offset < 0) return "";
     uintptr_t key = asset + (uintptr_t)offset;
     std::lock_guard<std::mutex> lock(g_TextMutex);
     auto it = g_Texts.find(key);
     if (it != g_Texts.end()) return it->second;
-    std::string text = Reflect::ReadText(asset + (uintptr_t)offset);
+    bool ran = false;
+    std::string text = TextToString(engine, asset + (uintptr_t)offset, ran);
+    if (!ran) {
+        text = Reflect::ReadText(asset + (uintptr_t)offset);
+        if (text.empty()) return ""; // not cached: try the game's function next time
+    }
     if (!g_FirstTextLogged && !text.empty()) {
         g_FirstTextLogged = true;
         LogMessage(std::string("Reflection: first ") + what + " name read: '" + text + "'");
@@ -96,7 +151,7 @@ void Engine::ReadQuests(PlayerInfo& info, uintptr_t component) const {
 
         QuestInfo quest;
         quest.id = GetObjectName(data);
-        quest.name = CachedText(data, nameOffset, "quest");
+        quest.name = CachedText(this, data, nameOffset, "quest");
         quest.complete = state == 2;
         if (mainOffset >= 0 && Mem::ReadU8(data + (uintptr_t)mainOffset)) quest.kind = "main";
         else if (taskOffset >= 0 && Mem::ReadU8(data + (uintptr_t)taskOffset)) quest.kind = "task";
@@ -149,8 +204,8 @@ void Engine::ReadPerks(PlayerInfo& info, uintptr_t component) const {
             if (!data) continue;
             PerkInfo perk;
             perk.id = GetObjectName(data);
-            perk.name = CachedText(data, nameOffset, "perk");
-            perk.description = CachedText(data, descriptionOffset, "perk description");
+            perk.name = CachedText(this, data, nameOffset, "perk");
+            perk.description = CachedText(this, data, descriptionOffset, "perk description");
             perk.skill = skill;
             info.perks.push_back(perk);
         }

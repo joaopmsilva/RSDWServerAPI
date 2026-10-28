@@ -32,6 +32,11 @@ struct State {
     int32_t minutesPerDay = 0; // real minutes in an in-game day, 0 if unknown
 
     std::vector<EventInfo> events;
+
+    // How many quests (shown in the quest list) and journal entries the game
+    // has loaded - the most a player can have. 0 if unknown.
+    int32_t totalQuests = 0;
+    int32_t totalJournal = 0;
 };
 
 State Read();

@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.6.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.8.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.6.1-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.8.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -38,7 +38,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **🔗 One-click account linking** - press a button, type a short code in game
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths
-- **`/status`, `/online`, `/system`** - server, players and VPS load
+- **`/status`** - is it up, who is on, the world and the time in game
 - **`/item`** - any item with its wiki summary, picture and stats
 - Player and skill names **auto-fill** as you type
 
@@ -51,9 +51,10 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Level-ups** 🎉 and ⭐ 99 celebrations
 - **Joins, leaves and deaths**, with the cause when the game gives one
 - **Server notices** - online, offline, restarting, backups
-- **Raid and hunt alerts** ⚔️ - pings the linked players it concerns
+- **Raid and hunt alerts** ⚔️ - by DM to linked players who turn them on
 - **Weekly recap** every Sunday: top gainers, new 99s, most played
 - **Live status board** - one self-updating message with how to join, who's on, the world and the in-game clock
+- **A tidy commands channel** - cleared every few minutes, so the pinned command list is always in view
 - **Game update watcher** - warns when Steam has a new server build, then backs up, updates and restarts by itself
 - The bot's status shows `🟢 3/16 players online`
 
@@ -112,9 +113,9 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**📊 One skill up close** · progress to the next level and XP left
+**🐉 `/status`** · who is on, the world and the in-game clock
 
-<img src="bot/docs/screenshots/level.png" alt="/level: one skill with a progress bar and XP to the next level">
+<img src="bot/docs/screenshots/status.png" alt="/status: online, players, world and in-game time">
 
 </td>
 <td width="50%" valign="top">
@@ -160,7 +161,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**⚔️ Raid and hunt alerts** · ping the linked players they concern
+**⚔️ Raid and hunt alerts** · by DM, for players who turn them on
 
 <img src="bot/docs/screenshots/raid-alerts.png" alt="Raid and hunted alerts with pings, and the raid-over update">
 

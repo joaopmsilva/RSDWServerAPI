@@ -34,7 +34,7 @@ bool g_TimeMissingLogged = false;
 uintptr_t g_TimeActor = 0;
 // Which classes are events (or the clock), by class pointer, so the pass over
 // every object costs one read each.
-std::unordered_map<uintptr_t, int> g_ClassKinds; // 0 none, 1 raid, 2 hunted, 3 clock
+std::unordered_map<uintptr_t, int> g_ClassKinds; // 0 none, 1 raid, 2 hunted, 3 clock, 4 quest, 5 journal entry
 bool g_FirstEventLogged = false;
 
 bool ItemAlive(const Engine* engine, uintptr_t object) {
@@ -49,7 +49,7 @@ bool ItemAlive(const Engine* engine, uintptr_t object) {
     return (flags & (kGarbage | kUnreachable)) == 0;
 }
 
-int KindOfClass(uintptr_t cls, uintptr_t raid, uintptr_t hunted, uintptr_t clock) {
+int KindOfClass(uintptr_t cls, uintptr_t raid, uintptr_t hunted, uintptr_t clock, uintptr_t quest, uintptr_t journal) {
     auto it = g_ClassKinds.find(cls);
     if (it != g_ClassKinds.end()) return it->second;
     int kind = 0;
@@ -57,6 +57,8 @@ int KindOfClass(uintptr_t cls, uintptr_t raid, uintptr_t hunted, uintptr_t clock
         if (raid && c == raid) kind = 1;
         else if (hunted && c == hunted) kind = 2;
         else if (clock && c == clock) kind = 3;
+        else if (quest && c == quest) kind = 4;
+        else if (journal && c == journal) kind = 5;
     }
     g_ClassKinds[cls] = kind;
     return kind;
@@ -152,7 +154,10 @@ void ReadEvents(Engine* engine, State& out) {
     uintptr_t raid = Reflect::FindType("BaseRaidEvent");
     uintptr_t hunted = Reflect::FindType("HuntedEvent");
     uintptr_t clock = Reflect::FindType("InGameTimeActor");
-    if (!raid && !hunted && !clock) return;
+    uintptr_t quest = Reflect::FindType("QuestData");
+    uintptr_t journal = Reflect::FindType("JournalEntryData");
+    if (!raid && !hunted && !clock && !quest && !journal) return;
+    int32_t hiddenOffset = Reflect::Offset("QuestData", "bHideInQuestList");
 
     int32_t raidRadius = Reflect::Offset("BaseRaidEvent", "EventRadius");
     int32_t huntedRadius = Reflect::Offset("HuntedEvent", "MaxPlayerDistanceFromSpawnRadiusForConsideration");
@@ -161,9 +166,22 @@ void ReadEvents(Engine* engine, State& out) {
     for (int32_t i = 0; i < count; i++) {
         uintptr_t object = engine->GetObjectByIndex(i);
         if (!object) continue;
-        int kind = KindOfClass(Mem::ReadPtr(object + Offsets::UObject_Class), raid, hunted, clock);
+        int kind = KindOfClass(Mem::ReadPtr(object + Offsets::UObject_Class), raid, hunted, clock, quest, journal);
         if (!kind) continue;
         if (Mem::ReadI32(object + Offsets::UObject_Flags) & kTemplateOrDying) continue;
+
+        // Data assets: count them. Quests left in the game's Deleted folder or
+        // hidden from the quest list don't count.
+        if (kind == 4) {
+            if (hiddenOffset >= 0 && Mem::ReadU8(object + (uintptr_t)hiddenOffset)) continue;
+            if (engine->GetObjectName(Mem::ReadPtr(object + Offsets::UObject_Outer)).find("/Deleted/") != std::string::npos) continue;
+            out.totalQuests++;
+            continue;
+        }
+        if (kind == 5) {
+            out.totalJournal++;
+            continue;
+        }
         if (!ItemAlive(engine, object)) continue;
 
         if (kind == 3) {

@@ -196,6 +196,7 @@ std::string World(const DomWorld::State& w) {
     } else {
         oss << "\"time\":null,";
     }
+    oss << "\"totals\":{\"quests\":" << w.totalQuests << ",\"journal\":" << w.totalJournal << "},";
     oss << "\"events\":[";
     for (size_t i = 0; i < w.events.size(); i++) {
         const DomWorld::EventInfo& e = w.events[i];

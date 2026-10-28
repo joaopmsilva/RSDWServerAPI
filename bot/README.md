@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.8.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.8.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -30,32 +30,31 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | Command | |
 | ------- | - |
 | 📊 **`/levels`** `player` | Every skill by category, total level and max health |
-| 🪓 **`/level`** `skill` `player` | One skill in detail, with a progress bar to the next level |
 | 🏆 **`/leaderboard`** `[skill]` | Top players by total level (with quests done), by XP in one skill, or `quests` for the most quests |
 | 📜 **`/quests`** `[player]` | Quests done (main, side, tasks) and in progress with the current step - your own when linked |
 | ✨ **`/perks`** `player` | Their active skill perks, by skill |
 | 🙋 **`/me`** | Everything about your linked character: skills, quests done and in progress, journal, playtime, deaths |
 | 🔗 **`/link`** 🔒 · **`/unlink`** 🔒 | Link your Discord to your character - see [Account linking](#-account-linking) |
+| 🔔 **`/alerts`** 🔒 | Turn raid and hunt DMs on or off |
 | 📈 **`/gains`** `[player]` `[period]` | Who gained the most XP, or one player skill by skill |
 | ⏱️ **`/playtime`** `[player]` | Most played this week, or one player's time |
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
-| 🐉 **`/status`** | Online / starting / offline, players, uptime |
-| 👥 **`/online`** | Everyone connected, with ping |
+| 🐉 **`/status`** | Online / starting / offline, who is on, the world, the in-game clock |
 | 🎒 **`/item`** `item` 🔒 | Any item: what it is and does (from the wiki), type, stack size, weight |
-| 🖥️ **`/system`** 🔒 | The VPS's CPU, RAM, disk and network right now |
 | ❓ **`/help`** 🔒 | All of the above |
 
 The bot also posts this list once and pins it, so new players can find it (`COMMANDS_POST`,
 `COMMANDS_CHANNEL_ID` - a channel of its own for commands works well). It's edited in place when
-the commands change, and moved when the channel does.
+the commands change, and moved when the channel does. In a channel of its own, everything else
+is cleared every `COMMANDS_CLEANUP_MINUTES` (5), so the list is always what people see.
 
 `/levels` also shows quests done and journal entries, and `/status` and the status board show the
 world (name, host, difficulty) and the in-game clock - all from mod 0.6.0.
 
 ## 🔗 Account linking
 
-Players link their Discord account to their character once, so the bot can ping them when they're
-being hunted or a raid starts, and `/me` knows who they are.
+Players link their Discord account to their character once, so `/me` and `/quests` know who they
+are and the bot can DM them when they're being hunted or a raid starts.
 
 1. They press **🔗 Link my character** on the card the bot pins in `LINK_CHANNEL_ID` (or use `/link`
    anywhere) and get a 5-character code only they can see.
@@ -75,10 +74,12 @@ for that one step.
 
 ## ⚔️ Raid and hunt alerts
 
-When a raid or a hunted event starts, the bot posts in `EVENTS_CHANNEL_ID` (default the chat
-channel). A hunt pings the hunted player's linked account; a raid pings the linked players near it,
-or everyone linked and online when nobody is close. The message is edited to *Raid over · lasted
-4m* when it ends. Who's affected is worked out from where players are, since the game doesn't say.
+Raid and hunt alerts are **private DMs**, never posted in a channel, and **off until a player
+turns them on**. Right after linking, the bot DMs a welcome with two switches - ⚔️ raids and 🎯
+hunts. They are also on the **🔔 Alerts** button of the link card and in `/alerts`, and every alert
+DM carries them too, so it can be turned off from the alert itself. The DM is edited to *Raid over ·
+lasted 4m* when it ends. A hunt DMs the hunted player; a raid DMs the linked players near it, or
+everyone linked and online when nobody is close. Who's affected is worked out from where players are, since the game doesn't say.
 `RAID_ALERTS=false` turns them off.
 
 🔒 Only the person who used the command sees the answer, so lookups don't clutter the channel.
@@ -112,7 +113,7 @@ The bronze logging axe is a power level 3 logging axe that can be crafted at a b
 Items the wiki has no page for still show their type and stack size, with a link to search it.
 
 Offline players are answered from the last time the bot saw them, marked *"Offline · last seen
-2 hours ago"*. `/online` and `/leaderboard` page with ◀️ ▶️ when there are more than ten.
+2 hours ago"*. `/leaderboard` pages with ◀️ ▶️ when there are more than ten.
 
 <details>
 <summary><b>How levels, gains and playtime are worked out</b></summary>
@@ -325,7 +326,7 @@ presence updates, relay batches and undelivered chat.
 | `src/announce.js`, `src/announcer.js` | Notices for scripts and `/server` |
 | `src/admin.js`, `src/server-control.js` | Admin commands, server start / stop / restart / backup |
 | `src/alerts.js` | Private alerts to the admins |
-| `src/system.js` | VPS CPU, RAM, disk and network |
+| `src/system.js` | VPS CPU, RAM, disk and network, for the board and admin alerts |
 | `src/board.js` | The live status board |
 | `src/commands-post.js` | The pinned command list |
 | `src/update-watch.js`, `src/steam.js` | Watching Steam for game updates, updating with steamcmd |

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 
-// VPS usage for /system, read from /proc. CPU and network are rates, so they're
+// VPS usage for the status board and admin alerts, read from /proc. CPU and network are rates, so they're
 // sampled twice a second apart.
 
 const SAMPLE_MS = 1000;

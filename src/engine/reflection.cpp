@@ -176,6 +176,14 @@ int32_t Offset(const std::string& type, const std::string& field) {
     return offset;
 }
 
+int32_t OffsetIn(uintptr_t type, const std::string& field) {
+    std::lock_guard<std::mutex> lock(g_Mutex);
+    if (!type || !CalibrateLocked()) return -1;
+    uintptr_t f = FieldNamed(type, field, g_Layout);
+    int32_t offset = f ? Mem::ReadI32(f + g_Layout.offset) : -1;
+    return offset >= 0 && offset < 0x10000 ? offset : -1;
+}
+
 int32_t Size(const std::string& type) {
     std::lock_guard<std::mutex> lock(g_Mutex);
     if (!CalibrateLocked() || !g_Layout.structSize) return 0;
