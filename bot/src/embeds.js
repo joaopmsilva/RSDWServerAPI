@@ -258,9 +258,11 @@ export function joinEmbed(name, count) {
     return embed;
 }
 
-export function leaveEmbed(name, count, playedSeconds) {
+// afk: they left because the mod kicked them for being AFK.
+export function leaveEmbed(name, count, playedSeconds, afk = false) {
     const played = playedSeconds >= 60 ? ` · played ${formatDuration(playedSeconds)}` : '';
-    const embed = new EmbedBuilder().setColor(COLOR.offline).setDescription(`⬅️ **${escapeMarkdown(name)}** left${played}`).setTimestamp();
+    const text = afk ? `💤 **${escapeMarkdown(name)}** was kicked for being AFK${played}` : `⬅️ **${escapeMarkdown(name)}** left${played}`;
+    const embed = new EmbedBuilder().setColor(afk ? 0xe67e22 : COLOR.offline).setDescription(text).setTimestamp();
     const footer = onlineCount(count);
     if (footer) embed.setFooter({ text: footer });
     return embed;

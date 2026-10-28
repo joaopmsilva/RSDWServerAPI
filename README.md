@@ -7,12 +7,17 @@
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.5.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.7.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.7.2-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
 
-[**Features**](#-features) · [**How it works**](#-how-it-works) · [**Quick start**](#-quick-start) · [**Discord bot**](bot/README.md) · [**Full setup guide**](DEPLOY.md) · [**API reference**](#-rest-api)
+[**Features**](#-features) · [**Screenshots**](#-screenshots) · [**How it works**](#-how-it-works) · [**Quick start**](#-quick-start) · [**Discord bot**](bot/README.md) · [**Full setup guide**](DEPLOY.md) · [**API reference**](#-rest-api)
+
+<br>
+
+<img src="bot/docs/screenshots/status-board.png" width="49%" alt="The live status board: online, how to join, who's playing, top XP today">
+<img src="bot/docs/screenshots/levels.png" width="49%" alt="/levels: a player's skills by category with total level and XP">
 
 </div>
 
@@ -78,6 +83,79 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 </td>
 </tr>
 </table>
+
+---
+
+## 📸 Screenshots
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🏆 Leaderboards** · by total level or any skill, online players marked
+
+<img src="bot/docs/screenshots/leaderboard.png" alt="/leaderboard: top players by total level with medals">
+
+</td>
+<td width="50%" valign="top">
+
+**🎉 Live activity** · joins, leaves, AFK kicks, level-ups and 99s as they happen
+
+<img src="bot/docs/screenshots/activity.png" alt="Join, level-up, level 99, leave and AFK kick messages">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**📊 One skill up close** · progress to the next level and XP left
+
+<img src="bot/docs/screenshots/level.png" alt="/level: one skill with a progress bar and XP to the next level">
+
+</td>
+<td width="50%" valign="top">
+
+**⏱️ Playtime and gains** · who played most, who gained most
+
+<img src="bot/docs/screenshots/stats.png" alt="/playtime and /gains">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**📅 Weekly recap** · every Sunday evening
+
+<img src="bot/docs/screenshots/weekly-recap.png" alt="The weekly recap: top XP gainers, new 99s, most played, deaths">
+
+</td>
+<td width="50%" valign="top">
+
+**🎒 Item lookup** · straight from the wiki
+
+<img src="bot/docs/screenshots/item.png" alt="/item: an item's wiki summary, picture and stats">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**🔄 Server notices** · players warned before restarts, told when it's back
+
+<img src="bot/docs/screenshots/notices.png" alt="Restart warning and back-online notices">
+
+</td>
+<td width="50%" valign="top">
+
+**📖 Every command** · in `/help`, pinned in your chat channel
+
+<img src="bot/docs/screenshots/help.png" alt="/help: the command list">
+
+</td>
+</tr>
+</table>
+
+<sub>Sample players. Rendered from the bot's own embed code by <a href="bot/docs/screenshots/generate.mjs"><code>bot/docs/screenshots/generate.mjs</code></a>, so they stay true to what the bot posts.</sub>
 
 ---
 

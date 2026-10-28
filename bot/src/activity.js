@@ -9,6 +9,8 @@ import { PlayerStore } from './store.js';
 
 const log = logger('activity');
 const NO_MENTIONS = { parse: [] };
+// Without the mod's leave events, a poll notices the leave up to two polls later.
+const AFK_LEAVE_WAIT_MS = 90 * 1000;
 
 // Mod 0.3.0 reports joins and leaves itself, the moment they happen.
 export function modReportsPresence(version) {
@@ -32,6 +34,7 @@ export class Activity {
         this.modPresence = false;
         this.timer = null;
         this.pending = new Map(); // net:/name: key -> seconds played before the character was known
+        this.afkKicks = new Map(); // net id -> timer posting the kick alone if no leave follows
         this.mergeLooseKeys();
     }
 
@@ -203,9 +206,15 @@ export class Activity {
         if (type === 'join') this.sessions.set(netId, Date.now());
         else this.sessions.delete(netId);
         log.info(`player ${type === 'join' ? 'joined' : 'left'}: ${name}`);
+
+        const afk = type === 'leave' && this.afkKicks.has(netId);
+        if (afk) {
+            clearTimeout(this.afkKicks.get(netId));
+            this.afkKicks.delete(netId);
+        }
         if (!config.joinLeaveNotices) return;
 
-        const embed = type === 'join' ? joinEmbed(name, count) : leaveEmbed(name, count, started ? (Date.now() - started) / 1000 : 0);
+        const embed = type === 'join' ? joinEmbed(name, count) : leaveEmbed(name, count, started ? (Date.now() - started) / 1000 : 0, afk);
         this.queuePresence(embed);
     }
 
@@ -226,10 +235,22 @@ export class Activity {
         this.announce(event.type, event.netId, event.name, event.players ?? -1);
     }
 
-    // From the relay (mod 0.4.0+): kicked for being AFK. The leave follows on its own.
+    // From the relay (mod 0.4.0+): kicked for being AFK. The leave that follows
+    // says so; only if it never comes is the kick posted on its own.
     afk(event) {
         log.info(`AFK kick: ${event.name}`);
-        if (config.joinLeaveNotices && event.name) this.queuePresence(afkEmbed(event.name));
+        if (!event.netId) {
+            if (config.joinLeaveNotices && event.name) this.queuePresence(afkEmbed(event.name));
+            return;
+        }
+        clearTimeout(this.afkKicks.get(event.netId));
+        this.afkKicks.set(
+            event.netId,
+            setTimeout(() => {
+                this.afkKicks.delete(event.netId);
+                if (config.joinLeaveNotices && event.name) this.queuePresence(afkEmbed(event.name));
+            }, AFK_LEAVE_WAIT_MS),
+        );
     }
 
     death(event) {
