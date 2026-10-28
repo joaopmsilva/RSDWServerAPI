@@ -54,6 +54,7 @@ export class PlayerStore {
         const quests = player.quests?.length ? player.quests.map(({ id, name, kind, complete }) => ({ id, name, kind, complete })) : previous?.quests;
         const journal = player.journal?.total ? player.journal : previous?.journal;
         const perks = player.perks ? player.perks : previous?.perks;
+        const creatureTypes = player.creatureTypes >= 0 ? player.creatureTypes : previous?.creatureTypes;
         this.players[key] = {
             name: player.name,
             characterName: player.characterName,
@@ -64,6 +65,7 @@ export class PlayerStore {
             ...(quests ? { quests } : {}),
             ...(journal ? { journal } : {}),
             ...(perks ? { perks } : {}),
+            ...(creatureTypes >= 0 ? { creatureTypes } : {}),
             lastSeen: now,
         };
         this.dirty = true;

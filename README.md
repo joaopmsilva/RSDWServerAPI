@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.6.1-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.8.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.7.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.9.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -32,7 +32,8 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 ### 🎮 In Discord
 
 - **`/levels`, `/level`** - any player's skills, live or from the last time they were seen
-- **`/leaderboard`** - by total level, any skill or quests done, 🥇🥈🥉
+- **`/leaderboard`** - total level, any skill, quests done or kills, 🥇🥈🥉
+- **`/kills`** - creatures killed, and which ones most
 - **`/me`** - everything about your own character: skills, quests, journal, playtime
 - **`/quests`** - quests done and in progress · **`/perks`** - active skill perks
 - **🔗 One-click account linking** - press a button, type a short code in game
@@ -168,10 +169,11 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 </td>
 <td width="50%" valign="top">
 
-**📜 Quests and ✨ perks** · each player's quests, a quest leaderboard and skill perks
+**📜 Quests, ⚔️ kills and ✨ perks** · quests, the quest and kill boards, skill perks
 
 <img src="bot/docs/screenshots/quests.png" alt="/quests">
 <img src="bot/docs/screenshots/quest-leaderboard.png" alt="/leaderboard quests">
+<img src="bot/docs/screenshots/kills.png" alt="/leaderboard kills and /kills">
 <img src="bot/docs/screenshots/perks.png" alt="/perks">
 
 </td>
@@ -425,7 +427,7 @@ Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empt
 | `GET` | `/api/health` | Mod status and uptime |
 | `GET` | `/api/players` | Every connected player, with stats, quests, journal and perks |
 | `GET` | `/api/world` | World name and settings, the in-game clock, running raids and hunts |
-| `GET` | `/api/events` | Chat, death, join, leave, AFK and link feed - `?wait=` to be told the moment something happens |
+| `GET` | `/api/events` | Chat, death, kill, join, leave, AFK and link feed - `?wait=` to be told the moment something happens |
 | `GET` | `/api/diagnostics` | Self-check of everything the mod reads |
 | `POST` | `/api/save` | Make the game save the world |
 | `GET` | `/api/save/candidates` | Functions that might be the game's world save |
@@ -477,6 +479,7 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/players
     "skills":     [{ "skill": "SKILL_Woodcutting", "currentXP": 4210 }],
     "quests":     [{ "id": "Quest_CooksAssistant", "name": "Cook's Assistant", "kind": "side", "complete": true, "objective": "" }],
     "journal":    { "total": 142, "kinds": { "lore": 38, "people": 21, "places": 34 } },
+    "creatureTypes": 41,
     "perks":      { "max": 6, "active": [{ "id": "PerkV2_Attack_Parry", "name": "Parry", "description": "...", "skill": "SKILL_Attack" }] },
     "pointers": { "playerState": "0x...", "pawn": "0x...", "controller": "0x..." }
   }]
@@ -485,7 +488,8 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/players
 
 Skills are reported as raw XP; the bot converts XP to levels with the Dragonwilds XP table.
 `quests` lists every quest started or done (`kind` is `main`, `side` or `task`), `journal`
-counts unlocked journal entries by kind, and `perks` lists the active skill perks. Each is
+counts unlocked journal entries by kind, `creatureTypes` is how many kinds of creature they have
+killed, and `perks` lists the active skill perks. Each is
 `null` until the player has fully loaded in.
 Health and max health come from the character's attributes component, not from
 `UHealthComponent`'s own fields - on a player those are always zero, because

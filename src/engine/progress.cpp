@@ -212,4 +212,29 @@ void Engine::ReadPerks(PlayerInfo& info, uintptr_t component) const {
     }
 }
 
+
+// UProgressComponent::AIsKilledOnce, a TSet<FString> of every kind of creature
+// the player has killed. Its count is the TSparseArray's Num minus its free
+// slots (NumFreeIndices at +0x34 in UE 5.x).
+void Engine::ReadCreatureTypes(PlayerInfo& info, uintptr_t component) const {
+    int32_t offset = Reflect::Offset("ProgressComponent", "AIsKilledOnce");
+    if (!component || offset < 0) return;
+    uintptr_t set = component + (uintptr_t)offset;
+    int32_t num = Mem::ReadI32(set + 0x08, -1);
+    int32_t free = Mem::ReadI32(set + 0x34, -1);
+    if (num < 0 || free < 0 || free > num || num > 100000) return;
+    info.creatureTypes = num - free;
+}
+
+}
+
+namespace Reflect {
+
+std::string GameText(uintptr_t address) {
+    if (!DomEngine::g_Engine || !address) return "";
+    bool ran = false;
+    std::string text = DomEngine::TextToString(DomEngine::g_Engine, address, ran);
+    return ran ? text : ReadText(address);
+}
+
 }

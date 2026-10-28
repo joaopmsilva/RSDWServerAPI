@@ -21,6 +21,7 @@ struct ControllerComponents {
     uintptr_t quests = 0;
     uintptr_t journal = 0;
     uintptr_t perks = 0;
+    uintptr_t progress = 0;
 };
 
 void ReadDoubleTriple(uintptr_t address, double& a, double& b, double& c) {
@@ -256,6 +257,7 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
     uintptr_t questType = Reflect::FindType("QuestProgressComponent");
     uintptr_t journalType = Reflect::FindType("JournalComponent");
     uintptr_t perkType = Reflect::FindType("SkillPerkComponent");
+    uintptr_t progressType = Reflect::FindType("ProgressComponent");
 
     std::unordered_map<uintptr_t, PawnComponents> byPawn;
     std::unordered_map<uintptr_t, ControllerComponents> byController;
@@ -272,6 +274,7 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
             if (!parts.quests && Reflect::IsA(object, questType)) parts.quests = object;
             else if (!parts.journal && Reflect::IsA(object, journalType)) parts.journal = object;
             else if (!parts.perks && Reflect::IsA(object, perkType)) parts.perks = object;
+            else if (!parts.progress && Reflect::IsA(object, progressType)) parts.progress = object;
             continue;
         }
         if (pawnSet.find(outer) == pawnSet.end()) continue;
@@ -295,6 +298,7 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
             ReadQuests(info, parts->second.quests);
             ReadJournal(info, parts->second.journal);
             ReadPerks(info, parts->second.perks);
+            ReadCreatureTypes(info, parts->second.progress);
         }
 
         auto it = byPawn.find(info.pawnPtr);

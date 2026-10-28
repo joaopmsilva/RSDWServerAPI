@@ -23,13 +23,15 @@ import {
     perksEmbed,
     progressEmbed,
     questLeaderboardEmbed,
+    killBoardEmbed,
+    killsEmbed,
     questsEmbed,
 } from './embeds.js';
 import { questStats } from './progress.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
-import { deathBoard, gainsFor, playtimeBoard, topGainers } from './stats.js';
+import { deathBoard, gainsFor, killBoard, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
 import { findItem, itemsKnown } from './items.js';
 import { wikiInfo } from './wiki.js';
@@ -188,16 +190,21 @@ function questRankings(ctx) {
 
 export const QUESTS_BOARD = 'quests';
 
-async function leaderboard(ctx, skillQuery) {
+// board: total, skill (with skillQuery), quests or kills.
+async function leaderboard(ctx, board, skillQuery) {
+    if (board === 'kills') {
+        const rows = killBoard(ctx);
+        return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => killBoardEmbed(rows, page));
+    }
     // Fold in the latest numbers for whoever is online right now.
-    if (lower(skillQuery) === QUESTS_BOARD) {
+    if (board === QUESTS_BOARD) {
         await fetchLive(ctx);
         const rows = questRankings(ctx);
         return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => questLeaderboardEmbed(rows, page));
     }
 
-    const skill = skillQuery ? catalogSkill(skillQuery) : null;
-    if (skillQuery && !skill) return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.`)] } };
+    const skill = board === 'skill' && skillQuery ? catalogSkill(skillQuery) : null;
+    if (board === 'skill' && !skill) return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.`)] } };
 
     await fetchLive(ctx);
     const rows = rankings(ctx, skill);
@@ -244,7 +251,7 @@ async function me(ctx, user) {
         reply: {
             embeds: [
                 renderPlayerPage(profile, 'overview'),
-                progressEmbed(profile, { playtime: ctx.history.playtime(key), deaths: ctx.history.deaths(key) }),
+                progressEmbed(profile, { playtime: ctx.history.playtime(key), deaths: ctx.history.deaths(key), kills: ctx.history.kills(key) }),
             ],
         },
     };
@@ -290,6 +297,16 @@ async function playtime(ctx, query) {
     return { reply: { embeds: [playtimeEmbed(found.name, ctx.history.playtime(found.profile.key))] } };
 }
 
+// No player: the kill leaderboard. A player: their kills, and which creatures.
+async function kills(ctx, query) {
+    if (!query) return leaderboard(ctx, 'kills');
+    const found = await findOne(ctx, query);
+    if (found.reply) return found.reply;
+    const stored = ctx.store.byKey(found.profile.key);
+    const types = found.profile.player.creatureTypes ?? stored?.creatureTypes ?? -1;
+    return { reply: { embeds: [killsEmbed(found.name, ctx.history.kills(found.profile.key), types)] } };
+}
+
 async function deaths(ctx, query) {
     if (!query) return { reply: { embeds: [deathBoardEmbed(deathBoard(ctx))] } };
     const found = await findOne(ctx, query);
@@ -300,7 +317,8 @@ async function deaths(ctx, query) {
 // Keyed by slash command name; each gets the interaction and returns the reply.
 export const commands = {
     levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
-    leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
+    leaderboard: (i, ctx) => leaderboard(ctx, i.options.getSubcommand(false) || 'total', i.options.getString('skill')),
+    kills: (i, ctx) => kills(ctx, i.options.getString('player')),
     perks: (i, ctx) => perks(ctx, i.options.getString('player', true)),
     quests: (i, ctx) => quests(ctx, i.options.getString('player'), i.user),
     me: (i, ctx) => me(ctx, i.user),

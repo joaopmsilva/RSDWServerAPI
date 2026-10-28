@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.8.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.9.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -30,7 +30,8 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | Command | |
 | ------- | - |
 | 📊 **`/levels`** `player` | Every skill by category, total level and max health |
-| 🏆 **`/leaderboard`** `[skill]` | Top players by total level (with quests done), by XP in one skill, or `quests` for the most quests |
+| 🏆 **`/leaderboard`** `total` · `skill` · `quests` · `kills` | Top players by total level (with quests done), by XP in one skill, by quests done, or by creatures killed |
+| ⚔️ **`/kills`** `[player]` | Creatures killed - the leaderboard, or one player: today, this week, all time and their most killed (named as on the wiki) |
 | 📜 **`/quests`** `[player]` | Quests done (main, side, tasks) and in progress with the current step - your own when linked |
 | ✨ **`/perks`** `player` | Their active skill perks, by skill |
 | 🙋 **`/me`** | Everything about your linked character: skills, quests done and in progress, journal, playtime, deaths |

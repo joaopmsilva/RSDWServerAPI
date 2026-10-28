@@ -250,6 +250,7 @@ struct PlayerInfo {
     bool hasJournal = false;
     int32_t journalEntries = 0;
     std::vector<JournalCount> journal;
+    int32_t creatureTypes = -1; // kinds of creature killed at least once, -1 if unknown
     bool hasPerks = false;
     int32_t maxActivePerks = 0;
     std::vector<PerkInfo> perks;
@@ -337,6 +338,7 @@ private:
     void ReadQuests(PlayerInfo& info, uintptr_t component) const;
     void ReadJournal(PlayerInfo& info, uintptr_t component) const;
     void ReadPerks(PlayerInfo& info, uintptr_t component) const;
+    void ReadCreatureTypes(PlayerInfo& info, uintptr_t component) const;
 
 public:
 

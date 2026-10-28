@@ -127,6 +127,7 @@ export class Relay {
         for (const e of events) {
             if (e.type === 'join' || e.type === 'leave') this.activity?.presence(e);
             if (e.type === 'death') this.activity?.death(e);
+            if (e.type === 'kill') this.activity?.kill(e);
             if (e.type === 'afk') this.activity?.afk(e);
             // Mod 0.6.0+: someone typed /link CODE in game.
             if (e.type === 'link') this.links?.handle(e).catch(err => log.error('link failed:', err));

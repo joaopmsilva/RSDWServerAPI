@@ -160,7 +160,14 @@ const shots = [
     ],
     ['help', [['/help', [E.helpEmbed()]]]],
     ['quests', [['/quests player:Mira', [E.questsEmbed(profile('Mira'))]]]],
-    ['quest-leaderboard', [['/leaderboard skill:quests', [E.questLeaderboardEmbed(questRows, 0)]]]],
+    ['quest-leaderboard', [['/leaderboard quests', [E.questLeaderboardEmbed(questRows, 0)]]]],
+    [
+        'kills',
+        [
+            ['/leaderboard kills', [E.killBoardEmbed([['Thorne', 1843, 212], ['Mira', 1520, 160], ['Elske', 1102, 98], ['Rowan', 760, 40], ['Kit', 312, 55], ['Bram', 88, 12]].map(([name, total, recent]) => ({ name, total, recent })))]],
+            ['/kills player:Mira', [E.killsEmbed('Mira', { today: 23, week: 160, total: 1520, creatures: [['Goblin', 402], ['Wolf', 311], ['Skeleton', 207], ['Bandit', 150], ['Giant Spider', 96]] }, 41)]],
+        ],
+    ],
     ['perks', [['/perks player:Mira', [E.perksEmbed({ ...profile('Mira'), player: { ...player('Mira'), perks } })]]]],
     ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 } })]]]],
     ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira'), E.alertsEmbed({ alerts: { raid: true, hunted: false } })], E.alertButtons({ alerts: { raid: true, hunted: false } }), true]]],

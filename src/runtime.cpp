@@ -49,7 +49,7 @@ bool RconEnabled() { return g_RconEnabled; }
 bool RconRunning() { return g_RconRunning; }
 int RconPort() { return g_RconPort; }
 
-const char* Version() { return "0.6.1"; }
+const char* Version() { return "0.7.0"; }
 
 void BeginShutdown() { g_ShuttingDown = true; }
 bool ShuttingDown() { return g_ShuttingDown; }

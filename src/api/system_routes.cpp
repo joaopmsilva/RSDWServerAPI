@@ -2,6 +2,7 @@
 
 #include "../engine/chat.h"
 #include "../engine/process_event.h"
+#include "../engine/kills.h"
 #include "../engine/reflection.h"
 #include "../engine/world.h"
 #include "../engine/world_save.h"
@@ -158,6 +159,7 @@ void RegisterSystem(HttpServer& server) {
             add("chatComponent", componentState, componentDetail);
 
             add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
+            add("killHook", DomKills::IsHooked() ? 1 : 0, DomKills::Status());
             DomWorld::State world = DomWorld::Read();
             add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,
                 world.valid ? (world.worldName.empty() ? "world name unreadable" : "world " + world.worldName)

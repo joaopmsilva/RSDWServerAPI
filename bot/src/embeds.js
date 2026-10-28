@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
-import { clock, difficultyLabel, eventName, hardcoreLabel, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
+import { clock, eventName, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
 
@@ -141,7 +141,9 @@ export function statusEmbed(state) {
 // ---- leaderboard --------------------------------------------------------
 
 export const LEADERBOARD_PAGE_SIZE = 10;
-const MEDALS = ['🥇', '🥈', '🥉'];
+// 🥇🥈🥉 then keycaps to 🔟, so a board reads as one column; bold numbers after that.
+const MEDALS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+const rankBadge = i => MEDALS[i] || `**${i + 1}.**`;
 
 // rows: [{ player, online, level, xp }] sorted best first. skill: null for total level.
 export function leaderboardEmbed(rows, skill, page) {
@@ -150,7 +152,7 @@ export function leaderboardEmbed(rows, skill, page) {
 
     const lines = rows.slice(page * LEADERBOARD_PAGE_SIZE, (page + 1) * LEADERBOARD_PAGE_SIZE).map((r, i) => {
         const rank = page * LEADERBOARD_PAGE_SIZE + i;
-        const place = MEDALS[rank] || `\`${String(rank + 1).padStart(2)}.\``;
+        const place = rankBadge(rank);
         const level = skill ? `Level **${r.level}**${r.level >= MAX_LEVEL ? ' ⭐' : ''}` : `Total **${fmt(r.level)}**`;
         const quests = !skill && r.quests !== undefined ? ` · 📜 ${r.quests}` : '';
         return `${place} **${displayName(r.player)}**${r.online ? ' 🟢' : ''}\n　${level} · ${fmt(r.xp)} xp${quests}`;
@@ -176,7 +178,7 @@ export function questLeaderboardEmbed(rows, page) {
     page = Math.min(Math.max(0, page), pages - 1);
     const lines = rows.slice(page * LEADERBOARD_PAGE_SIZE, (page + 1) * LEADERBOARD_PAGE_SIZE).map((r, i) => {
         const rank = page * LEADERBOARD_PAGE_SIZE + i;
-        const place = MEDALS[rank] || `\`${String(rank + 1).padStart(2)}.\``;
+        const place = rankBadge(rank);
         const main = r.main ? ` · ${r.main} main` : '';
         return `${place} **${displayName(r.player)}**${r.online ? ' 🟢' : ''}\n　**${r.done}** quest${r.done === 1 ? '' : 's'}${main}`;
     });
@@ -236,11 +238,11 @@ export function questsEmbed(profile) {
         const done = quests.completed.filter(q => q.kind === kind);
         if (done.length) embed.addFields({ name: `${title} · ${done.length}`, value: list(done), inline: true });
     }
-    return embed.setFooter({ text: '/leaderboard skill:quests ranks everyone by quests done' });
+    return embed.setFooter({ text: '/leaderboard quests ranks everyone by quests done' });
 }
 
 // The second card of /me: quests, journal, playtime and deaths.
-export function progressEmbed(profile, { playtime, deaths }) {
+export function progressEmbed(profile, { playtime, deaths, kills }) {
     const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Progress');
     const quests = questStats(profile.player);
     if (quests) {
@@ -259,6 +261,7 @@ export function progressEmbed(profile, { playtime, deaths }) {
     if (playtime) {
         embed.addFields({ name: '⏱️ Played', value: `${duration(playtime.week)} this week\n${duration(playtime.total)} in total`, inline: true });
     }
+    if (kills?.total) embed.addFields({ name: '⚔️ Kills', value: `${fmt(kills.week)} this week\n${fmt(kills.total)} in total`, inline: true });
     if (deaths) embed.addFields({ name: '💀 Deaths', value: `${deaths.week} this week\n${deaths.total} in total`, inline: true });
     if (!embed.data.fields?.length) embed.setDescription('Nothing recorded yet.');
     return embed;
@@ -443,7 +446,7 @@ export function afkEmbed(name) {
 
 // ---- gains, playtime, deaths, weekly recap -------------------------------
 
-const place = i => MEDALS[i] || `\`${String(i + 1).padStart(2)}.\``;
+const place = rankBadge;
 const prettyDay = day => new Date(`${day}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const duration = seconds => (seconds < 60 ? `${Math.round(seconds)}s` : formatDuration(seconds));
 const PERIOD_LABEL = { today: 'today', week: 'this week', month: 'this month' };
@@ -500,6 +503,42 @@ export function deathsEmbed(name, d) {
         .setAuthor({ name })
         .setTitle('💀 Deaths')
         .addFields({ name: 'This week', value: String(d.week), inline: true }, { name: 'Total', value: String(d.total), inline: true })
+        .setTimestamp();
+}
+
+export function killsEmbed(name, k, creatureTypes) {
+    const embed = new EmbedBuilder()
+        .setColor(0xc0392b)
+        .setAuthor({ name })
+        .setTitle('⚔️ Kills')
+        .addFields(
+            { name: 'Today', value: fmt(k.today), inline: true },
+            { name: 'This week', value: fmt(k.week), inline: true },
+            { name: 'Total', value: fmt(k.total), inline: true },
+        )
+        .setTimestamp();
+    if (k.creatures.length) {
+        embed.addFields({
+            name: '🐾 Most killed',
+            value: k.creatures.slice(0, 8).map(([c, n], i) => `${place(i)} **${escapeMarkdown(c)}** ${fmt(n)}`).join('\n'),
+        });
+    }
+    if (creatureTypes >= 0) embed.setFooter({ text: `${creatureTypes} kinds of creature defeated in all` });
+    if (!k.total) embed.setDescription('No kills counted yet - they count from mod 0.7.0 on.');
+    return embed;
+}
+
+export function killBoardEmbed(rows, page = 0) {
+    const pages = Math.max(1, Math.ceil(rows.length / LEADERBOARD_PAGE_SIZE));
+    page = Math.min(Math.max(0, page), pages - 1);
+    const lines = rows
+        .slice(page * LEADERBOARD_PAGE_SIZE, (page + 1) * LEADERBOARD_PAGE_SIZE)
+        .map((r, i) => `${place(page * LEADERBOARD_PAGE_SIZE + i)} **${r.name}** ${fmt(r.total)} kill${r.total === 1 ? "" : "s"}${r.recent ? ` · ${fmt(r.recent)} this week` : ''}`);
+    return new EmbedBuilder()
+        .setColor(0xc0392b)
+        .setTitle('⚔️ Kill leaderboard')
+        .setDescription(lines.join('\n') || 'No kills counted yet - they count from mod 0.7.0 on.')
+        .setFooter({ text: (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page  ·  ` : '') + 'Creatures killed, all time' })
         .setTimestamp();
 }
 
@@ -566,21 +605,20 @@ export function boardEmbed({ state, gainers, vps, compact = false }) {
         join.push(`🗺️ **Server list**  ${worldName}${creator ? ` by ${creator}` : ''}`);
     }
     if (config.serverPassword) join.push(`🔑 **Password**  ||${config.serverPassword}||`);
-    if (join.length) embed.addFields({ name: '🎮 How to join', value: join.join('\n') });
+    // A blank line under each section, so the board isn't crowded.
+    const gap = '\n\u200b';
+    if (join.length) embed.addFields({ name: '🎮 How to join', value: join.join('\n') + gap });
 
     if (online) {
-        const world = state.world;
-        const c = clock(world);
-        const about = [difficultyLabel(world), hardcoreLabel(world)].filter(Boolean).join('  ·  ');
-        if (worldName || about) embed.addFields({ name: '🌍 World', value: [worldName && `**${escapeMarkdown(worldName)}**`, about].filter(Boolean).join('\n'), inline: true });
-        if (c) embed.addFields({ name: '🕰️ In game', value: `${c.emoji} **${c.time}**  ·  Day ${c.day}\n${c.next}`, inline: true });
+        const c = clock(state.world);
+        if (c) embed.addFields({ name: '🕰️ In game', value: `${c.emoji} **${c.time}**  ·  Day ${c.day}\n${c.next}` + gap });
         const names = state.players.slice(0, 20).map(p => escapeMarkdown(p.characterName || p.name));
         if (count > 20) names.push(`and ${count - 20} more`);
-        embed.addFields({ name: '👥 Playing now', value: names.length ? names.join('  ·  ') : '*Nobody yet - be the first!*' });
+        embed.addFields({ name: '👥 Playing now', value: (names.length ? names.join('  ·  ') : '*Nobody yet - be the first!*') + gap });
     }
 
     if (!compact && gainers.length) {
-        embed.addFields({ name: '📈 Top XP today', value: gainers.map((r, i) => `${place(i)} **${r.name}**  +${fmt(r.total)} xp`).join('\n') });
+        embed.addFields({ name: '📈 Top XP today', value: gainers.map((r, i) => `${place(i)} **${r.name}**  +${fmt(r.total)} xp`).join('\n') + gap });
     }
 
     const facts = [];
@@ -772,14 +810,16 @@ export function helpEmbed() {
                     '`/levels player` · every skill, total level and max health',
                     '`/perks player` · their active skill perks',
                     '`/quests [player]` · quests done and in progress',
+                    '`/kills [player]` · creatures killed, and which',
                 ].join('\n'),
             },
             {
                 name: '🏆 Leaderboards',
                 value: [
-                    '`/leaderboard` · total level, with quests done',
-                    '`/leaderboard skill:mining` · any one skill',
-                    '`/leaderboard skill:quests` · most quests done',
+                    '`/leaderboard total` · total level, with quests done',
+                    '`/leaderboard skill mining` · any one skill',
+                    '`/leaderboard quests` · most quests done',
+                    '`/leaderboard kills` · most creatures killed',
                     '`/playtime` · `/deaths` · `/gains` · most played, most deaths, most XP',
                 ].join('\n'),
             },

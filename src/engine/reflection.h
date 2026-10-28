@@ -28,6 +28,10 @@ bool IsA(uintptr_t object, uintptr_t type);
 // An FText's display string, or "" when it can't be read.
 std::string ReadText(uintptr_t address);
 
+// An FText as the game itself shows it (UKismetTextLibrary::Conv_TextToString),
+// falling back to ReadText. Works on and off the game thread. In progress.cpp.
+std::string GameText(uintptr_t address);
+
 // For /api/diagnostics.
 bool Ready();
 const std::string& Status();

@@ -23,14 +23,22 @@ function prettify(id) {
 const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 let wikiTitles = new Map();
 
-export async function loadQuestTitles() {
+let wikiMonsters = new Map();
+
+async function wikiCategory(category) {
+    const url = `https://dragonwilds.runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:${category}&cmlimit=500&cmnamespace=0&format=json`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'RSDWServerAPI-bot (Discord bot for a Dragonwilds server)' }, signal: AbortSignal.timeout(10000) });
+    const titles = (await res.json()).query?.categorymembers?.map(m => m.title) || [];
+    return new Map(titles.filter(t => !t.includes('/')).map(t => [squash(t), t]));
+}
+
+// Quest and monster titles from the wiki, refreshed daily by index.js.
+export async function loadWikiNames() {
     try {
-        const url = 'https://dragonwilds.runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:Quests&cmlimit=500&cmnamespace=0&format=json';
-        const res = await fetch(url, { headers: { 'User-Agent': 'RSDWServerAPI-bot (Discord bot for a Dragonwilds server)' }, signal: AbortSignal.timeout(10000) });
-        const titles = (await res.json()).query?.categorymembers?.map(m => m.title) || [];
-        wikiTitles = new Map(titles.filter(t => !t.includes('/')).map(t => [squash(t), t]));
+        wikiTitles = await wikiCategory('Quests');
+        wikiMonsters = await wikiCategory('Monsters');
     } catch {
-        // No wiki: names fall back to tidied-up ids.
+        // No wiki: names fall back to the game's, or tidied-up ids.
     }
 }
 
@@ -40,6 +48,22 @@ export function questName(q) {
     const pretty = prettify(q.id);
     return wikiTitles.get(squash(pretty)) || wikiTitles.get(squash(String(q.id).replace(/^Quest_/i, ''))) || pretty;
 }
+// "BP_AI_Goblin_Melee_C" -> "Goblin Melee"
+// A killed creature's name: the wiki's title for it when one matches - the
+// game's own name first, then its class with variants dropped one word at a
+// time ("Goblin Melee" -> "Goblin") - else the game's name, else the class tidied up.
+export function creatureName(gameName, cls) {
+    const pretty = prettify(String(cls || '').replace(/\s+boss$/, '').replace(/^BP_/, '').replace(/^(AI|NPC|Enemy|Creature|Character|Dom)_/i, ''));
+    const tries = [gameName];
+    const words = pretty.split(' ');
+    for (let n = words.length; n > 0; n--) tries.push(words.slice(0, n).join(' '));
+    for (const t of tries) {
+        const hit = t && wikiMonsters.get(squash(t));
+        if (hit) return hit;
+    }
+    return gameName || pretty || 'Something';
+}
+
 // "PerkV2_Attack_Parry" -> "Parry"
 export const perkName = p => p.name || prettify(String(p.id || '').replace(/^PerkV2_[A-Za-z]+_/, ''));
 

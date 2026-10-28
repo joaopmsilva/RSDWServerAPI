@@ -5,6 +5,7 @@ import { levelInfo, MAX_LEVEL } from './levels.js';
 import { logger } from './log.js';
 import { describeSkills } from './skills.js';
 import { deathBoard, playtimeBoard, recentMilestones, topGainers } from './stats.js';
+import { creatureName } from './progress.js';
 import { PlayerStore } from './store.js';
 
 const log = logger('activity');
@@ -253,15 +254,29 @@ export class Activity {
         );
     }
 
-    death(event) {
+    // The character an event (death, kill) is about.
+    keyOf(event) {
+        if (event.characterGuid && !/^0+$/.test(event.characterGuid)) return `guid:${event.characterGuid}`;
         const name = (event.name || '').toLowerCase();
-        const key =
+        return (
             (event.netId && this.store.keyOfNetId(event.netId)) ||
             this.store.keyOfName(name) ||
-            (event.netId ? `net:${event.netId}` : `name:${name}`);
+            (event.netId ? `net:${event.netId}` : `name:${name}`)
+        );
+    }
+
+    death(event) {
+        const key = this.keyOf(event);
         this.history.name(key, event.name);
         this.history.addDeath(key);
         this.flush();
+    }
+
+    // From the relay (mod 0.7.0+): a creature killed. Saved with the next poll.
+    kill(event) {
+        const key = this.keyOf(event);
+        if (!this.history.data.names[key]) this.history.name(key, event.name);
+        this.history.addKill(key, creatureName(event.message, event.cause));
     }
 
     // Sundays from 20:00 VPS time, once.

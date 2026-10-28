@@ -136,6 +136,8 @@ std::string Player(const DomEngine::PlayerInfo& p) {
         oss << "\"journal\":null,";
     }
 
+    oss << "\"creatureTypes\":" << p.creatureTypes << ",";
+
     if (p.hasPerks) {
         oss << "\"perks\":{\"max\":" << p.maxActivePerks << ",\"active\":[";
         for (size_t i = 0; i < p.perks.size(); i++) {
