@@ -63,8 +63,14 @@ bool ResolveToString(const Engine* engine) {
 }
 
 // "" with ran=false when the game thread couldn't run it (try again later).
+// Off: Conv_TextToString takes its FText by reference, which NativeCall can't
+// pass (the frame has no OutParms), so the game read through a null pointer
+// and crashed (0.7.0/0.7.1). Names come from the bot's wiki matching instead.
+constexpr bool kTextToStringEnabled = false;
+
 std::string TextToString(const Engine* engine, uintptr_t address, bool& ran) {
     ran = false;
+    if (!kTextToStringEnabled) return "";
     if (!ResolveToString(engine) || !GameThread::IsReady() || !GameThread::FrameLayoutReady()) return "";
     uint8_t params[0x80] = {};
     if (g_ToStringOut + 0x10 > (int32_t)sizeof(params) || !Mem::Readable((void*)address, 0x10)) return "";
@@ -86,6 +92,13 @@ std::string TextToString(const Engine* engine, uintptr_t address, bool& ran) {
     return engine->ReadFString((uintptr_t)params + (uintptr_t)g_ToStringOut);
 }
 
+// "" for what is clearly a localisation key rather than a name
+// ("JOURNAL_Know_CathanJournal_Vault"): underscores and no spaces.
+std::string DisplayOnly(const std::string& text) {
+    if (text.find('_') != std::string::npos && text.find(' ') == std::string::npos) return "";
+    return text;
+}
+
 std::string CachedText(const Engine* engine, uintptr_t asset, int32_t offset, const char* what) {
     if (!asset || offset < 0) return "";
     uintptr_t key = asset + (uintptr_t)offset;
@@ -94,10 +107,10 @@ std::string CachedText(const Engine* engine, uintptr_t asset, int32_t offset, co
     if (it != g_Texts.end()) return it->second;
     bool ran = false;
     std::string text = TextToString(engine, asset + (uintptr_t)offset, ran);
-    if (!ran) {
-        text = Reflect::ReadText(asset + (uintptr_t)offset);
-        if (text.empty()) return ""; // not cached: try the game's function next time
-    }
+    // Only the game's own function is trusted: before it can run (nobody has
+    // joined since the start) nothing is cached, and the next read tries again.
+    if (!ran) return "";
+    text = DisplayOnly(text);
     if (!g_FirstTextLogged && !text.empty()) {
         g_FirstTextLogged = true;
         LogMessage(std::string("Reflection: first ") + what + " name read: '" + text + "'");
@@ -234,7 +247,7 @@ std::string GameText(uintptr_t address) {
     if (!DomEngine::g_Engine || !address) return "";
     bool ran = false;
     std::string text = DomEngine::TextToString(DomEngine::g_Engine, address, ran);
-    return ran ? text : ReadText(address);
+    return ran ? DomEngine::DisplayOnly(text) : "";
 }
 
 }
