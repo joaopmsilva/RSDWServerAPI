@@ -24,10 +24,17 @@ export const definitions = [
         .addStringOption(playerOption),
     new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('Top players by total level, or by one skill')
+        .setDescription('Top players by total level, by one skill, or by quests done')
         .addStringOption(o =>
-            o.setName('skill').setDescription('Leave empty for total level').setRequired(false).setAutocomplete(true),
+            o.setName('skill').setDescription('A skill, or "quests" - leave empty for total level').setRequired(false).setAutocomplete(true),
         ),
+    new SlashCommandBuilder()
+        .setName('perks')
+        .setDescription("A player's active skill perks")
+        .addStringOption(playerOption),
+    new SlashCommandBuilder().setName('me').setDescription('Everything about your linked character'),
+    new SlashCommandBuilder().setName('link').setDescription('Link your Discord to your in-game character with a one-time code'),
+    new SlashCommandBuilder().setName('unlink').setDescription('Remove the link to your in-game character'),
     new SlashCommandBuilder().setName('status').setDescription('Is the server up, and who is on it'),
     new SlashCommandBuilder().setName('online').setDescription('Everyone connected right now, with ping'),
     new SlashCommandBuilder()
@@ -188,7 +195,10 @@ function playerChoices(ctx, query) {
 export async function autocomplete(interaction, ctx) {
     const focused = interaction.options.getFocused(true);
     let choices;
-    if (focused.name === 'skill') choices = skillChoices(focused.value);
+    if (focused.name === 'skill' && interaction.commandName === 'leaderboard') {
+        const quests = 'quests'.startsWith(focused.value.trim().toLowerCase()) ? [{ name: '📜 Quests done', value: 'quests' }] : [];
+        choices = [...quests, ...skillChoices(focused.value)];
+    } else if (focused.name === 'skill') choices = skillChoices(focused.value);
     else if (focused.name === 'item') choices = await itemChoices(focused.value);
     else if (focused.name === 'backup') choices = backupChoices(focused.value);
     else if (focused.name === 'function') choices = await saveChoices(focused.value);

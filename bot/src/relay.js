@@ -21,10 +21,11 @@ function causeText(tag) {
 // The cursor is saved so a bot restart neither repeats nor skips events; a
 // changed bootId means the server restarted and its event ids began again.
 export class Relay {
-    constructor(client, bridge = null, activity = null) {
+    constructor(client, bridge = null, activity = null, links = null) {
         this.client = client;
         this.bridge = bridge;
         this.activity = activity;
+        this.links = links;
         this.file = path.join(config.dataDir, 'relay.json');
         this.cursor = null;
         this.stopped = false;
@@ -127,6 +128,8 @@ export class Relay {
             if (e.type === 'join' || e.type === 'leave') this.activity?.presence(e);
             if (e.type === 'death') this.activity?.death(e);
             if (e.type === 'afk') this.activity?.afk(e);
+            // Mod 0.6.0+: someone typed /link CODE in game.
+            if (e.type === 'link') this.links?.handle(e).catch(err => log.error('link failed:', err));
         }
 
         if (chat.length && config.chatChannelId) {

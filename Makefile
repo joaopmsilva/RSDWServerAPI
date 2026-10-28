@@ -20,6 +20,9 @@ SRC := src/rsdwapi.cpp \
        src/engine/items.cpp \
        src/engine/bans.cpp \
        src/engine/world_save.cpp \
+       src/engine/reflection.cpp \
+       src/engine/progress.cpp \
+       src/engine/world.cpp \
        src/events/event_log.cpp \
        src/engine/native_call.cpp \
        src/engine/process_event.cpp \

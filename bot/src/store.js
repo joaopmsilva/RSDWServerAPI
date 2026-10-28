@@ -48,7 +48,12 @@ export class PlayerStore {
 
         const key = PlayerStore.key(player);
         if (!PlayerStore.isCharacterKey(key) && this.hasCharacters) return;
-        const maxHealth = player.health?.max > 0 ? player.health.max : this.players[key]?.maxHealth;
+        const previous = this.players[key];
+        const maxHealth = player.health?.max > 0 ? player.health.max : previous?.maxHealth;
+        // Quests, journal and perks come from mod 0.6.0+; an empty read keeps the last good one.
+        const quests = player.quests?.length ? player.quests.map(({ id, name, kind, complete }) => ({ id, name, kind, complete })) : previous?.quests;
+        const journal = player.journal?.total ? player.journal : previous?.journal;
+        const perks = player.perks ? player.perks : previous?.perks;
         this.players[key] = {
             name: player.name,
             characterName: player.characterName,
@@ -56,6 +61,9 @@ export class PlayerStore {
             characterGuid: player.characterGuid,
             skills: player.skills.map(s => ({ skill: s.skill, currentXP: s.currentXP })),
             ...(maxHealth ? { maxHealth } : {}),
+            ...(quests ? { quests } : {}),
+            ...(journal ? { journal } : {}),
+            ...(perks ? { perks } : {}),
             lastSeen: now,
         };
         this.dirty = true;

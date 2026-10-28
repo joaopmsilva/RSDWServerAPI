@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.5.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.7.2-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.6.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.8.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -32,7 +32,10 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 ### 🎮 In Discord
 
 - **`/levels`, `/level`** - any player's skills, live or from the last time they were seen
-- **`/leaderboard`** - by total level or any skill, 🥇🥈🥉
+- **`/leaderboard`** - by total level, any skill or quests done, 🥇🥈🥉
+- **`/me`** - everything about your own character: skills, quests, journal, playtime
+- **`/perks`** - a player's active skill perks
+- **🔗 One-click account linking** - press a button, type a short code in game
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths
 - **`/status`, `/online`, `/system`** - server, players and VPS load
@@ -48,8 +51,9 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Level-ups** 🎉 and ⭐ 99 celebrations
 - **Joins, leaves and deaths**, with the cause when the game gives one
 - **Server notices** - online, offline, restarting, backups
+- **Raid and hunt alerts** ⚔️ - pings the linked players it concerns
 - **Weekly recap** every Sunday: top gainers, new 99s, most played
-- **Live status board** - one self-updating message with how to join and who's on
+- **Live status board** - one self-updating message with how to join, who's on, the world and the in-game clock
 - **Game update watcher** - warns when Steam has a new server build, then backs up, updates and restarts by itself
 - The bot's status shows `🟢 3/16 players online`
 
@@ -92,7 +96,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**🏆 Leaderboards** · by total level or any skill, online players marked
+**🏆 Leaderboards** · by total level, any skill or quests, online players marked
 
 <img src="bot/docs/screenshots/leaderboard.png" alt="/leaderboard: top players by total level with medals">
 
@@ -134,6 +138,39 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 **🎒 Item lookup** · straight from the wiki
 
 <img src="bot/docs/screenshots/item.png" alt="/item: an item's wiki summary, picture and stats">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**🙋 `/me`** · your linked character: skills, quests, journal, playtime
+
+<img src="bot/docs/screenshots/me.png" alt="/me: skills, quests done and in progress, journal, playtime and deaths">
+
+</td>
+<td width="50%" valign="top">
+
+**🔗 One-click linking** · a button, a short code typed in game, done
+
+<img src="bot/docs/screenshots/link.png" alt="The link card with buttons, the private code and the confirmation">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**⚔️ Raid and hunt alerts** · ping the linked players they concern
+
+<img src="bot/docs/screenshots/raid-alerts.png" alt="Raid and hunted alerts with pings, and the raid-over update">
+
+</td>
+<td width="50%" valign="top">
+
+**📜 Quests and ✨ perks** · a quest leaderboard and each player's skill perks
+
+<img src="bot/docs/screenshots/quest-leaderboard.png" alt="/leaderboard quests">
+<img src="bot/docs/screenshots/perks.png" alt="/perks">
 
 </td>
 </tr>
@@ -384,13 +421,14 @@ Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empt
 | Method | Path | |
 | :----: | ---- | - |
 | `GET` | `/api/health` | Mod status and uptime |
-| `GET` | `/api/players` | Every connected player, with stats |
-| `GET` | `/api/events` | Chat, death, join, leave and AFK feed - `?wait=` to be told the moment something happens |
+| `GET` | `/api/players` | Every connected player, with stats, quests, journal and perks |
+| `GET` | `/api/world` | World name and settings, the in-game clock, running raids and hunts |
+| `GET` | `/api/events` | Chat, death, join, leave, AFK and link feed - `?wait=` to be told the moment something happens |
 | `GET` | `/api/diagnostics` | Self-check of everything the mod reads |
 | `POST` | `/api/save` | Make the game save the world |
 | `GET` | `/api/save/candidates` | Functions that might be the game's world save |
 | `POST` | `/api/kick` | Disconnect a player |
-| `POST` | `/api/broadcast` | Message every player |
+| `POST` | `/api/broadcast` | Message every player, or one with `to` |
 | `POST` | `/api/give` | Give an item to a player |
 | `GET` | `/api/items` | Loaded items, `?search=` to filter |
 | `POST` | `/api/ban` · `/api/unban` | Ban or unban a player |
@@ -435,12 +473,18 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/api/players
     "hydration":  { "current": 65.0, "max": 100.0 },
     "attributes": [{ "name": "Health", "value": 100.0, "baseValue": 100.0, "shared": false }],
     "skills":     [{ "skill": "SKILL_Woodcutting", "currentXP": 4210 }],
+    "quests":     [{ "id": "Quest_CooksAssistant", "name": "Cook's Assistant", "kind": "side", "complete": true, "objective": "" }],
+    "journal":    { "total": 142, "kinds": { "lore": 38, "people": 21, "places": 34 } },
+    "perks":      { "max": 6, "active": [{ "id": "PerkV2_Attack_Parry", "name": "Parry", "description": "...", "skill": "SKILL_Attack" }] },
     "pointers": { "playerState": "0x...", "pawn": "0x...", "controller": "0x..." }
   }]
 }
 ```
 
 Skills are reported as raw XP; the bot converts XP to levels with the Dragonwilds XP table.
+`quests` lists every quest started or done (`kind` is `main`, `side` or `task`), `journal`
+counts unlocked journal entries by kind, and `perks` lists the active skill perks. Each is
+`null` until the player has fully loaded in.
 Health and max health come from the character's attributes component, not from
 `UHealthComponent`'s own fields - on a player those are always zero, because
 `UPlayerHealthComponent` sources both from attributes.
@@ -557,6 +601,29 @@ game has no server identity in chat, so a broadcast is delivered under the recei
 own name: everyone sees the `[Server]` prefix, but it looks as though they sent it themselves.
 After a server restart, broadcasts work once the first player has joined.
 
+With `"to"` (a net id, character GUID or name) the line goes to that one player only, and
+answers 404 if they aren't connected.
+
+</details>
+
+<details>
+<summary><code>GET /api/world</code></summary>
+
+<br/>
+
+```json
+{
+  "worldName": "WorldOne", "host": "", "difficulty": "normal", "hardcore": "off",
+  "time": { "day": 37, "hour": 14.33, "dawn": 6.0, "dusk": 20.0, "isDay": true, "paused": false, "minutesPerDay": 60 },
+  "events": [{ "id": "81234-7f...", "type": "raid", "name": "BP_RaidEvent_Goblins_C",
+              "location": { "x": 10360.0, "y": 186410.0, "z": -3070.0 }, "radius": 3000.0 }]
+}
+```
+
+`difficulty` is `normal`, `hard`, `creative` or `custom`; `hardcore` is `off`, `active`,
+`failed` or `succeeded`. `time` is `null` until a player has joined since the server started.
+`events` lists raids and hunted events while they run; `id` stays the same for as long as one does.
+
 </details>
 
 <details>
@@ -659,6 +726,12 @@ other players.
 | `/unban <player or SteamID64>` | Remove a ban |
 | `/give <player> <item> [count]` | Give an item to a player |
 | `/help` | List commands |
+
+For everyone:
+
+| Command | |
+| ------- | - |
+| `/link <code>` | Link to a Discord account, with the code from the bot's `/link`. Never shown in chat |
 
 ---
 

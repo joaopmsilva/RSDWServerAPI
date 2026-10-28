@@ -7,8 +7,9 @@ import { Bridge } from './bridge.js';
 import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
-import { errorEmbed, okEmbed } from './embeds.js';
+import { errorEmbed, linkButtons, linkHowToEmbed, okEmbed } from './embeds.js';
 import { History } from './history.js';
+import { Links } from './links.js';
 import { initLogFile, logger } from './log.js';
 import { attachMenu } from './menus.js';
 import { Notices } from './notices.js';
@@ -18,13 +19,14 @@ import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
 import { UpdateWatcher } from './update-watch.js';
+import { WorldWatch } from './world-watch.js';
 
 initLogFile(config.dataDir);
 
 const log = logger('bot');
 const COOLDOWN_MS = 3000;
 // Commands whose replies only the person who used them sees.
-const PRIVATE_COMMANDS = new Set(['item', 'help', 'system']);
+const PRIVATE_COMMANDS = new Set(['item', 'help', 'system', 'link', 'unlink']);
 
 const client = new Client({
     intents: [
@@ -43,13 +45,23 @@ const history = new History(config.dataDir);
 const poller = new Poller(client, store);
 const activity = new Activity(client, store, history);
 const bridge = new Bridge();
-const relay = new Relay(client, bridge, activity);
+const links = new Links(config.dataDir, store);
+const relay = new Relay(client, bridge, activity, links);
 const notices = new Notices(client);
 const alerts = new Alerts(client, poller);
 const control = new ServerControl(client);
-const ctx = { store, history, poller, control };
+const worldWatch = new WorldWatch(client, links);
+const ctx = { store, history, poller, control, links };
 const board = new StatusBoard(client, poller, ctx);
 const commandsPost = new CommandsPost(client);
+const linkPost = new CommandsPost(client, {
+    id: 'link-post',
+    channelId: config.linkChannelId,
+    enabled: true,
+    embed: linkHowToEmbed,
+    components: linkButtons,
+    what: 'the how-to-link card',
+});
 const updates = new UpdateWatcher(client, poller, control);
 ctx.updates = updates;
 const lastUse = new Map();
@@ -57,6 +69,7 @@ const lastUse = new Map();
 poller.onPlayers = (players, health) => activity.observe(players, health);
 poller.onTick = state => {
     notices.observe(state);
+    worldWatch.observe(state.world, state.players);
     board.update();
 };
 notices.onNotice = (kind, details) => alerts.notice(kind, details);
@@ -69,6 +82,7 @@ client.once(Events.ClientReady, async c => {
     activity.start();
     board.start();
     commandsPost.start();
+    linkPost.start();
     updates.start();
     poller.start();
     relay.start();
@@ -91,6 +105,21 @@ client.on(Events.MessageCreate, message => {
 client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isAutocomplete()) {
         await autocomplete(interaction, ctx).catch(err => log.debug(`autocomplete failed: ${err.message}`));
+        return;
+    }
+    // The buttons on the how-to-link card: same as /link, /me and /unlink, answered privately.
+    if (interaction.isButton() && interaction.customId.startsWith('link:')) {
+        const action = { 'link:start': 'link', 'link:me': 'me', 'link:unlink': 'unlink' }[interaction.customId];
+        if (!action) return;
+        try {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            const { reply } = await commands[action](interaction, ctx);
+            await interaction.editReply(reply);
+            log.info(`${interaction.user.tag}: ${action} button`);
+        } catch (err) {
+            log.error(`${interaction.user.tag}: ${action} button failed:`, err);
+            await interaction.editReply({ embeds: [errorEmbed('Something went wrong - try again in a moment.')] }).catch(() => {});
+        }
         return;
     }
     if (!interaction.isChatInputCommand()) return;

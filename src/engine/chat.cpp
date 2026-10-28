@@ -4,6 +4,7 @@
 #include "items.h"
 #include "native_call.h"
 #include "process_event.h"
+#include "../events/event_log.h"
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
@@ -283,6 +284,27 @@ bool HandleCommand(const PlayerInfo& sender, const std::string& body) {
     if (parts.empty()) return false;
 
     std::string command = Lower(parts[0]);
+
+    // Anyone: /link <code> from the Discord bot's /link. Kept out of chat so the
+    // code isn't seen; the bot reads it from the event feed and answers.
+    if (command == "/link") {
+        if (parts.size() < 2) {
+            SendToPlayer(sender, "[Server] Use /link in Discord to get a code, then type /link <code> here.");
+            return true;
+        }
+        EventLog::Event event;
+        event.type = "link";
+        event.name = sender.characterName.empty() ? sender.name : sender.characterName;
+        event.netId = sender.uniqueNetId;
+        event.characterGuid = sender.characterGuid;
+        event.playerId = sender.playerId;
+        event.message = parts[1];
+        EventLog::Push(std::move(event));
+        SendToPlayer(sender, "[Server] Code received - checking it with Discord...");
+        LogMessage("Chat: '" + sender.name + "' sent a link code");
+        return true;
+    }
+
     if (command != "/kick" && command != "/ban" && command != "/unban" &&
         command != "/give" && command != "/help") {
         return false;

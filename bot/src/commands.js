@@ -18,7 +18,14 @@ import {
     statusEmbed,
     systemEmbed,
     itemEmbed,
+    linkCodeEmbed,
+    linkInfoEmbed,
+    okEmbed,
+    perksEmbed,
+    progressEmbed,
+    questLeaderboardEmbed,
 } from './embeds.js';
+import { questStats } from './progress.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
@@ -176,20 +183,90 @@ function rankings(ctx, skill) {
             rows.push({ ...row, level: s.info.level, xp: s.xp });
         } else {
             if (!skills.length) continue;
-            rows.push({ ...row, level: skills.reduce((n, s) => n + s.info.level, 0), xp: skills.reduce((n, s) => n + s.xp, 0) });
+            const quests = questStats(player);
+            rows.push({
+                ...row,
+                level: skills.reduce((n, s) => n + s.info.level, 0),
+                xp: skills.reduce((n, s) => n + s.xp, 0),
+                ...(quests ? { quests: quests.done } : {}),
+            });
         }
     }
     return rows.sort((a, b) => b.level - a.level || b.xp - a.xp);
 }
 
+// Most quests done first, then most main quests.
+function questRankings(ctx) {
+    const online = new Set(ctx.poller.state.players.map(PlayerStore.key));
+    const rows = [];
+    for (const player of ctx.store.all()) {
+        if (ctx.history?.isHidden(PlayerStore.key(player))) continue;
+        const quests = questStats(player);
+        if (!quests?.done) continue;
+        rows.push({ player, online: online.has(PlayerStore.key(player)), done: quests.done, main: quests.main });
+    }
+    return rows.sort((a, b) => b.done - a.done || b.main - a.main);
+}
+
+export const QUESTS_BOARD = 'quests';
+
 async function leaderboard(ctx, skillQuery) {
+    // Fold in the latest numbers for whoever is online right now.
+    if (lower(skillQuery) === QUESTS_BOARD) {
+        await fetchLive(ctx);
+        const rows = questRankings(ctx);
+        return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => questLeaderboardEmbed(rows, page));
+    }
+
     const skill = skillQuery ? catalogSkill(skillQuery) : null;
     if (skillQuery && !skill) return { reply: { embeds: [errorEmbed(`Unknown skill **${skillQuery}**.`)] } };
 
-    // Fold in the latest numbers for whoever is online right now.
     await fetchLive(ctx);
     const rows = rankings(ctx, skill);
     return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => leaderboardEmbed(rows, skill, page));
+}
+
+async function perks(ctx, query) {
+    const result = await resolvePlayer(ctx, query);
+    if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(query, result.ambiguous)] } };
+    if (result.notFound) return notFoundReply(query, result);
+    return { reply: { embeds: [perksEmbed(result.profile)] } };
+}
+
+// The linked character: online it's live, otherwise its last snapshot.
+async function me(ctx, user) {
+    const link = ctx.links.of(user.id);
+    if (!link) return { reply: { embeds: [errorEmbed("You haven't linked a character yet - use `/link` first.")] } };
+
+    const live = await fetchLive(ctx);
+    const onlineNow = (live || []).find(p => PlayerStore.key(p) === link.key || (link.netId && p.uniqueNetId === link.netId && !PlayerStore.isCharacterKey(link.key)));
+    const stored = ctx.store.byKey(link.key);
+    if (!onlineNow && !stored) {
+        return { reply: { embeds: [errorEmbed(`No stats saved for **${link.name}** yet - they show up after you've been online.`)] } };
+    }
+    const profile = onlineNow ? buildProfile(withStoredSkills(ctx, onlineNow), true) : buildProfile(stored, false);
+    const player = onlineNow ? { ...stored, ...onlineNow, quests: onlineNow.quests || stored?.quests, journal: onlineNow.journal || stored?.journal } : stored;
+    profile.player = player;
+    const key = PlayerStore.key(player);
+    return {
+        reply: {
+            embeds: [
+                renderPlayerPage(profile, 'overview'),
+                progressEmbed(profile, { playtime: ctx.history.playtime(key), deaths: ctx.history.deaths(key) }),
+            ],
+        },
+    };
+}
+
+function link(ctx, interaction) {
+    const { code, minutes } = ctx.links.createCode(interaction.user.id, interaction);
+    return { reply: { embeds: [linkCodeEmbed(code, minutes, ctx.links.of(interaction.user.id))] } };
+}
+
+function unlink(ctx, user) {
+    const removed = ctx.links.unlink(user.id);
+    if (!removed) return { reply: { embeds: [linkInfoEmbed(null)] } };
+    return { reply: { embeds: [okEmbed(`🔗 Unlinked from **${removed.name}**. You won't be pinged for raids or hunts any more.`)] } };
 }
 
 // One player by name, or null with a reply to send instead.
@@ -227,6 +304,10 @@ export const commands = {
     levels: (i, ctx) => levels(ctx, i.options.getString('player', true)),
     level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
     leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
+    perks: (i, ctx) => perks(ctx, i.options.getString('player', true)),
+    me: (i, ctx) => me(ctx, i.user),
+    link: (i, ctx) => link(ctx, i),
+    unlink: (i, ctx) => unlink(ctx, i.user),
     gains: (i, ctx) => gains(ctx, i.options.getString('player'), i.options.getString('period') || 'week'),
     playtime: (i, ctx) => playtime(ctx, i.options.getString('player')),
     deaths: (i, ctx) => deaths(ctx, i.options.getString('player')),

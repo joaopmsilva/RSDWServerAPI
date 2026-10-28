@@ -1,5 +1,6 @@
 #pragma once
 #include "../engine/dom_engine.h"
+#include "../engine/world.h"
 
 #include <string>
 #include <vector>
@@ -10,6 +11,7 @@ std::string Player(const DomEngine::PlayerInfo& player);
 std::string Players(const std::vector<DomEngine::PlayerInfo>& players);
 std::string Server(const DomEngine::ServerInfo& info);
 std::string Discovery(const DomEngine::DiscoveryInfo& info);
+std::string World(const DomWorld::State& world);
 
 std::string PlayersTable(const std::vector<DomEngine::PlayerInfo>& players);
 

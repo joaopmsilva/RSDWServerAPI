@@ -1,4 +1,5 @@
 #include "dom_engine.h"
+#include "reflection.h"
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
@@ -14,6 +15,12 @@ namespace {
 struct PawnComponents {
     uintptr_t sustenance = 0;
     uintptr_t hydration = 0;
+};
+
+struct ControllerComponents {
+    uintptr_t quests = 0;
+    uintptr_t journal = 0;
+    uintptr_t perks = 0;
 };
 
 void ReadDoubleTriple(uintptr_t address, double& a, double& b, double& c) {
@@ -238,14 +245,36 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
 
     if (pawnSet.empty()) return players;
 
+    // Quest, journal and perk components sit on the controller in the SDK; the
+    // player state is checked too in case a patch moves them.
+    std::unordered_map<uintptr_t, uintptr_t> ownerToController;
+    for (const PlayerInfo& info : players) {
+        if (!info.controllerPtr) continue;
+        ownerToController[info.controllerPtr] = info.controllerPtr;
+        ownerToController[info.playerStatePtr] = info.controllerPtr;
+    }
+    uintptr_t questType = Reflect::FindType("QuestProgressComponent");
+    uintptr_t journalType = Reflect::FindType("JournalComponent");
+    uintptr_t perkType = Reflect::FindType("SkillPerkComponent");
+
     std::unordered_map<uintptr_t, PawnComponents> byPawn;
+    std::unordered_map<uintptr_t, ControllerComponents> byController;
     int32_t objectCount = GetObjectCount();
     for (int32_t i = 0; i < objectCount; i++) {
         uintptr_t object = GetObjectByIndex(i);
         if (!object) continue;
 
         uintptr_t outer = Mem::ReadPtr(object + Offsets::UObject_Outer);
-        if (!outer || pawnSet.find(outer) == pawnSet.end()) continue;
+        if (!outer) continue;
+        auto owner = ownerToController.find(outer);
+        if (owner != ownerToController.end()) {
+            ControllerComponents& parts = byController[owner->second];
+            if (!parts.quests && Reflect::IsA(object, questType)) parts.quests = object;
+            else if (!parts.journal && Reflect::IsA(object, journalType)) parts.journal = object;
+            else if (!parts.perks && Reflect::IsA(object, perkType)) parts.perks = object;
+            continue;
+        }
+        if (pawnSet.find(outer) == pawnSet.end()) continue;
 
         PawnComponents& slots = byPawn[outer];
         if (!slots.sustenance && IsA(object, "SustenanceComponent")) {
@@ -260,6 +289,13 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
 
         ReadHealthAndAttributes(info);
         ReadSkills(info);
+
+        auto parts = byController.find(info.controllerPtr);
+        if (parts != byController.end()) {
+            ReadQuests(info, parts->second.quests);
+            ReadJournal(info, parts->second.journal);
+            ReadPerks(info, parts->second.perks);
+        }
 
         auto it = byPawn.find(info.pawnPtr);
         if (it == byPawn.end()) continue;

@@ -54,7 +54,22 @@ const PLAYERS = {
     Kit: [38, 30, 44, 41, 52, 49, 28, 22, 35, 40, 37, 31],
     Bram: [29, 22, 25, 33, 40, 26, 31, 18, 27, 30, 24, 21],
 };
-const player = name => ({ name: name.toLowerCase(), characterName: name, skills: raw(PLAYERS[name]) });
+// Quests done per player (the first `n` of this list, main ones marked), and journal entries.
+const QUESTS = [
+    ['Cook’s Assistant', 'side'], ['Dragon Slayer', 'main'], ['Goblin Diplomacy', 'side'], ['Animal Magnetism', 'side'],
+    ['Restless Ghosts', 'side'], ['A Melody Remembered', 'side'], ['Elder Garou', 'main'], ['Dog Days', 'task'],
+    ['Heartstrings', 'side'], ['Granite Mauled', 'main'], ['Brink of Extinction', 'side'], ['Scarecrow Scavenging', 'task'],
+    ['The Great Body Robbery', 'side'], ['Letters for the Dead', 'side'], ['Mirror Mirror', 'side'], ['Wither Ward', 'main'],
+    ['Collector’s Calling', 'side'], ['Highlighting the Problem', 'side'],
+];
+const QUEST_COUNT = { Mira: 16, Thorne: 11, Elske: 14, Rowan: 9, Kit: 5, Bram: 2 };
+const quests = name => [
+    ...QUESTS.slice(0, QUEST_COUNT[name]).map(([n, kind]) => ({ id: n, name: n, kind, complete: true })),
+    { id: 'q1', name: 'Highlighting the Problem', kind: 'side', complete: false, objective: 'Obj_LightTheBeacons' },
+    { id: 'q2', name: 'Collector’s Calling', kind: 'side', complete: false, objective: 'Obj_FindTheMissingPages' },
+].filter((q, i, all) => all.findIndex(o => o.name === q.name) === i);
+const journal = { total: 142, kinds: { lore: 38, people: 21, places: 34, treasure: 9, recipes: 40 } };
+const player = name => ({ name: name.toLowerCase(), characterName: name, skills: raw(PLAYERS[name]), quests: quests(name), journal });
 const rowsFor = skillName =>
     Object.keys(PLAYERS)
         .map(name => {
@@ -65,6 +80,7 @@ const rowsFor = skillName =>
                 online: ['Mira', 'Elske', 'Kit'].includes(name),
                 level: s ? s.info.level : skills.reduce((n, x) => n + x.info.level, 0),
                 xp: s ? s.xp : skills.reduce((n, x) => n + x.xp, 0),
+                ...(s ? {} : { quests: QUEST_COUNT[name] }),
             };
         })
         .sort((a, b) => b.level - a.level || b.xp - a.xp);
@@ -82,13 +98,23 @@ const profile = name => {
 };
 const skillOf = (name, skill) => describeSkills(raw(PLAYERS[name])).find(s => s.name === skill);
 const online = ['Mira', 'Elske', 'Kit'].map(player);
-const health = { uptimeSeconds: 6 * 3600 + 23 * 60, version: '0.5.0' };
+const health = { uptimeSeconds: 6 * 3600 + 23 * 60, version: '0.6.0' };
+const world = { worldName: 'Ashfall', host: 'Mira', difficulty: 'normal', hardcore: 'off', time: { day: 37, hour: 14.34, dawn: 6, dusk: 20, isDay: true, paused: false, minutesPerDay: 60 }, events: [] };
+const located = [{ ...player('Mira'), uniqueNetId: 'm' }, { ...player('Elske'), uniqueNetId: 'e' }, { ...player('Kit'), uniqueNetId: 'k' }];
+const perks = { max: 6, active: [
+    { id: 'PerkV2_Attack_Parry', name: 'Parry', description: 'Block just as an attack lands to stagger the attacker.', skill: 'SKILL_Attack' },
+    { id: 'PerkV2_Attack_JumpAttack', name: 'Jump Attack', description: 'Attack while jumping for a heavy overhead strike.', skill: 'SKILL_Attack' },
+    { id: 'PerkV2_Mining_DoubleOre', name: 'Rich Veins', description: 'A chance to mine twice the ore.', skill: 'SKILL_Mining' },
+    { id: 'PerkV2_Artisan_MagicalMending', name: 'Magical Mending', description: 'Repair gear for less at a workbench.', skill: 'SKILL_Artisan' },
+] };
+const questRows = Object.keys(PLAYERS).map(name => ({ player: player(name), online: ['Mira', 'Elske', 'Kit'].includes(name), done: QUEST_COUNT[name], main: QUESTS.slice(0, QUEST_COUNT[name]).filter(q => q[1] === 'main').length })).sort((a, b) => b.done - a.done);
+const linkUser = { username: 'mira' };
 const H = 3600;
 
 // Each screenshot: a file name and the messages in it. A message is the
 // command that produced it (or null for one the bot posts by itself) and its embeds.
 const shots = [
-    ['status-board', [[null, [E.boardEmbed({ state: { status: 'online', players: online, health }, gainers: [{ name: 'Mira', total: 18420 }, { name: 'Elske', total: 9310 }, { name: 'Kit', total: 4120 }], vps: { cpu: { usage: 0.23 }, memory: { used: 5.1, total: 16 } } })]]]],
+    ['status-board', [[null, [E.boardEmbed({ state: { status: 'online', players: online, health, world }, gainers: [{ name: 'Mira', total: 18420 }, { name: 'Elske', total: 9310 }, { name: 'Kit', total: 4120 }], vps: { cpu: { usage: 0.23 }, memory: { used: 5.1, total: 16 } } })]]]],
     ['levels', [['/levels player:Mira', [E.renderPlayerPage(profile('Mira'), 'overview')]]]],
     ['level', [['/level skill:Woodcutting player:Thorne', [E.renderPlayerPage(profile('Thorne'), 'skill:woodcutting')]]]],
     ['leaderboard', [['/leaderboard', [E.leaderboardEmbed(rowsFor(null), null, 0)]]]],
@@ -133,6 +159,19 @@ const shots = [
         ],
     ],
     ['help', [['/help', [E.helpEmbed()]]]],
+    ['quest-leaderboard', [['/leaderboard skill:quests', [E.questLeaderboardEmbed(questRows, 0)]]]],
+    ['perks', [['/perks player:Mira', [E.perksEmbed({ ...profile('Mira'), player: { ...player('Mira'), perks } })]]]],
+    ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 } })]]]],
+    ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira')], null, true]]],
+    [
+        'raid-alerts',
+        [
+            [null, [E.eventEmbed({ type: 'raid', name: 'BP_RaidEvent_Goblins_C' }, [located[0], located[1]])], null, false, '@Mira @Elske'],
+            [null, [E.eventEmbed({ type: 'hunted', name: 'BP_HuntedEvent_Wolves_C' }, [located[2]])], null, false, '@Kit'],
+            [null, [E.eventEmbed({ type: 'raid', name: 'BP_RaidEvent_Goblins_C' }, [located[0], located[1]], { over: true, startedAt: Date.now() - 4 * 60000 })]],
+        ],
+    ],
+    ['status', [['/status', [E.statusEmbed({ status: 'online', players: online, health, world })]]]],
 ];
 
 function gainsSample() {
@@ -171,6 +210,7 @@ function markdown(text) {
         .map(line => {
             const h = line.match(/^(#{1,3}) (.*)$/);
             if (h) return `<div class="h${h[1].length}">${inline(h[2])}</div>`;
+            if (line.startsWith('-# ')) return `<div class="sub">${inline(line.slice(3))}</div>`;
             if (line.startsWith('> ')) return `<div class="quote">${inline(line.slice(2))}</div>`;
             return `<div>${inline(line) || '&nbsp;'}</div>`;
         })
@@ -192,10 +232,19 @@ function embedHtml(e) {
     </div>`;
 }
 
-function messageHtml([command, embeds], first) {
-    const used = command ? `<div class="reply"><span class="ravatar"></span><b>Mira</b> used <span class="cmd">${esc(command.split(' ')[0])}</span></div>` : '';
+// A message: [command or button label (null if the bot posted it by itself),
+// embeds, button rows, only-you-can-see-this, text before the embeds].
+function messageHtml([command, embeds, components, ephemeral, content], first) {
+    const how = command && command.startsWith('/') ? 'used' : 'pressed';
+    const label = command && command.startsWith('/') ? command.split(' ')[0] : command;
+    const used = command ? `<div class="reply"><span class="ravatar"></span><b>Mira</b> ${how} <span class="cmd">${esc(label)}</span></div>` : '';
     const head = first || command ? `<div class="head"><span class="name">Dragonwilds Bot</span><span class="tag">APP</span><span class="time">Today at 20:14</span></div>` : '';
-    return `<div class="msg${first || command ? ' first' : ''}">${used}<div class="row"><div class="avatar">${first || command ? '🐉' : ''}</div><div class="content">${head}${embeds.map(embedHtml).join('')}</div></div></div>`;
+    const text = content ? `<div class="text">${content.split(' ').map(m => `<span class="mention">${esc(m)}</span>`).join(' ')}</div>` : '';
+    const buttons = (components || [])
+        .map(row => '<div class="buttons">' + row.toJSON().components.map(b => `<span class="button s${b.style}">${b.emoji?.name ? b.emoji.name + ' ' : ''}${esc(b.label)}</span>`).join('') + '</div>')
+        .join('');
+    const only = ephemeral ? '<div class="only">👁️ Only you can see this message</div>' : '';
+    return `<div class="msg${first || command ? ' first' : ''}">${used}<div class="row"><div class="avatar">${first || command ? '🐉' : ''}</div><div class="content">${head}${text}${embeds.map(embedHtml).join('')}${buttons}${only}</div></div></div>`;
 }
 
 const CSS = `
@@ -229,6 +278,12 @@ a { color:#00a8fc; } b { color:#f2f3f5; font-weight:600; }
 .ts { background:#3a3c42; border-radius:3px; padding:0 2px; }
 .mention { background:rgba(88,101,242,.3); color:#c9cdfb; border-radius:3px; padding:0 2px; }
 .spoiler { background:#1e1f22; color:#1e1f22; border-radius:3px; padding:0 2px; }
+.sub { font-size:12px; color:#949ba4; }
+.text { margin-bottom:2px; }
+.buttons { display:flex; gap:8px; margin-top:8px; }
+.button { padding:2px 16px; border-radius:8px; color:#fff; font-size:14px; font-weight:500; line-height:30px; }
+.button.s1 { background:#5865f2; } .button.s2 { background:#4e5058; } .button.s4 { background:#da373c; }
+.only { font-size:12px; color:#949ba4; margin-top:4px; }
 img.emoji { height:1.2em; width:1.2em; vertical-align:-0.25em; margin:0 .05em; }
 .h2 img.emoji, .h3 img.emoji { height:1.1em; width:1.1em; }
 .avatar img.emoji { height:24px; width:24px; }

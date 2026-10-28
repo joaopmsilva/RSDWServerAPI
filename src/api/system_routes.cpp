@@ -2,7 +2,10 @@
 
 #include "../engine/chat.h"
 #include "../engine/process_event.h"
+#include "../engine/reflection.h"
+#include "../engine/world.h"
 #include "../engine/world_save.h"
+#include "serialize.h"
 #include "../events/event_log.h"
 #include "../runtime.h"
 
@@ -111,6 +114,14 @@ void RegisterSystem(HttpServer& server) {
     // A self-check of what the mod reads from the game, so a game update that
     // moves something shows up here instead of a feature quietly doing nothing.
     // ok is true, false, or null when it can't be checked yet (nobody online).
+    // The world's name and settings, the in-game clock, and running raid and hunted events.
+    server.Get("/api/world", [](const HttpRequest&) -> HttpResponse {
+        if (!EngineReady()) return EngineUnavailable();
+        DomWorld::State world = DomWorld::Read();
+        if (!world.valid) return Error(503, "world not readable yet: " + Reflect::Status());
+        return JsonResponse(Serialize::World(world));
+    });
+
     server.Get("/api/diagnostics", [](const HttpRequest&) -> HttpResponse {
         struct Check {
             std::string name;
@@ -146,12 +157,24 @@ void RegisterSystem(HttpServer& server) {
             int componentState = DomChat::ChatComponentState(componentDetail);
             add("chatComponent", componentState, componentDetail);
 
+            add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
+            DomWorld::State world = DomWorld::Read();
+            add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,
+                world.valid ? (world.worldName.empty() ? "world name unreadable" : "world " + world.worldName)
+                            : "not readable");
+            add("inGameClock", world.hasTime ? 1 : -1,
+                world.hasTime ? "day " + std::to_string(world.day) : "read once a player has joined");
+
             std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
             if (players.empty()) {
                 add("players", -1, "checked once someone is online");
             } else {
                 size_t named = 0, ids = 0, skills = 0, health = 0, located = 0;
+                size_t quests = 0, journal = 0, perks = 0;
                 for (const DomEngine::PlayerInfo& p : players) {
+                    if (p.hasQuests) quests++;
+                    if (p.hasJournal) journal++;
+                    if (p.hasPerks) perks++;
                     if (!p.name.empty()) named++;
                     if (!p.uniqueNetId.empty()) ids++;
                     if (!p.skills.empty()) skills++;
@@ -165,6 +188,9 @@ void RegisterSystem(HttpServer& server) {
                 add("playerSkills", skills == n ? 1 : 0, std::to_string(skills) + of + " have skills");
                 add("playerHealth", health == n ? 1 : 0, std::to_string(health) + of + " have health");
                 add("playerLocation", located == n ? 1 : 0, std::to_string(located) + of + " have a location");
+                add("playerQuests", quests == n ? 1 : 0, std::to_string(quests) + of + " have quests");
+                add("playerJournal", journal == n ? 1 : 0, std::to_string(journal) + of + " have a journal");
+                add("playerPerks", perks == n ? 1 : 0, std::to_string(perks) + of + " have skill perks");
             }
         }
 

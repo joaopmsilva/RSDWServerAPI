@@ -171,6 +171,26 @@ struct SkillInfo {
     int32_t currentXP = 0;
 };
 
+struct QuestInfo {
+    std::string id;        // the quest's asset name, e.g. Quest_CooksAssistant
+    std::string name;      // the game's display name, when it could be read
+    std::string kind;      // main, side or task
+    std::string objective; // the current objective's internal name, while in progress
+    bool complete = false;
+};
+
+struct PerkInfo {
+    std::string id;
+    std::string name;
+    std::string description;
+    std::string skill; // same form as SkillInfo::skill
+};
+
+struct JournalCount {
+    std::string kind; // lore, people, places, treasure, recipes, items, world, other
+    int32_t count = 0;
+};
+
 struct AttributeInfo {
     std::string name;
     float value = 0.0f;
@@ -222,6 +242,17 @@ struct PlayerInfo {
 
     std::vector<SkillInfo> skills;
     std::vector<AttributeInfo> attributes;
+
+    // Quests started or done, the journal entries unlocked and the active skill
+    // perks, from components on the controller; has* is false when unreadable.
+    bool hasQuests = false;
+    std::vector<QuestInfo> quests;
+    bool hasJournal = false;
+    int32_t journalEntries = 0;
+    std::vector<JournalCount> journal;
+    bool hasPerks = false;
+    int32_t maxActivePerks = 0;
+    std::vector<PerkInfo> perks;
 
     uintptr_t playerStatePtr = 0;
     uintptr_t pawnPtr = 0;
@@ -303,6 +334,9 @@ private:
                              std::vector<AttributeInfo>& out) const;
     void ReadHealthAndAttributes(PlayerInfo& info) const;
     void ReadSkills(PlayerInfo& info) const;
+    void ReadQuests(PlayerInfo& info, uintptr_t component) const;
+    void ReadJournal(PlayerInfo& info, uintptr_t component) const;
+    void ReadPerks(PlayerInfo& info, uintptr_t component) const;
 
 public:
 

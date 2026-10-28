@@ -112,6 +112,43 @@ std::string Player(const DomEngine::PlayerInfo& p) {
     }
     oss << "],";
 
+    if (p.hasQuests) {
+        oss << "\"quests\":[";
+        for (size_t i = 0; i < p.quests.size(); i++) {
+            const DomEngine::QuestInfo& q = p.quests[i];
+            if (i) oss << ",";
+            oss << "{\"id\":" << Q(q.id) << ",\"name\":" << Q(q.name) << ",\"kind\":" << Q(q.kind)
+                << ",\"complete\":" << Bool(q.complete) << ",\"objective\":" << Q(q.objective) << "}";
+        }
+        oss << "],";
+    } else {
+        oss << "\"quests\":null,";
+    }
+
+    if (p.hasJournal) {
+        oss << "\"journal\":{\"total\":" << p.journalEntries << ",\"kinds\":{";
+        for (size_t i = 0; i < p.journal.size(); i++) {
+            if (i) oss << ",";
+            oss << Q(p.journal[i].kind) << ":" << p.journal[i].count;
+        }
+        oss << "}},";
+    } else {
+        oss << "\"journal\":null,";
+    }
+
+    if (p.hasPerks) {
+        oss << "\"perks\":{\"max\":" << p.maxActivePerks << ",\"active\":[";
+        for (size_t i = 0; i < p.perks.size(); i++) {
+            const DomEngine::PerkInfo& k = p.perks[i];
+            if (i) oss << ",";
+            oss << "{\"id\":" << Q(k.id) << ",\"name\":" << Q(k.name) << ",\"description\":"
+                << Q(k.description) << ",\"skill\":" << Q(k.skill) << "}";
+        }
+        oss << "]},";
+    } else {
+        oss << "\"perks\":null,";
+    }
+
     char pointers[128];
     snprintf(pointers, sizeof(pointers),
              "\"pointers\":{\"playerState\":\"0x%llX\",\"pawn\":\"0x%llX\",\"controller\":\"0x%llX\"}",
@@ -145,6 +182,33 @@ std::string Server(const DomEngine::ServerInfo& info) {
         << "\"crossplayEnabled\":" << Bool(info.crossplayEnabled) << ","
         << "\"hardcoreState\":" << info.hardcoreState
         << "}";
+    return oss.str();
+}
+
+std::string World(const DomWorld::State& w) {
+    std::ostringstream oss;
+    oss << "{\"worldName\":" << Q(w.worldName) << ",\"host\":" << Q(w.host)
+        << ",\"difficulty\":" << Q(w.difficulty) << ",\"hardcore\":" << Q(w.hardcore) << ",";
+    if (w.hasTime) {
+        oss << "\"time\":{\"day\":" << w.day << ",\"hour\":" << Num(w.hour) << ",\"dawn\":" << Num(w.dawn)
+            << ",\"dusk\":" << Num(w.dusk) << ",\"isDay\":" << Bool(w.isDay) << ",\"paused\":" << Bool(w.paused)
+            << ",\"minutesPerDay\":" << w.minutesPerDay << "},";
+    } else {
+        oss << "\"time\":null,";
+    }
+    oss << "\"events\":[";
+    for (size_t i = 0; i < w.events.size(); i++) {
+        const DomWorld::EventInfo& e = w.events[i];
+        if (i) oss << ",";
+        oss << "{\"id\":" << Q(e.id) << ",\"type\":" << Q(e.type) << ",\"name\":" << Q(e.name) << ",\"location\":";
+        if (e.hasLocation) {
+            oss << "{\"x\":" << Num(e.x) << ",\"y\":" << Num(e.y) << ",\"z\":" << Num(e.z) << "}";
+        } else {
+            oss << "null";
+        }
+        oss << ",\"radius\":" << Num(e.radius) << "}";
+    }
+    oss << "]}";
     return oss.str();
 }
 

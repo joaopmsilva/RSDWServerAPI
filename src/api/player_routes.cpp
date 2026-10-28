@@ -76,6 +76,22 @@ void RegisterPlayers(HttpServer& server) {
 
         std::string line = sender.empty() ? message : "[" + sender + "] " + message;
 
+        // "to": one player only (net id, character GUID or name), as a private line.
+        std::string to;
+        Json::GetString(req.body, "to", to);
+        if (!to.empty()) {
+            std::string wanted = Lower(to);
+            for (const DomEngine::PlayerInfo& p : DomEngine::g_Engine->GetAllPlayers()) {
+                if (Lower(p.uniqueNetId) != wanted && Lower(p.characterGuid) != wanted &&
+                    Lower(p.characterName) != wanted && Lower(p.name) != wanted) {
+                    continue;
+                }
+                if (!DomChat::Whisper(p, line)) return Error(500, "the game didn't take the message");
+                return Ok("sent to " + p.name);
+            }
+            return Error(404, "no connected player matches '" + to + "'");
+        }
+
         std::string error;
         if (!DomChat::Broadcast(line, error)) return Error(500, error);
         return Ok("broadcast sent");

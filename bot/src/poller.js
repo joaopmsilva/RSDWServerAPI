@@ -12,7 +12,7 @@ export class Poller {
     constructor(client, store) {
         this.client = client;
         this.store = store;
-        this.state = { status: 'unknown', health: null, players: [], error: null, updatedAt: 0 };
+        this.state = { status: 'unknown', health: null, players: [], world: null, error: null, updatedAt: 0 };
         this.lastPresence = '';
         this.lastError = '';
         this.lastStatus = 'unknown';
@@ -38,6 +38,7 @@ export class Poller {
             state.health = await api.health();
             if (state.health.engineReady) {
                 state.players = await api.players();
+                state.world = await this.fetchWorld();
                 state.status = 'online';
                 this.emitPlayers(state.players, state.health);
                 const now = Date.now();
@@ -50,12 +51,14 @@ export class Poller {
             } else {
                 state.status = 'starting';
                 state.players = [];
+                state.world = null;
                 this.emitPlayers(null, state.health);
             }
             state.error = null;
         } catch (err) {
             state.status = err.kind === 'starting' ? 'starting' : 'offline';
             state.players = [];
+            state.world = null;
             state.error = err.message;
             if (err.kind !== 'starting') state.health = null;
             this.emitPlayers(null, state.health);
@@ -65,6 +68,17 @@ export class Poller {
         this.logChanges();
         this.updatePresence();
         this.onTick?.(state);
+    }
+
+    // World info and running events; null on mods before 0.6.0 or while it can't be read.
+    async fetchWorld() {
+        try {
+            return await api.world();
+        } catch (err) {
+            if (err.status !== 404 && err.message !== this.lastWorldError) log.debug(`world info unavailable: ${err.message}`);
+            this.lastWorldError = err.message;
+            return null;
+        }
     }
 
     emitPlayers(players, health) {
