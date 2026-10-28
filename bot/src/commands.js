@@ -24,6 +24,7 @@ import {
     perksEmbed,
     progressEmbed,
     questLeaderboardEmbed,
+    questsEmbed,
 } from './embeds.js';
 import { questStats } from './progress.js';
 import { logger } from './log.js';
@@ -233,6 +234,20 @@ async function perks(ctx, query) {
     return { reply: { embeds: [perksEmbed(result.profile)] } };
 }
 
+// A player's quests; without a name, your own linked character's, or the
+// quest leaderboard if you haven't linked one.
+async function quests(ctx, query, user) {
+    if (!query) {
+        const link = ctx.links.of(user.id);
+        if (!link) return leaderboard(ctx, QUESTS_BOARD);
+        query = link.name;
+    }
+    const result = await resolvePlayer(ctx, query);
+    if (result.ambiguous) return { reply: { embeds: [ambiguousEmbed(query, result.ambiguous)] } };
+    if (result.notFound) return notFoundReply(query, result);
+    return { reply: { embeds: [questsEmbed(result.profile)] } };
+}
+
 // The linked character: online it's live, otherwise its last snapshot.
 async function me(ctx, user) {
     const link = ctx.links.of(user.id);
@@ -305,6 +320,7 @@ export const commands = {
     level: (i, ctx) => level(ctx, i.options.getString('skill', true), i.options.getString('player', true)),
     leaderboard: (i, ctx) => leaderboard(ctx, i.options.getString('skill')),
     perks: (i, ctx) => perks(ctx, i.options.getString('player', true)),
+    quests: (i, ctx) => quests(ctx, i.options.getString('player'), i.user),
     me: (i, ctx) => me(ctx, i.user),
     link: (i, ctx) => link(ctx, i),
     unlink: (i, ctx) => unlink(ctx, i.user),

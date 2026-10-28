@@ -34,7 +34,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **`/levels`, `/level`** - any player's skills, live or from the last time they were seen
 - **`/leaderboard`** - by total level, any skill or quests done, 🥇🥈🥉
 - **`/me`** - everything about your own character: skills, quests, journal, playtime
-- **`/perks`** - a player's active skill perks
+- **`/quests`** - quests done and in progress · **`/perks`** - active skill perks
 - **🔗 One-click account linking** - press a button, type a short code in game
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths
@@ -167,8 +167,9 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 </td>
 <td width="50%" valign="top">
 
-**📜 Quests and ✨ perks** · a quest leaderboard and each player's skill perks
+**📜 Quests and ✨ perks** · each player's quests, a quest leaderboard and skill perks
 
+<img src="bot/docs/screenshots/quests.png" alt="/quests">
 <img src="bot/docs/screenshots/quest-leaderboard.png" alt="/leaderboard quests">
 <img src="bot/docs/screenshots/perks.png" alt="/perks">
 

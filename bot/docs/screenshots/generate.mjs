@@ -159,6 +159,7 @@ const shots = [
         ],
     ],
     ['help', [['/help', [E.helpEmbed()]]]],
+    ['quests', [['/quests player:Mira', [E.questsEmbed(profile('Mira'))]]]],
     ['quest-leaderboard', [['/leaderboard skill:quests', [E.questLeaderboardEmbed(questRows, 0)]]]],
     ['perks', [['/perks player:Mira', [E.perksEmbed({ ...profile('Mira'), player: { ...player('Mira'), perks } })]]]],
     ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 } })]]]],

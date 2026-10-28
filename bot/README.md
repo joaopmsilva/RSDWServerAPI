@@ -32,6 +32,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 📊 **`/levels`** `player` | Every skill by category, total level and max health |
 | 🪓 **`/level`** `skill` `player` | One skill in detail, with a progress bar to the next level |
 | 🏆 **`/leaderboard`** `[skill]` | Top players by total level (with quests done), by XP in one skill, or `quests` for the most quests |
+| 📜 **`/quests`** `[player]` | Quests done (main, side, tasks) and in progress with the current step - your own when linked |
 | ✨ **`/perks`** `player` | Their active skill perks, by skill |
 | 🙋 **`/me`** | Everything about your linked character: skills, quests done and in progress, journal, playtime, deaths |
 | 🔗 **`/link`** 🔒 · **`/unlink`** 🔒 | Link your Discord to your character - see [Account linking](#-account-linking) |

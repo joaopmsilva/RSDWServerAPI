@@ -274,6 +274,33 @@ export function perksEmbed(profile) {
     return embed.setFooter({ text: `${perks.active.length} active${max}` });
 }
 
+// /quests player: everything done, by kind, and what's in progress.
+export function questsEmbed(profile) {
+    const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Quests');
+    const quests = questStats(profile.player);
+    if (!quests) return embed.setDescription('No quest data yet - quests show up once they have been online with mod 0.6.0.');
+    if (!quests.done && !quests.active.length) return embed.setDescription('No quests started yet.');
+
+    const list = (items, max = 15) => {
+        const names = items.slice(0, max).map(q => `• ${questName(q)}`);
+        if (items.length > max) names.push(`…and ${items.length - max} more`);
+        return names.join('\n').slice(0, 1024);
+    };
+    const split = [quests.main && `${quests.main} main`, quests.side && `${quests.side} side`, quests.tasks && `${quests.tasks} tasks`].filter(Boolean);
+    embed.setDescription(`### ${quests.done} done${split.length ? ` · ${split.join(' · ')}` : ''}`);
+    if (quests.active.length) {
+        embed.addFields({
+            name: `🧭 In progress · ${quests.active.length}`,
+            value: quests.active.slice(0, 8).map(q => `• **${questName(q)}**${q.objective ? `\n-# ${objectiveName(q.objective)}` : ''}`).join('\n').slice(0, 1024),
+        });
+    }
+    for (const [kind, title] of [['main', '⭐ Main quests'], ['side', '📜 Side quests'], ['task', '📋 Tasks']]) {
+        const done = quests.completed.filter(q => q.kind === kind);
+        if (done.length) embed.addFields({ name: `${title} · ${done.length}`, value: list(done), inline: true });
+    }
+    return embed.setFooter({ text: '/leaderboard skill:quests ranks everyone by quests done' });
+}
+
 // The second card of /me: quests, journal, playtime and deaths.
 export function progressEmbed(profile, { playtime, deaths }) {
     const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Progress');
@@ -808,8 +835,17 @@ export function helpEmbed() {
                 value: [
                     '`/levels player` · every skill, total level and max health',
                     '`/level skill player` · one skill, with progress to the next level',
-                    '`/leaderboard [skill]` · top players by total level, one skill, or quests',
                     '`/perks player` · their active skill perks',
+                    '`/quests [player]` · quests done and in progress',
+                ].join('\n'),
+            },
+            {
+                name: '🏆 Leaderboards',
+                value: [
+                    '`/leaderboard` · total level, with quests done',
+                    '`/leaderboard skill:mining` · any one skill',
+                    '`/leaderboard skill:quests` · most quests done',
+                    '`/playtime` · `/deaths` · `/gains` · most played, most deaths, most XP',
                 ].join('\n'),
             },
             {
@@ -823,9 +859,9 @@ export function helpEmbed() {
             {
                 name: '📈 Activity',
                 value: [
-                    '`/gains [player] [period]` · most XP today, this week or this month',
-                    '`/playtime [player]` · most played this week',
-                    '`/deaths [player]` · most deaths',
+                    '`/gains [player] [period]` · XP gained today, this week or this month',
+                    '`/playtime [player]` · time played',
+                    '`/deaths [player]` · deaths',
                 ].join('\n'),
             },
             {

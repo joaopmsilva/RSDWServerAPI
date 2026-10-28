@@ -32,6 +32,10 @@ export const definitions = [
         .setName('perks')
         .setDescription("A player's active skill perks")
         .addStringOption(playerOption),
+    new SlashCommandBuilder()
+        .setName('quests')
+        .setDescription("A player's quests - done and in progress")
+        .addStringOption(o => o.setName('player').setDescription('Leave empty for your own linked character').setAutocomplete(true)),
     new SlashCommandBuilder().setName('me').setDescription('Everything about your linked character'),
     new SlashCommandBuilder().setName('link').setDescription('Link your Discord to your in-game character with a one-time code'),
     new SlashCommandBuilder().setName('unlink').setDescription('Remove the link to your in-game character'),
