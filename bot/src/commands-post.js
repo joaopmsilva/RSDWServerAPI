@@ -12,12 +12,13 @@ const log = logger('commands-post');
 // respected - it isn't posted again unless data/<id>.json is removed or the
 // channel changes.
 export class CommandsPost {
-    constructor(client, { id = 'commands-post', channelId = config.commandsChannelId, enabled = config.commandsPost, embed = helpEmbed, components = () => [], what = 'the command list' } = {}) {
+    constructor(client, { id = 'commands-post', channelId = config.commandsChannelId, enabled = config.commandsPost, embed = helpEmbed, components = () => [], files = [], what = 'the command list' } = {}) {
         this.client = client;
         this.channelId = channelId;
         this.enabled = enabled;
         this.embed = embed;
         this.components = components;
+        this.files = files; // paths attached to the card; a changed file updates it
         this.what = what;
         this.file = path.join(config.dataDir, `${id}.json`);
         this.saved = null;
@@ -33,7 +34,12 @@ export class CommandsPost {
         if (!this.enabled || !channelId) return;
         const embed = this.embed();
         const components = this.components();
-        const key = JSON.stringify([embed.toJSON(), components.map(c => c.toJSON())]);
+        const files = this.files.map(f => ({ attachment: f, name: path.basename(f) }));
+        const stamps = this.files.map(f => {
+            const st = fs.statSync(f);
+            return [path.basename(f), st.size, st.mtimeMs];
+        });
+        const key = JSON.stringify([embed.toJSON(), components.map(c => c.toJSON()), stamps]);
 
         try {
             const channel = await this.client.channels.fetch(channelId);
@@ -45,7 +51,7 @@ export class CommandsPost {
                     this.remember({ ...this.saved, key });
                     return;
                 }
-                await message.edit({ embeds: [embed], components });
+                await message.edit({ embeds: [embed], components, ...(files.length && { files, attachments: [] }) });
                 this.remember({ ...this.saved, key });
                 log.info(`updated ${what} in #${channel.name}`);
                 return;
@@ -62,7 +68,7 @@ export class CommandsPost {
                     );
                 }
             }
-            const message = await channel.send({ embeds: [embed], components, allowedMentions: { parse: [] } });
+            const message = await channel.send({ embeds: [embed], components, files, allowedMentions: { parse: [] } });
             this.remember({ channelId, messageId: message.id, key });
             log.info(`posted ${what} in #${channel.name}`);
             // Pinning needs Manage Messages (Pin Messages); without it the post just isn't pinned.

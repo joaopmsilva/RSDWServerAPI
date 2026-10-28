@@ -78,6 +78,7 @@ The bot needs *View Channel*, *Send Messages*, *Embed Links* and *Read Message H
 | `WEEKLY_SUMMARY` | `true` | The recap every Sunday from 20:00 (VPS time): top gainers, new 99s, most played, deaths. |
 | `RAID_ALERTS` | `true` | Raid and hunt DMs for linked players who turn them on (mod 0.6.0+). `false` turns them off for everyone. |
 | `COMMANDS_CLEANUP_MINUTES` | `5` | When the command list has a channel of its own, delete everything else there this often (messages from the last minute wait a round). `0` turns it off. Needs *Manage Messages*. |
+| `CLIENT_MOD_ZIP` | `RSDW-ChestLink-3x-Installer.zip` | A players' installer in `data/` (or a path). When the file is there, it's pinned in the commands channel with install steps, and the command list points to it. Replacing the file updates the pinned copy on the next bot start. Pairs with the mod's `[Game] LinkedStorageRadius`. |
 | `COMMANDS_POST` | `true` | Post the list of every command once, and pin it if the bot has *Pin Messages*. When the commands change in an update, the same message is edited. If you delete it, it stays gone - delete `data/commands-post.json` and restart the bot to post it again. |
 
 ## 📌 Status board

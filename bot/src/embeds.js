@@ -297,6 +297,24 @@ export function linkHowToEmbed() {
         .setFooter({ text: 'Codes work once, for 10 minutes · /link, /me, /alerts and /unlink work anywhere too' });
 }
 
+// Pinned in the commands channel with the installer attached (data/, not git).
+export function chestRangeEmbed() {
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle('📦 Longer chest range - 90 m')
+        .setDescription(
+            'This server lets **Linked** chests reach **3× further** for building and crafting: 90 m instead of 30 m. ' +
+                'It needs a small mod on your PC - the installer below sets it up.',
+        )
+        .addFields(
+            { name: '1️⃣ Download', value: 'Download the zip below, right-click it and choose **Extract All…**.' },
+            { name: '2️⃣ Install', value: 'Close the game, then double-click **Install ChestLink.bat**. If Windows says it protected your PC, press **More info → Run anyway**.' },
+            { name: '3️⃣ Play', value: 'Start the game as usual and turn on **Linked** on your chests. **F7** in game refreshes the range if it seems stuck.' },
+            { name: '❌ Remove', value: 'Run **Uninstall ChestLink.bat**. Without the mod you keep the normal 30 m - nothing breaks.' },
+        )
+        .setFooter({ text: 'Windows · Steam only · UE4SS + ChestLink by DarylVG (Nexus Mods #838), set to 90 m' });
+}
+
 // The buttons on that card; index.js handles the presses.
 export function linkButtons() {
     return [
@@ -846,6 +864,7 @@ export function helpEmbed() {
                     '`/status` · is it up, who is on, the world and the time in game',
                     '`/item item` · what an item is and does, from the wiki',
                     '`/help` · this list',
+                    ...(config.hasClientMod ? ['📦 **Longer chest range** · the installer is pinned in this channel'] : []),
                 ].join('\n'),
             },
         )

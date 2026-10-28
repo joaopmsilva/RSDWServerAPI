@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -92,3 +93,8 @@ export const config = {
     steamcmd: (process.env.STEAMCMD || '/home/dragonwilds/steamcmd/steamcmd.sh').trim(),
     dataDir: path.resolve(botRoot, process.env.DATA_DIR || 'data'),
 };
+
+// The players' installer for the longer chest range (UE4SS + ChestLink), pinned
+// in the commands channel when the file is there. Not in git: put it in data/.
+config.clientModZip = path.resolve(config.dataDir, (process.env.CLIENT_MOD_ZIP || 'RSDW-ChestLink-3x-Installer.zip').trim());
+config.hasClientMod = fs.existsSync(config.clientModZip);

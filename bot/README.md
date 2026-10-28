@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.9.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.10.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -48,6 +48,10 @@ The bot also posts this list once and pins it, so new players can find it (`COMM
 `COMMANDS_CHANNEL_ID` - a channel of its own for commands works well). It's edited in place when
 the commands change, and moved when the channel does. In a channel of its own, everything else
 is cleared every `COMMANDS_CLEANUP_MINUTES` (5), so the list is always what people see.
+
+With a players' installer in `data/` (`CLIENT_MOD_ZIP`), a second pinned card offers it with
+install steps - for example UE4SS + ChestLink for the longer chest range the mod's
+`[Game] LinkedStorageRadius` allows.
 
 `/levels` also shows quests done and journal entries, and `/status` and the status board show the
 world (name, host, difficulty) and the in-game clock - all from mod 0.6.0.

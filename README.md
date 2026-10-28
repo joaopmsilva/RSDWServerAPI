@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.7.3-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.9.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.8.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.10.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -71,6 +71,8 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Leaderboard cleanup** - remove a player and their stats
 - **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
 - **AFK kick** with a warning first, optionally only when the server is full
+- **Longer linked-chest range** - the server side of client mods like ChestLink, plus a
+  one-click installer for players pinned in Discord
 - In-game `/kick`, `/ban`, `/give` for the game's own admins
 
 </td>
@@ -383,6 +385,9 @@ WarnMinutes=1
 OnlyWhenFull=false
 MaxPlayers=0
 ExemptAdmins=true
+
+[Game]
+LinkedStorageRadius=0
 ```
 
 > [!IMPORTANT]
@@ -401,6 +406,14 @@ ExemptAdmins=true
   private warning `WarnMinutes` before, and can rejoin straight away after the kick.
   `OnlyWhenFull=true` (with `MaxPlayers`) only kicks when someone else could use the slot, and the
   game's own admins are never kicked unless `ExemptAdmins=false`.
+- **`LinkedStorageRadius`** (mod 0.8.0+) is how far **Linked** chests reach for building and
+  crafting, in centimetres. `0` keeps the game's 3000 (30 m). The range is worked out on each
+  player's PC, so players need a client mod with the **same** radius, such as
+  [ChestLink](https://www.nexusmods.com/runescapedragonwilds/mods/838). The server checks the
+  chests a client sends against its own radius and refuses the whole build if one is too far, so
+  a client set higher than the server breaks building. The game's own `UserGame.ini` override
+  isn't read by the Linux server, which is why the mod writes the value itself. Players without
+  the client mod keep 30 m and build normally.
 
 </details>
 

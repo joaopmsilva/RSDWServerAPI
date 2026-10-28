@@ -63,12 +63,17 @@ struct AfkConfig {
     bool exemptAdmins = true;
 };
 
+struct GameConfig {
+    float linkedStorageRadius = 0; // 0 = the game's own (3000, 30 m)
+};
+
 struct APIConfig {
     bool enableLogging = true;
     bool verboseLogging = true;
     RestConfig rest;
     RconConfig rcon;
     AfkConfig afk;
+    GameConfig game;
 
     bool Load(const std::string& configPath) {
         std::ifstream file(configPath);
@@ -160,7 +165,13 @@ struct APIConfig {
         file << "OnlyWhenFull=" << Bool(afk.onlyWhenFull) << "\n";
         file << "MaxPlayers=" << afk.maxPlayers << "\n";
         file << "# The game's own admins are never kicked for being AFK.\n";
-        file << "ExemptAdmins=" << Bool(afk.exemptAdmins) << "\n";
+        file << "ExemptAdmins=" << Bool(afk.exemptAdmins) << "\n\n";
+
+        file << "[Game]\n";
+        file << "# How far linked chests reach for building and crafting, in centimetres.\n";
+        file << "# 0 keeps the game's own 3000 (30 m). Players need a client mod with the\n";
+        file << "# same radius (ChestLink) - the server refuses chests further than this.\n";
+        file << "LinkedStorageRadius=" << (int)game.linkedStorageRadius << "\n";
     }
 
     static std::string GenerateSecureToken(size_t bytes) {
@@ -210,6 +221,11 @@ private:
             else if (key == "OnlyWhenFull") afk.onlyWhenFull = ParseBool(value);
             else if (key == "MaxPlayers") afk.maxPlayers = atoi(value.c_str());
             else if (key == "ExemptAdmins") afk.exemptAdmins = ParseBool(value);
+            return;
+        }
+
+        if (section == "Game") {
+            if (key == "LinkedStorageRadius") game.linkedStorageRadius = (float)atof(value.c_str());
             return;
         }
 

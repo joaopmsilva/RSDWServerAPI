@@ -323,6 +323,16 @@ from step 10) and `/server backup` save the world first.
 **AFK kick** (mod 0.4.0+). With the server stopped, set `KickMinutes` under `[AFK]` in
 `rsdwapi/settings.ini` (the section appears after the first start with 0.4.0), then start it.
 
+**Longer chest range** (mod 0.8.0+). Set `LinkedStorageRadius` under `[Game]` in
+`rsdwapi/settings.ini` (for example `9000` for 90 m, 3× the game's 30 m) and restart the server.
+The log shows `Game settings: LinkedStorageRadius was 3000, set to 9000`. Players then need the
+client side: UE4SS plus [ChestLink](https://www.nexusmods.com/runescapedragonwilds/mods/838) with
+`local radius` in its `Scripts/main.lua` set to the **same** number. Never let the clients go
+higher than the server - the server refuses every build that would use a chest beyond its own
+radius. To share an installer, put the zip in the bot's `data/` folder as
+`RSDW-ChestLink-3x-Installer.zip` (or set `CLIENT_MOD_ZIP`) and restart the bot: it pins it in
+the commands channel with install steps.
+
 ## Updating
 
 Three scripts do the work:

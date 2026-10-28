@@ -4,6 +4,7 @@
 #include "engine/chat.h"
 #include "engine/kills.h"
 #include "engine/dom_engine.h"
+#include "engine/game_settings.h"
 #include "engine/native_call.h"
 #include "engine/process_event.h"
 #include "events/event_log.h"
@@ -352,6 +353,7 @@ void InitThread() {
             DomBans::Enforce();
             DomChat::Poll();
             DomKills::Poll();
+            DomGameSettings::Apply();
 
             std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
             DomKills::Scan(players);

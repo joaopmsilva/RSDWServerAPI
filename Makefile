@@ -24,6 +24,7 @@ SRC := src/rsdwapi.cpp \
        src/engine/progress.cpp \
        src/engine/world.cpp \
        src/engine/kills.cpp \
+       src/engine/game_settings.cpp \
        src/events/event_log.cpp \
        src/engine/native_call.cpp \
        src/engine/process_event.cpp \

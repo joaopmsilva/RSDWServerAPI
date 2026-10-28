@@ -2,6 +2,8 @@
 
 #include "../engine/chat.h"
 #include "../engine/process_event.h"
+#include "../config/config.h"
+#include "../engine/game_settings.h"
 #include "../engine/kills.h"
 #include "../engine/reflection.h"
 #include "../engine/world.h"
@@ -160,6 +162,7 @@ void RegisterSystem(HttpServer& server) {
 
             add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
             add("killHook", DomKills::IsHooked() ? 1 : 0, DomKills::Status());
+            add("gameSettings", g_Config.game.linkedStorageRadius > 0 ? 1 : -1, DomGameSettings::Status());
             DomWorld::State world = DomWorld::Read();
             add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,
                 world.valid ? (world.worldName.empty() ? "world name unreadable" : "world " + world.worldName)
