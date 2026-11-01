@@ -13,10 +13,12 @@ import {
     diagnosticsEmbed,
     errorEmbed,
     okEmbed,
+    performanceEmbed,
     restoreConfirmEmbed,
     saveCandidatesEmbed,
 } from './embeds.js';
 import { logger } from './log.js';
+import { measurePerformance } from './performance.js';
 import { runBackupScript } from './server-control.js';
 import { saveWorld } from './world-save.js';
 
@@ -156,6 +158,13 @@ async function admin(i, ctx) {
         const entries = listCrashReports();
         const files = entries.length ? [{ attachment: crashReportPath(entries[0]), name: entries[0].file }] : [];
         return { reply: { embeds: [crashesEmbed(entries)], files } };
+    }
+    if (sub === 'performance') {
+        try {
+            return { reply: { embeds: [performanceEmbed(await measurePerformance())] } };
+        } catch (err) {
+            return fail(`Couldn't measure: ${err.message}`);
+        }
     }
     const player = i.options.getString('player');
     const reason = i.options.getString('reason') || '';

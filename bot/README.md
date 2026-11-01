@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.12.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.13.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -269,6 +269,7 @@ Administrator, and the replies are only visible to you.
 | 🧹 **`/admin remove`** · **`restore`** | Take a player off every leaderboard and delete their stats - or let them back |
 | 🩺 **`/admin diagnostics`** | The mod's self-check |
 | 💥 **`/admin crashes`** | Every unplanned restart with its likely cause, and the newest full report |
+| 📈 **`/admin performance`** | How the server is coping right now: its real tick rate and stalls over the last 30 minutes (with their likely cause, e.g. the world autosave), CPU per thread - the game's main thread, the mod, the workers - VPS load, steal and memory, and players' pings. Needs the bot on the same machine as the server. |
 
 ### 🔔 Private alerts
 

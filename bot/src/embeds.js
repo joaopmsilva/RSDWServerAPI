@@ -764,6 +764,75 @@ export function bansEmbed(bans) {
     return new EmbedBuilder().setColor(COLOR.error).setTitle(`🔨 Bans — ${bans.length}`).setDescription(lines.join('\n') || 'Nobody is banned.');
 }
 
+// /admin performance. p: measurePerformance()'s result.
+export function performanceEmbed(p) {
+    const pct = n => `${Math.round(n)}%`;
+    const t = p.ticks;
+    const perMinute = t && t.minutes ? t.stalls / t.minutes : 0;
+    let verdict = '✅ **Keeping up** - the server finishes its ticks on time.';
+    let color = COLOR.online;
+    if (t && (t.tickRate < p.targetTickRate * 0.9 || t.longest[0]?.seconds >= 1)) {
+        verdict = '🔴 **Struggling** - the server is falling behind.';
+        color = COLOR.error;
+    } else if (t && (t.longest[0]?.seconds >= 0.5 || perMinute > 1)) {
+        verdict = '⚠️ **Some stalls** - players may feel the odd hitch.';
+        color = COLOR.starting;
+    } else if (!t) {
+        verdict = "The game's log couldn't be read, so only CPU is shown.";
+        color = COLOR.offline;
+    }
+
+    const embed = new EmbedBuilder().setColor(color).setTitle('📈 Server performance').setDescription(verdict).setTimestamp();
+    if (t) {
+        const every = perMinute > 0 ? ` (about 1 every ${perMinute >= 1 ? `${(60 / perMinute).toFixed(0)}s` : `${(1 / perMinute).toFixed(0)} min`})` : '';
+        embed.addFields({
+            name: `🎮 Ticks · last ${Math.round(t.minutes)} min`,
+            value: [
+                `**${t.tickRate.toFixed(1)}** / ${p.targetTickRate} ticks a second`,
+                `**${t.stalls}** stall${t.stalls === 1 ? '' : 's'} over 0.1s${every}`,
+                t.longest[0] ? `Longest **${t.longest[0].seconds.toFixed(2)}s**` : 'No stalls',
+            ].join('\n'),
+            inline: true,
+        });
+    }
+    embed.addFields({
+        name: `🧵 CPU · ${p.sampleSeconds}s sample`,
+        value: [
+            `Game main thread **${pct(p.cpu.main)}**`,
+            `Mod **${pct(p.cpu.mod)}**`,
+            `Game workers ${pct(p.cpu.workers)} · other ${pct(p.cpu.other)}`,
+        ].join('\n'),
+        inline: true,
+    });
+    embed.addFields({
+        name: '🖥️ VPS',
+        value: [
+            `${pct(p.cpu.machineBusy)} of ${p.cores} cores busy · load ${p.load[0].toFixed(2)}`,
+            `Steal ${p.cpu.steal.toFixed(1)}%${p.cpu.steal >= 5 ? ' ⚠️ (the host is busy)' : ''}`,
+            `Game using ${p.residentMb ? fmt(p.residentMb) + ' MB' : '?'} · ${fmt(p.availableMb)} MB free`,
+        ].join('\n'),
+        inline: true,
+    });
+    if (t?.longest.length) {
+        embed.addFields({
+            name: '🐢 Longest stalls',
+            value: t.longest
+                .map(s => `\`${new Date(s.at).toISOString().slice(11, 19)}\` **${s.seconds.toFixed(2)}s** · ${escapeMarkdown(s.cause)}`)
+                .join('\n'),
+            inline: true,
+        });
+        const causes = Object.entries(t.causes).sort((a, b) => b[1] - a[1]).slice(0, 4);
+        embed.addFields({ name: '🔎 Stalls by cause', value: causes.map(([cause, n]) => `${escapeMarkdown(cause)} **${n}**`).join('\n'), inline: true });
+    }
+    if (p.players.length) {
+        const pings = p.players.map(pl => `${escapeMarkdown(pl.name || '?')} ${pl.ping > 0 ? `${pl.ping} ms` : ''}`.trim());
+        embed.addFields({ name: `👥 Players · ${p.players.length}`, value: pings.join('\n').slice(0, 1024), inline: true });
+    } else {
+        embed.addFields({ name: '👥 Players', value: 'Nobody online', inline: true });
+    }
+    return embed.setFooter({ text: `${p.modVersion ? `Mod ${p.modVersion} · ` : ''}times are UTC · a tick is ${Math.round(1000 / p.targetTickRate)} ms` });
+}
+
 export function diagnosticsEmbed(diag) {
     const icon = ok => (ok === true ? '✅' : ok === false ? '❌' : '⏳');
     const lines = diag.checks.map(c => `${icon(c.ok)} **${c.name}** · ${c.detail}`);

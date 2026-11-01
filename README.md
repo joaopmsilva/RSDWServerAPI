@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.9.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.12.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.9.1-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.13.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -70,6 +70,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **`/admin`** kick, ban, unban, give items, announce
 - **Leaderboard cleanup** - remove a player and their stats
 - **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
+- **`/admin performance`** - tick rate, stalls and their causes, CPU per thread and pings, measured on the spot
 - **AFK kick** with a warning first, optionally only when the server is full
 - **Carry-over alerts** 🧳 - a DM when a character comes back with items, XP or quests it didn't
   get here (characters travel between worlds), past thresholds that lag can't explain

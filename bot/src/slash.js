@@ -160,7 +160,8 @@ export const definitions = [
         )
         .addSubcommand(s => s.setName('bans').setDescription('Everyone who is banned'))
         .addSubcommand(s => s.setName('diagnostics').setDescription("The mod's self-check of what it reads from the game"))
-        .addSubcommand(s => s.setName('crashes').setDescription('Why the server went down or restarted by itself, with the full report')),
+        .addSubcommand(s => s.setName('crashes').setDescription('Why the server went down or restarted by itself, with the full report'))
+        .addSubcommand(s => s.setName('performance').setDescription('How the server is coping right now: tick rate, stalls, CPU, players')),
 ].map(c => c.setContexts(InteractionContextType.Guild).toJSON());
 
 // Registered per server rather than globally: guild commands show up at once,

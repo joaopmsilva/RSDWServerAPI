@@ -27,6 +27,7 @@
 #include <map>
 #include <mutex>
 #include <sys/stat.h>
+#include <pthread.h>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -225,6 +226,8 @@ void CheckAfk(const std::vector<DomEngine::PlayerInfo>& players) {
 
 void InitThread() {
     if (!IsGameServerProcess()) return;
+    // Shows as "rsdwapi" in top -H and /proc, so its CPU use is easy to tell apart.
+    pthread_setname_np(pthread_self(), "rsdwapi");
 
     Mem::Init();
 
