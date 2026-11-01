@@ -16,6 +16,7 @@ import { attachMenu } from './menus.js';
 import { Notices } from './notices.js';
 import { Poller } from './poller.js';
 import { loadWikiNames } from './progress.js';
+import { loadQuestList } from './quest-list.js';
 import { Relay } from './relay.js';
 import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
@@ -101,7 +102,9 @@ client.once(Events.ClientReady, async c => {
     linkPost.start();
     links.welcomeAll().catch(err => log.warn(`welcome DMs failed: ${err.message}`));
     loadWikiNames();
+    loadQuestList();
     setInterval(loadWikiNames, 24 * 3600 * 1000);
+    setInterval(loadQuestList, 24 * 3600 * 1000);
     updates.start();
     poller.start();
     relay.start();

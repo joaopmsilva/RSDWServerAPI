@@ -96,8 +96,48 @@ export function itemName(id) {
 // The game's name, else a wiki title the id matches, else the id tidied up.
 export function questName(q) {
     if (q.name) return q.name;
+    if (QUEST_IDS[q.id]) return QUEST_IDS[q.id];
     const pretty = prettify(q.id);
     return wikiTitles.get(squash(pretty)) || wikiTitles.get(squash(String(q.id).replace(/^Quest_/i, ''))) || pretty;
+}
+
+// Game quest ids that don't spell out their wiki name. From the asset folders
+// (FH = Fellhollow, DR = Dowdun Reach, SW = Scorned Wilderness, FTUE = the
+// tutorial), the quest's kind and the wiki's regions and quest givers. The
+// Fellhollow Wither/Collector ones and the Dowdun Reach SQ ones are the best
+// match by region and giver rather than certain.
+const QUEST_IDS = {
+    Quest_FTUE_FS: 'First Steps',
+    Quest_FTUE_GS: 'Getting Started',
+    Quest_FTUE_RC: 'Ratcatcher',
+    Quest_FTUE_RM: 'Rune Mysteries',
+    Quest_FTUE_Farming: 'Growing Pains',
+    Quest_DR_FTUE_Fishing: 'Shrimp Catcher',
+    Quest_DeathQuestMain: 'Withering Heights',
+    Quest_DR_MainQuest: "Black Knight's Fortress",
+    Quest_SW_MainQuest: 'Regicide',
+    Quest_ElderGarou: 'A Room With A Garou',
+    Quest_AMelodyRemebered: 'A Melody Remembered',
+    Quest_GreatBodyRobbery: 'The Great Body Robbery',
+    Quest_FH_GhostQuest: 'Even More Restless Ghosts',
+    Quest_FH_NightoftheSpectralBoom: 'Things That Go Boom In The Night',
+    Quest_FH_LettersForTheDead: 'Letters for the Dead',
+    Quest_FH_WitherBeast: 'The Wild Hunt',
+    Quest_FH_WitherWard: 'Seeking Salvation',
+    Quest_FH_CollectorsCalling: "Doric's Quest",
+    Quest_SQ1_ThinkingWithPortals: "What's Theirs is Mine!",
+    Quest_SQ2_AnimalLover: 'Wanted!',
+    Quest_SQ3_Nevermore: 'Biohazard',
+    Quest_Contact: 'Contact!',
+};
+
+// The wiki quest list (quest-list.js) with each quest's state for this player:
+// done, active (started) or todo. Quests the game has that the wiki doesn't
+// list (tutorial steps, tasks) are left out.
+export function questChecklist(player, list) {
+    const state = new Map();
+    for (const q of player?.quests || []) state.set(squash(questName(q)), q.complete ? 'done' : 'active');
+    return list.map(q => ({ ...q, state: state.get(squash(q.title)) || 'todo' }));
 }
 // "BP_AI_Goblin_Melee_C" -> "Goblin Melee"
 // A killed creature's name: the wiki's title for it when one matches - the

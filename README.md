@@ -7,7 +7,7 @@
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.9.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.11.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.12.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -35,7 +35,7 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **`/leaderboard`** - total level, any skill, quests done or kills, 🥇🥈🥉
 - **`/kills`** - creatures killed, and which ones most
 - **`/me`** - everything about your own character: skills, quests, journal, playtime
-- **`/quests`** - quests done and in progress · **`/perks`** - active skill perks
+- **`/quests`** - quests still to do, by region, from the wiki's list · **`/perks`** - active skill perks
 - **🔗 One-click account linking** - press a button, type a short code in game
 - **`/gains`** - who gained the most XP today, this week or this month
 - **`/playtime`, `/deaths`** - most played, most deaths

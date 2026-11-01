@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
-import { eventName, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
+import { eventName, journalKinds, outOf, perkName, questChecklist, questName, questStats } from './progress.js';
+import { questList } from './quest-list.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
 
@@ -219,26 +220,49 @@ export function perksEmbed(profile) {
     return embed.setFooter({ text: `${perks.active.length} active${max}` });
 }
 
-// /quests player: everything done, by kind, and what's in progress.
+// /quests player: the wiki's quest list - what's left, by region.
+// The wiki's quest list for this player: what's left, by region, rather than
+// what's done.
 export function questsEmbed(profile) {
     const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Quests');
-    const quests = questStats(profile.player);
-    if (!quests) return embed.setDescription('No quest data yet - quests show up once they have been online with mod 0.6.0.');
-    if (!quests.done && !quests.active.length) return embed.setDescription('No quests started yet.');
+    if (!questStats(profile.player)) return embed.setDescription('No quest data yet - quests show up once they have been online with mod 0.6.0.');
 
-    const list = (items, max = 15) => {
-        const names = items.slice(0, max).map(q => `• ${questName(q)}`);
-        if (items.length > max) names.push(`…and ${items.length - max} more`);
-        return names.join('\n').slice(0, 1024);
-    };
-    const split = [quests.main && `${quests.main} main`, quests.side && `${quests.side} side`, quests.tasks && `${quests.tasks} tasks`].filter(Boolean);
-    embed.setDescription(`### ${quests.done}${outOf(quests.done, 'quests')} done${split.length ? `\n${split.join(' · ')}` : ''}`);
-    if (quests.active.length) embed.addFields({ name: `🧭 In progress · ${quests.active.length}`, value: list(quests.active, 10) });
-    for (const [kind, title] of [['main', '⭐ Main quests'], ['side', '📜 Side quests'], ['task', '📋 Tasks']]) {
-        const done = quests.completed.filter(q => q.kind === kind);
-        if (done.length) embed.addFields({ name: `${title} · ${done.length}`, value: list(done), inline: true });
+    const all = questChecklist(profile.player, questList());
+    const count = (list, state) => list.filter(q => q.state === state).length;
+    const primary = all.filter(q => q.primary);
+    const secondary = all.filter(q => !q.primary);
+    const done = count(all, 'done');
+    embed.setDescription(
+        `### ${done} / ${all.length} done\n⭐ Main **${count(primary, 'done')} / ${primary.length}**  ·  📜 Side **${count(secondary, 'done')} / ${secondary.length}**`,
+    );
+    if (done === all.length) {
+        embed.addFields({ name: '🏆 All done', value: 'Every quest on the wiki is complete.' });
+        return embed.setFooter({ text: 'Quest list from the Dragonwilds wiki' });
     }
-    return embed.setFooter({ text: '/leaderboard quests ranks everyone by quests done' });
+
+    const active = all.filter(q => q.state === 'active');
+    if (active.length) embed.addFields({ name: `🧭 In progress · ${active.length}`, value: active.map(q => `• ${q.title}`).join('\n').slice(0, 1024) });
+
+    // The next main quest, and where to pick it up.
+    const next = primary.find(q => q.state !== 'done');
+    if (next && next.state === 'todo') {
+        embed.addFields({ name: '⭐ Next main quest', value: `**${next.title}** · ${next.region}\n📍 ${next.start}`.slice(0, 1024) });
+    }
+
+    // Everything not started yet, by region in story order (as the main quests
+    // reach them: Temple Woods, Brynmoor, Ghornfell, Fellhollow...).
+    const todo = all.filter(q => q.state === 'todo' && q !== next);
+    const order = [...new Set([...primary, ...secondary].flatMap(q => (q.region || 'Elsewhere').split('/')))];
+    const regions = new Map();
+    for (const q of todo) {
+        const region = (q.region || 'Elsewhere').split('/')[0];
+        if (!regions.has(region)) regions.set(region, []);
+        regions.get(region).push(`${q.primary ? '⭐ ' : ''}${q.title}`);
+    }
+    const rank = region => order.indexOf(region.split('/')[0]);
+    const lines = [...regions].sort((a, b) => rank(a[0]) - rank(b[0])).map(([region, titles]) => `**${region}** · ${titles.join(', ')}`);
+    if (lines.length) embed.addFields({ name: `🗺️ Not started · ${todo.length}`, value: lines.join('\n').slice(0, 1024) });
+    return embed.setFooter({ text: 'Quest list from the Dragonwilds wiki · /leaderboard quests ranks everyone' });
 }
 
 // The second card of /me: quests, journal, playtime and deaths.
@@ -836,7 +860,7 @@ export function helpEmbed() {
                 value: [
                     '`/levels player` · every skill, total level and max health',
                     '`/perks player` · their active skill perks',
-                    '`/quests [player]` · quests done and in progress',
+                    '`/quests [player]` · quests still to do, by region, and where the next one starts',
                     '`/kills [player]` · creatures killed, and which',
                 ].join('\n'),
             },
