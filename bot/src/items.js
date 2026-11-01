@@ -3,6 +3,7 @@ import path from 'node:path';
 import { api } from './api.js';
 import { config } from './config.js';
 import { logger } from './log.js';
+import { itemName } from './progress.js';
 
 const log = logger('items');
 const REFRESH_MS = 10 * 60 * 1000;
@@ -38,7 +39,8 @@ const words = s => s.replace(/_/g, ' ').replace(/([a-z])([A-Z0-9])/g, '$1 $2').r
 // "ITEM_Resources_IronBar" -> { name: "Iron Bar", category: "Resources" }
 export function describeItem(item) {
     const parts = item.name.replace(/^ITEM_/i, '').split('_').filter(Boolean);
-    const name = words(parts.pop() || item.name);
+    parts.pop();
+    const name = itemName(item.name);
     return { id: item.name, name, category: parts.map(words).join(' · '), maxStackSize: item.maxStackSize };
 }
 

@@ -25,22 +25,72 @@ const squash = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 let wikiTitles = new Map();
 
 let wikiMonsters = new Map();
+let wikiItems = new Map();
 
+// Every page in a wiki category (500 a request), by squashed title.
 async function wikiCategory(category) {
-    const url = `https://dragonwilds.runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:${category}&cmlimit=500&cmnamespace=0&format=json`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'RSDWServerAPI-bot (Discord bot for a Dragonwilds server)' }, signal: AbortSignal.timeout(10000) });
-    const titles = (await res.json()).query?.categorymembers?.map(m => m.title) || [];
+    const titles = [];
+    let next = '';
+    for (let page = 0; page < 20; page++) {
+        const url = `https://dragonwilds.runescape.wiki/api.php?action=query&list=categorymembers&cmtitle=Category:${category}&cmlimit=500&cmnamespace=0&format=json${next}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'RSDWServerAPI-bot (Discord bot for a Dragonwilds server)' }, signal: AbortSignal.timeout(10000) });
+        const body = await res.json();
+        titles.push(...(body.query?.categorymembers?.map(m => m.title) || []));
+        const more = body.continue?.cmcontinue;
+        if (!more) break;
+        next = `&cmcontinue=${encodeURIComponent(more)}`;
+    }
     return new Map(titles.filter(t => !t.includes('/')).map(t => [squash(t), t]));
 }
 
-// Quest and monster titles from the wiki, refreshed daily by index.js.
+// Quest, monster and item titles from the wiki, refreshed daily by index.js.
 export async function loadWikiNames() {
     try {
         wikiTitles = await wikiCategory('Quests');
         wikiMonsters = await wikiCategory('Monsters');
+        wikiItems = await wikiCategory('Items');
     } catch {
         // No wiki: names fall back to the game's, or tidied-up ids.
     }
+}
+
+// "ITEM_Resources_Currency_Chit_Garou" -> "Garou Chit". Ids name the sort of
+// item first and what it's made of last, so: drop the filing words (category,
+// tier, quest codes), then try the last two or three parts in every order
+// against the wiki's item titles (singular or plural). Failing that, the type
+// goes last: "Arrows_Mithril_Bodkin" -> "Mithril Bodkin Arrows",
+// "Fibres_Mystic" -> "Mystic Fibres".
+const idWords = part => part.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2').trim();
+// Parts of an id that only file it: what sort of item, a tier, a quest code.
+const ID_FILING = /^(resources?|consumables?|ammo|tools?|weapons?|armou?r|equipment|quest|misc|currency|masterworks|items?|T\d+|DR|FH|SW|UmS|FTUE|[A-Z]{1,3}Q\d+)$/i;
+function orders(parts) {
+    if (parts.length <= 1) return [parts];
+    return parts.flatMap((p, i) => orders([...parts.slice(0, i), ...parts.slice(i + 1)]).map(rest => [p, ...rest]));
+}
+export function itemName(id) {
+    const all = String(id || '').replace(/^ITEM_/i, '').split('_').filter(Boolean);
+    const kept = all.filter(p => !ID_FILING.test(p));
+    const parts = (kept.length ? kept : all.slice(-1)).map(idWords);
+    if (!parts.length) return String(id || '');
+    const wiki = words => {
+        const key = squash(words);
+        return wikiItems.get(key) || wikiItems.get(key + 's') || wikiItems.get(key.replace(/s$/, ''));
+    };
+    // One word alone only when that's all the id has: "Meat" isn't "Double Meat Sandwich".
+    for (let n = Math.min(3, parts.length); n >= (parts.length === 1 ? 1 : 2); n--) {
+        for (const order of orders(parts.slice(-n))) {
+            const hit = wiki(order.join(' '));
+            if (hit) return hit;
+        }
+    }
+    // One part whose words are backwards: "LogsOak" -> "Oak Logs".
+    const last = parts.at(-1);
+    const flipped = last.split(' ').reverse().join(' ');
+    if (wiki(flipped)) return wiki(flipped);
+    // The last part already says what it is: "FishingNet_MysticNet" -> "Mystic Net".
+    if (parts.length === 1 || last.split(' ').at(-1) === parts.at(-2).split(' ').at(-1)) return last;
+    const tail = parts.slice(-3);
+    return [...tail.slice(1), tail[0]].join(' ');
 }
 
 // The game's name, else a wiki title the id matches, else the id tidied up.

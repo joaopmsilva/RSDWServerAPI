@@ -3,10 +3,9 @@ import path from 'node:path';
 import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { formatDuration } from './embeds.js';
-import { describeItem } from './items.js';
 import { levelInfo } from './levels.js';
 import { logger } from './log.js';
-import { questName } from './progress.js';
+import { itemName, questName } from './progress.js';
 import { catalogSkill } from './skills.js';
 import { PlayerStore } from './store.js';
 
@@ -15,7 +14,6 @@ const SAVE_EVERY_MS = 60 * 1000;
 const KEEP_FLAGS = 100;
 
 const fmt = n => Number(n).toLocaleString('en-US');
-const itemName = id => describeItem({ name: id }).name;
 const skillName = id => catalogSkill(id)?.name || String(id).replace(/^SKILL_/i, '');
 
 // Bag and personal chest added up: moving things between them isn't news.
