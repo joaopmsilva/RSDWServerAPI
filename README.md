@@ -6,8 +6,8 @@
 
 Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.8.0-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.10.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.9.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.11.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -49,12 +49,12 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 ### 💬 Live in your channels
 
 - **Two-way chat** - game chat in Discord, Discord messages in game
-- **Level-ups** 🎉 and ⭐ 99 celebrations
-- **Joins, leaves and deaths**, with the cause when the game gives one
+- **Level-ups** 🎉, ⭐ 99 celebrations and 📜 completed quests
+- **Joins, leaves and deaths**, with what killed them - "killed by a Giant Rat"
 - **Server notices** - online, offline, restarting, backups
 - **Raid and hunt alerts** ⚔️ - by DM to linked players who turn them on
 - **Weekly recap** every Sunday: top gainers, new 99s, most played
-- **Live status board** - one self-updating message with how to join, who's on, the world and the in-game clock
+- **Live status board** - one self-updating message with how to join, who's on and the world
 - **A tidy commands channel** - cleared every few minutes, so the pinned command list is always in view
 - **Game update watcher** - warns when Steam has a new server build, then backs up, updates and restarts by itself
 - The bot's status shows `🟢 3/16 players online`
@@ -71,6 +71,8 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 - **Leaderboard cleanup** - remove a player and their stats
 - **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
 - **AFK kick** with a warning first, optionally only when the server is full
+- **Carry-over alerts** 🧳 - a DM when a character comes back with items, XP or quests it didn't
+  get here (characters travel between worlds), past thresholds that lag can't explain
 - **Longer linked-chest range** - the server side of client mods like ChestLink, plus a
   one-click installer for players pinned in Discord
 - In-game `/kick`, `/ban`, `/give` for the game's own admins
@@ -116,9 +118,9 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**🐉 `/status`** · who is on, the world and the in-game clock
+**🐉 `/status`** · who is on and the world
 
-<img src="bot/docs/screenshots/status.png" alt="/status: online, players, world and in-game time">
+<img src="bot/docs/screenshots/status.png" alt="/status: online, players and the world">
 
 </td>
 <td width="50%" valign="top">
@@ -358,6 +360,7 @@ use it; the password is already generated and waiting.
 [General]
 EnableLogging=true
 VerboseLogging=true
+TickSeconds=3
 
 [API]
 Enabled=true
@@ -402,6 +405,9 @@ LinkedStorageRadius=0
   sticks, but bind to `127.0.0.1` or set an `IPWhitelist` if you do it. A warning is logged at
   startup either way.
 - An empty RCON `Password` keeps RCON from starting at all, by design.
+- **`TickSeconds`** (mod 0.9.0+) is how often the players are checked - joins, leaves, deaths,
+  kills, AFK. Each check reads every object in the game (a few milliseconds), so higher is lighter;
+  1 to 30.
 - **AFK kick** is off until `KickMinutes` is set. Players who haven't moved or looked around get a
   private warning `WarnMinutes` before, and can rejoin straight away after the kick.
   `OnlyWhenFull=true` (with `MaxPlayers`) only kicks when someone else could use the slot, and the
@@ -439,7 +445,7 @@ Every request needs `Authorization: Bearer <token>` unless `BearerToken` is empt
 | :----: | ---- | - |
 | `GET` | `/api/health` | Mod status and uptime |
 | `GET` | `/api/players` | Every connected player, with stats, quests, journal and perks |
-| `GET` | `/api/world` | World name and settings, the in-game clock, running raids and hunts |
+| `GET` | `/api/world` | World name and settings, running raids and hunts |
 | `GET` | `/api/events` | Chat, death, kill, join, leave, AFK and link feed - `?wait=` to be told the moment something happens |
 | `GET` | `/api/diagnostics` | Self-check of everything the mod reads |
 | `POST` | `/api/save` | Make the game save the world |

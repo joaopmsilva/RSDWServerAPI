@@ -45,7 +45,7 @@ Anything left empty falls back to `CHAT_CHANNEL_ID`.
 | ------- | ------- | --------------- |
 | `CHAT_CHANNEL_ID` | **required**\* | The game's chat both ways, plus joins, leaves and AFK kicks. Empty turns chat off in both directions. |
 | `DEATH_CHANNEL_ID` | chat channel | 💀 Player deaths. |
-| `LEVELUP_CHANNEL_ID` | chat channel | 🎉 Level-ups and ⭐ 99s - nothing else. |
+| `LEVELUP_CHANNEL_ID` | chat channel | 🎉 Level-ups, ⭐ 99s and 📜 completed quests. |
 | `STATUS_CHANNEL_ID` | chat channel | 🟢🔴 Server online / offline / restarting, planned restarts and backups. |
 | `SUMMARY_CHANNEL_ID` | chat channel | 📅 The Sunday weekly recap. |
 | `COMMANDS_CHANNEL_ID` | chat channel | 📋 The pinned list of commands - see `COMMANDS_POST`. Changing it moves the list and removes the old copy. |
@@ -73,6 +73,7 @@ The bot needs *View Channel*, *Send Messages*, *Embed Links* and *Read Message H
 | `SERVER_NOTICES` | `true` | Online / offline / restarting, planned restart and backup notices in the status channel. The bot's own Discord status (🟢 3/16 online) shows either way. |
 | `BACKUP_NOTICES` | `true` | The *Backup complete* notice after each backup. `false` keeps the hourly ones quiet - backups still run. |
 | `LEVELUP_NOTICES` | `true` | Post level-ups and 99s. |
+| `QUEST_NOTICES` | `true` | Post main and side quests as they're completed, in `LEVELUP_CHANNEL_ID` (mod 0.6.0+). Tasks aren't posted. |
 | `LEVELUP_MIN_LEVEL` | `10` | Level-ups below this are quiet - the first levels come every few seconds. 99s are always posted. Minimum `2`. |
 | `JOIN_LEAVE_NOTICES` | `true` | *Tobin joined the server* and *Tobin left · played 1h 20m* in the chat channel. |
 | `WEEKLY_SUMMARY` | `true` | The recap every Sunday from 20:00 (VPS time): top gainers, new 99s, most played, deaths. |
@@ -106,6 +107,9 @@ to keep it off the board.
 | `SAVE_DIR` | `/home/dragonwilds/rs_server/RSDragonwilds/Saved/SaveGames` | Where the world's `.sav` files are - what `/server restore` replaces and `/admin save` checks. |
 | `SAVE_FUNCTION` | *(empty)* | The game function that saves the world, called before every backup (mod 0.4.0+). Find it with `/admin save`: it lists the candidates and tells you which one really updates the save files. Empty skips saving first. |
 | `ADMIN_ALERTS` | `true` | Private messages to the admins when the server crashes (not planned restarts), the mod's self-check fails (usually after a game update), or the VPS runs hot. |
+| `CARRYOVER_ALERTS` | `true` | DM the admins when a character comes back with items, XP or quests it didn't get on this server - characters travel between worlds, so this catches one fetched from elsewhere (mod 0.9.0+). Compares what they had when they left (bag and personal chest together) with what they arrive with. |
+| `CARRYOVER_MIN_XP` | `2000` | XP a skill must gain while they're away to count, unless it gained a whole level. Keeps lag out of the alerts. |
+| `CARRYOVER_MIN_ITEMS` | `5` | How much a stack they already had must grow to count. An item they didn't have at all, and any finished quest, always counts. |
 | `ALERT_CPU` | `90` | CPU % that triggers an alert. `0` turns this one off. |
 | `ALERT_RAM` | `90` | RAM % that triggers an alert. `0` turns this one off. |
 | `ALERT_DISK` | `90` | Disk % that triggers an alert. `0` turns this one off. |

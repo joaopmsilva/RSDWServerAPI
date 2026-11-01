@@ -4,28 +4,22 @@ import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { api } from './api.js';
 import { config } from './config.js';
 import { logger } from './log.js';
+import { deathCause } from './progress.js';
 
 const log = logger('relay');
 const NO_MENTIONS = { parse: [] };
 
-// The game's death event tag (mod 0.3.0+), e.g. "Player.Death.Drowned" -> " · Drowned".
-// Words that only say "a player died" are dropped; nothing left means no cause.
-const GENERIC_TAG = /^(death|deaths|died|die|dead|player|players|event|events|gameplay|tag|chat|notification|message)$/i;
-function causeText(tag) {
-    const words = (tag || '').split('.').filter(w => w && !GENERIC_TAG.test(w));
-    const last = words.at(-1);
-    return last ? ` · ${last.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}` : '';
-}
 
 // Relays in-game chat and deaths from the mod's /api/events feed to Discord.
 // The cursor is saved so a bot restart neither repeats nor skips events; a
 // changed bootId means the server restarted and its event ids began again.
 export class Relay {
-    constructor(client, bridge = null, activity = null, links = null) {
+    constructor(client, bridge = null, activity = null, links = null, carryOver = null) {
         this.client = client;
         this.bridge = bridge;
         this.activity = activity;
         this.links = links;
+        this.carryOver = carryOver;
         this.file = path.join(config.dataDir, 'relay.json');
         this.cursor = null;
         this.stopped = false;
@@ -129,6 +123,9 @@ export class Relay {
             if (e.type === 'death') this.activity?.death(e);
             if (e.type === 'kill') this.activity?.kill(e);
             if (e.type === 'afk') this.activity?.afk(e);
+            // Mod 0.9.0+: what a character left with, and came back with.
+            if (e.type === 'leave') this.carryOver?.leave(e);
+            if (e.type === 'arrive') this.carryOver?.arrive(e).catch(err => log.error('carry-over check failed:', err));
             // Mod 0.6.0+: someone typed /link CODE in game.
             if (e.type === 'link') this.links?.handle(e).catch(err => log.error('link failed:', err));
         }
@@ -150,14 +147,14 @@ export class Relay {
             }
         }
 
-        for (const e of deaths) log.info(`death: ${e.name}${e.location ? ` at ${e.location}` : ''}${e.cause ? ` (${e.cause})` : ''}`);
+        for (const e of deaths) log.info(`death: ${e.name}${e.location ? ` at ${e.location}` : ''}${deathCause(e) ? ` (${deathCause(e)})` : ''}`);
         if (deaths.length && config.deathChannelId) {
             const channel = await this.channel(config.deathChannelId);
             if (channel) {
                 const embeds = deaths.map(e => {
                     const embed = new EmbedBuilder()
                         .setColor(0x8b0000)
-                        .setDescription(`💀 **${escapeMarkdown(e.name || 'Someone')}** has died${causeText(e.cause)}`)
+                        .setDescription(`💀 **${escapeMarkdown(e.name || 'Someone')}** has died${deathCause(e) ? ` · ${escapeMarkdown(deathCause(e))}` : ''}`)
                         .setTimestamp(e.time ? new Date(e.time) : new Date());
                     if (e.location) embed.setFooter({ text: `📍 ${e.location}` });
                     return embed;

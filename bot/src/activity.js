@@ -1,11 +1,11 @@
 import { config } from './config.js';
-import { afkEmbed, joinEmbed, leaveEmbed, levelUpEmbed, maxedEmbed, summaryEmbed } from './embeds.js';
+import { afkEmbed, joinEmbed, leaveEmbed, levelUpEmbed, maxedEmbed, questDoneEmbed, summaryEmbed } from './embeds.js';
 import { dayKey } from './history.js';
 import { levelInfo, MAX_LEVEL } from './levels.js';
 import { logger } from './log.js';
 import { describeSkills } from './skills.js';
 import { deathBoard, playtimeBoard, recentMilestones, topGainers } from './stats.js';
-import { creatureName } from './progress.js';
+import { creatureName, questName } from './progress.js';
 import { PlayerStore } from './store.js';
 
 const log = logger('activity');
@@ -29,6 +29,7 @@ export class Activity {
         this.history = history;
         this.ctx = { store, history };
         this.lastXp = new Map(); // character key -> { skillId: xp }
+        this.lastQuests = new Map(); // character key -> Set of completed quest ids
         this.online = null; // net id -> name from the last poll; null right after start or while down
         this.sessions = new Map(); // net id -> when they came online
         this.lastObserved = 0;
@@ -126,6 +127,7 @@ export class Activity {
 
         const current = new Map();
         const levelUps = [];
+        const questsDone = [];
         const hasCharacters = this.store.hasCharacters || players.some(p => PlayerStore.isCharacterKey(PlayerStore.key(p)));
         for (const p of players) {
             const key = PlayerStore.key(p);
@@ -150,6 +152,7 @@ export class Activity {
                 this.history.recordXp(key, p.skills);
                 levelUps.push(...this.findLevelUps(key, name, p.skills));
             }
+            questsDone.push(...this.findQuestsDone(key, name, p.quests));
         }
 
         // Older mods don't report joins and leaves, so compare polls instead.
@@ -161,6 +164,7 @@ export class Activity {
         this.online = current;
 
         if (levelUps.length) this.postLevelUps(levelUps);
+        if (questsDone.length) this.postQuestsDone(questsDone);
         this.flush();
     }
 
@@ -178,6 +182,36 @@ export class Activity {
             if (s.info.level > from && s.info.level >= config.levelUpMinLevel) ups.push({ key, name, skill: s, from, totalLevel });
         }
         return ups;
+    }
+
+    // Main and side quests completed since the last poll. Tasks (the small
+    // tutorial-style steps) are left out: there are too many to announce.
+    findQuestsDone(key, name, quests) {
+        // A character still loading in reports none - wait for the real list.
+        if (!Array.isArray(quests) || !quests.length) return [];
+        const done = quests.filter(q => q.complete);
+        let known = this.lastQuests.get(key);
+        if (!known) {
+            const stored = this.store.byKey(key)?.quests;
+            known = stored?.length ? new Set(stored.filter(q => q.complete).map(q => q.id)) : null;
+        }
+        this.lastQuests.set(key, new Set(done.map(q => q.id)));
+        // Never seen with quests before: this is their history, not news.
+        if (!known) return [];
+        return done.filter(q => !known.has(q.id) && (q.kind === 'main' || q.kind === 'side')).map(quest => ({ key, name, quest }));
+    }
+
+    async postQuestsDone(list) {
+        for (const u of list) log.info(`quest done: ${u.name} - ${questName(u.quest)}`);
+        // Several at once for one character means their list just loaded, not news.
+        const byKey = new Map();
+        for (const u of list) byKey.set(u.key, (byKey.get(u.key) || 0) + 1);
+        const fresh = list.filter(u => byKey.get(u.key) <= 3);
+        if (!config.questNotices || !fresh.length) return;
+        const embeds = fresh.map(questDoneEmbed);
+        for (let i = 0; i < embeds.length; i += 10) {
+            await this.send(config.levelUpChannelId, { embeds: embeds.slice(i, i + 10) });
+        }
     }
 
     fromStore(key) {

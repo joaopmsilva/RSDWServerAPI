@@ -1,6 +1,5 @@
 #include "kills.h"
 #include "dom_engine.h"
-#include "process_event.h"
 #include "reflection.h"
 #include "../events/event_log.h"
 #include "../utils/logger.h"
@@ -8,7 +7,6 @@
 
 #include <chrono>
 #include <deque>
-#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -19,32 +17,21 @@ using namespace DomEngine;
 
 namespace {
 
-typedef void (*ExecThunk)(void* context, void* frame, void* result);
-constexpr uintptr_t kExecFunction = 0xD8; // UFunction::Func, as in chat.cpp
-
 using Clock = std::chrono::steady_clock;
 
-ExecThunk g_Original = nullptr;
-uintptr_t g_Function = 0;
-int32_t g_KilledOffset = -1;
-int32_t g_InstigatorOffset = -1;
-bool g_Hooked = false;
-std::string g_Status = "not found yet";
-Clock::time_point g_LastTry;
-bool g_FirstKillLogged = false;
-// The same creature can be reported to more than one component; count it once.
+std::string g_Status = "waiting for a player";
+// The same creature is only counted once.
 std::deque<std::pair<uintptr_t, Clock::time_point>> g_Recent;
-// Creature class -> (its name in game, whether it's a boss), read once each.
-std::unordered_map<uintptr_t, std::pair<std::string, bool>> g_Names;
-std::mutex g_Mutex;
+// Creature class -> whether it's a boss, read once each.
+std::unordered_map<uintptr_t, bool> g_Bosses;
 
-// The scan: damage components whose FatalDamageInfo is set (the owner is
-// dead, with KilledBy saying who did it). Kept between scans so each death
-// counts once; the first scan only takes note of the dead already lying around.
+// Damage components whose FatalDamageInfo is set (the owner is dead, with
+// KilledBy saying who did it). Kept between scans so each death counts once;
+// the first scan only takes note of the dead already lying around.
 std::unordered_set<uintptr_t> g_DeadSeen;
 bool g_FirstScan = true;
-std::unordered_map<uintptr_t, int> g_DamageClasses; // class -> 1 if a DamageComponent
-bool g_FirstScanKillLogged = false;
+std::unordered_map<uintptr_t, bool> g_DamageClasses; // class -> is a DamageComponent
+bool g_FirstKillLogged = false;
 
 bool CountedAlready(uintptr_t killed) {
     auto now = Clock::now();
@@ -66,73 +53,50 @@ bool IsPlayers(uintptr_t instigator, uintptr_t controller, uintptr_t pawn) {
     return false;
 }
 
-// A kill by the player of this controller. Called from the hook (game thread)
-// and the scan (init thread), hence the lock.
-void ReportFor(uintptr_t controller, uintptr_t killed) {
+// The creature's class name, with " boss" after it for a boss.
+std::string CreatureClass(uintptr_t creature) {
     Engine* engine = g_Engine;
-    std::lock_guard<std::mutex> lock(g_Mutex);
-    if (CountedAlready(killed)) return;
+    uintptr_t cls = Mem::ReadPtr(creature + Offsets::UObject_Class);
+    auto known = g_Bosses.find(cls);
+    if (known == g_Bosses.end()) {
+        int32_t dataOffset = Reflect::Offset("DominionAICharacter", "LoadedData");
+        uintptr_t data = dataOffset >= 0 ? Mem::ReadPtr(creature + (uintptr_t)dataOffset) : 0;
+        int32_t boss = Reflect::Offset("AIDataAsset", "bIsBoss");
+        known = g_Bosses.emplace(cls, data && boss >= 0 && Mem::ReadU8(data + (uintptr_t)boss) != 0).first;
+    }
+    return engine->GetObjectName(cls) + (known->second ? " boss" : "");
+}
 
-    uintptr_t state = Mem::ReadPtr(controller + Offsets::Controller_PlayerState);
-    if (!state) return;
+void Report(const PlayerInfo& player, uintptr_t killed) {
+    if (CountedAlready(killed)) return;
     EventLog::Event event;
     event.type = "kill";
-    event.name = engine->ReadFString(state + Offsets::PlayerState_PlayerName);
-    std::string source;
-    event.netId = engine->ReadUniqueNetId(state + Offsets::PlayerState_UniqueID, source);
-    if (engine->IsA(state, "DominionPlayerState")) {
-        event.characterGuid = engine->ReadGuid(state + Offsets::DomPlayerState_CharacterGuid);
-    }
-    event.playerId = Mem::ReadI32(state + Offsets::PlayerState_PlayerId);
-    // message: the creature's name as the game shows it ("" if unreadable);
+    event.name = player.characterName.empty() ? player.name : player.characterName;
+    event.netId = player.uniqueNetId;
+    event.characterGuid = player.characterGuid;
+    event.playerId = player.playerId;
+    // message: the creature's name as the game shows it (not readable yet);
     // cause: its class, with " boss" after it for a boss.
-    uintptr_t cls = Mem::ReadPtr(killed + Offsets::UObject_Class);
-    auto known = g_Names.find(cls);
-    if (known == g_Names.end()) {
-        std::string name;
-        int32_t own = Reflect::Offset("DominionAICharacter", "AIName");
-        if (own >= 0) name = Reflect::GameText(killed + (uintptr_t)own);
-        int32_t dataOffset = Reflect::Offset("DominionAICharacter", "LoadedData");
-        uintptr_t data = dataOffset >= 0 ? Mem::ReadPtr(killed + (uintptr_t)dataOffset) : 0;
-        int32_t dataName = Reflect::Offset("AIDataAsset", "AIName");
-        if (name.empty() && data && dataName >= 0) name = Reflect::GameText(data + (uintptr_t)dataName);
-        int32_t boss = Reflect::Offset("AIDataAsset", "bIsBoss");
-        bool isBoss = data && boss >= 0 && Mem::ReadU8(data + (uintptr_t)boss) != 0;
-        known = g_Names.emplace(cls, std::make_pair(name, isBoss)).first;
-    }
-    event.message = known->second.first;
-    event.cause = engine->GetObjectName(cls) + (known->second.second ? " boss" : "");
+    event.cause = CreatureClass(killed);
     if (!g_FirstKillLogged) {
         g_FirstKillLogged = true;
-        LogMessage("Kills: first kill seen - " + event.name + " killed '" + event.message + "' (" + event.cause + ")");
+        LogMessage("Kills: first kill seen - " + event.name + " killed a " + event.cause);
     }
+    g_Status = "counting kills";
     EventLog::Push(std::move(event));
 }
 
-void Report(uintptr_t component, uintptr_t killed, uintptr_t instigator) {
-    Engine* engine = g_Engine;
-    if (!engine || !killed) return;
-    // The component sits on the controller in the SDK; on the character or the
-    // player state, find the controller from there.
-    uintptr_t controller = Mem::ReadPtr(component + Offsets::UObject_Outer);
-    if (controller && engine->IsA(controller, "Pawn")) controller = Mem::ReadPtr(controller + Offsets::Pawn_Controller);
-    else if (controller && engine->IsA(controller, "PlayerState")) controller = Mem::ReadPtr(controller + Offsets::Actor_Owner);
-    if (!controller || !engine->IsA(controller, "PlayerController")) return;
-    uintptr_t pawn = Mem::ReadPtr(controller + Offsets::Controller_Pawn);
-    if (instigator && !IsPlayers(instigator, controller, pawn)) return; // someone else's kill
-    ReportFor(controller, killed);
-}
-
-void KillThunk(void* context, void* frame, void* result) {
-    if (GameThread::FrameLayoutReady() && g_KilledOffset >= 0) {
-        uintptr_t locals = Mem::ReadPtr((uintptr_t)frame + GameThread::FrameLocalsOffset());
-        if (locals) {
-            uintptr_t killed = Mem::ReadPtr(locals + (uintptr_t)g_KilledOffset);
-            uintptr_t instigator = g_InstigatorOffset >= 0 ? Mem::ReadPtr(locals + (uintptr_t)g_InstigatorOffset) : 0;
-            Report((uintptr_t)context, killed, instigator);
-        }
-    }
-    if (g_Original) g_Original(context, frame, result);
+// The actor a FatalDamageInfo's KilledBy (a TWeakObjectPtr: index, serial) names.
+uintptr_t KilledBy(uintptr_t damageComponent, bool& isSet) {
+    isSet = false;
+    int32_t infoOffset = Reflect::Offset("DamageComponent", "FatalDamageInfo");
+    int32_t byOffset = Reflect::Offset("FatalDamageInfo", "KilledBy");
+    int32_t setOffset = Reflect::Offset("FatalDamageInfo", "bIsSet");
+    if (!damageComponent || infoOffset < 0 || byOffset < 0 || setOffset < 0) return 0;
+    uintptr_t info = damageComponent + (uintptr_t)infoOffset;
+    isSet = (Mem::ReadU8(info + (uintptr_t)setOffset) & 1) != 0;
+    if (!isSet) return 0;
+    return g_Engine->GetObjectByIndex(Mem::ReadI32(info + (uintptr_t)byOffset));
 }
 
 }
@@ -142,75 +106,78 @@ void Scan(const std::vector<PlayerInfo>& players) {
     if (!engine || !engine->IsInitialized() || players.empty()) return;
     uintptr_t damageType = Reflect::FindType("DamageComponent");
     uintptr_t aiType = Reflect::FindType("DominionAICharacter");
-    int32_t infoOffset = Reflect::Offset("DamageComponent", "FatalDamageInfo");
-    int32_t byOffset = Reflect::Offset("FatalDamageInfo", "KilledBy");
-    int32_t setOffset = Reflect::Offset("FatalDamageInfo", "bIsSet");
-    if (!damageType || !aiType || infoOffset < 0 || byOffset < 0 || setOffset < 0) return;
+    if (!damageType || !aiType) return;
 
     std::unordered_set<uintptr_t> dead;
-    int32_t count = engine->GetObjectCount();
-    for (int32_t i = 0; i < count; i++) {
-        uintptr_t object = engine->GetObjectByIndex(i);
-        if (!object) continue;
+    std::vector<std::pair<uintptr_t, uintptr_t>> newlyDead; // damage component, creature
+    engine->ForEachObject([&](uintptr_t object) {
         uintptr_t cls = Mem::ReadPtr(object + Offsets::UObject_Class);
         auto kind = g_DamageClasses.find(cls);
         if (kind == g_DamageClasses.end()) {
-            int is = 0;
+            bool is = false;
             for (uintptr_t c = cls, d = 0; c && d < 16 && !is; c = Mem::ReadPtr(c + Offsets::UStruct_SuperStruct), d++) is = c == damageType;
             kind = g_DamageClasses.emplace(cls, is).first;
         }
-        if (!kind->second) continue;
-        if (Mem::ReadI32(object + Offsets::UObject_Flags) & 0x30) continue; // default object or archetype
-        uintptr_t info = object + (uintptr_t)infoOffset;
-        if (!(Mem::ReadU8(info + (uintptr_t)setOffset) & 1)) continue;
+        if (!kind->second) return true;
+        if (Mem::ReadI32(object + Offsets::UObject_Flags) & 0x30) return true; // default object or archetype
+        bool isSet = false;
+        KilledBy(object, isSet);
+        if (!isSet) return true;
         uintptr_t creature = Mem::ReadPtr(object + Offsets::UObject_Outer);
-        if (!Reflect::IsA(creature, aiType)) continue; // a player, not a creature
+        if (!Reflect::IsA(creature, aiType)) return true; // a player, not a creature
         dead.insert(object);
-        if (g_FirstScan || g_DeadSeen.count(object)) continue;
+        if (!g_FirstScan && !g_DeadSeen.count(object)) newlyDead.emplace_back(object, creature);
+        return true;
+    });
 
-        // KilledBy is a TWeakObjectPtr: { ObjectIndex, SerialNumber }.
-        uintptr_t killer = engine->GetObjectByIndex(Mem::ReadI32(info + (uintptr_t)byOffset));
+    for (const auto& entry : newlyDead) {
+        bool isSet = false;
+        uintptr_t killer = KilledBy(entry.first, isSet);
         for (const PlayerInfo& p : players) {
             if (!p.controllerPtr || !IsPlayers(killer, p.controllerPtr, p.pawnPtr)) continue;
-            if (!g_FirstScanKillLogged) {
-                g_FirstScanKillLogged = true;
-                LogMessage("Kills: first kill seen by the scan - " + p.name + " killed a " + engine->GetObjectClassName(creature));
-            }
-            ReportFor(p.controllerPtr, creature);
+            Report(p, entry.second);
             break;
         }
     }
     g_DeadSeen.swap(dead);
+    if (g_FirstScan) g_Status = "watching for kills";
     g_FirstScan = false;
 }
 
-void Poll() {
-    if (g_Hooked || !g_Engine || !g_Engine->IsInitialized()) return;
-    // Each try is a pass over every object, so at most one every 30 seconds.
-    auto now = Clock::now();
-    if (g_LastTry.time_since_epoch().count() && now - g_LastTry < std::chrono::seconds(30)) return;
-    g_LastTry = now;
+void KillerOf(const PlayerInfo& victim, const std::vector<PlayerInfo>& players, std::string& cause,
+              std::string& message) {
+    cause.clear();
+    message.clear();
+    if (!g_Engine || !victim.damagePtr) return;
+    bool isSet = false;
+    uintptr_t killer = KilledBy(victim.damagePtr, isSet);
+    if (!isSet) return;
 
-    if (!g_Function) g_Function = g_Engine->FindFunction("ProgressComponent", "OnAIKilled");
-    if (!g_Function) {
-        g_Status = "OnAIKilled not found yet";
+    if (killer && IsPlayers(killer, victim.controllerPtr, victim.pawnPtr)) {
+        cause = "self";
         return;
     }
-    g_KilledOffset = Reflect::OffsetIn(g_Function, "KilledCharacter");
-    g_InstigatorOffset = Reflect::OffsetIn(g_Function, "Instigator");
-    uintptr_t original = Mem::ReadPtr(g_Function + kExecFunction);
-    if (g_KilledOffset < 0 || !original || !Mem::InImage((void*)original)) {
-        g_Status = "OnAIKilled has no usable parameters or thunk";
+    for (const PlayerInfo& p : players) {
+        if (p.playerStatePtr == victim.playerStatePtr || !p.controllerPtr) continue;
+        if (!killer || !IsPlayers(killer, p.controllerPtr, p.pawnPtr)) continue;
+        cause = "player";
+        message = p.characterName.empty() ? p.name : p.characterName;
         return;
     }
-    g_Original = (ExecThunk)original;
-    *(uintptr_t*)(g_Function + kExecFunction) = (uintptr_t)&KillThunk;
-    g_Hooked = true;
-    g_Status = "hooked";
-    LogMessage("Kills: counting creature kills from ProgressComponent.OnAIKilled");
+    // The creature itself, or something it owns (a projectile, a spell).
+    uintptr_t aiType = Reflect::FindType("DominionAICharacter");
+    for (uintptr_t actor = killer, depth = 0; actor && depth < 4; depth++) {
+        if (Reflect::IsA(actor, aiType)) {
+            cause = "creature";
+            message = CreatureClass(actor);
+            return;
+        }
+        actor = Mem::ReadPtr(actor + Offsets::Actor_Owner);
+    }
+    cause = killer ? "other" : "self"; // set with nobody to blame: a fall, drowning...
+    if (killer) message = g_Engine->GetObjectClassName(killer);
 }
 
-bool IsHooked() { return g_Hooked; }
 const std::string& Status() { return g_Status; }
 
 }

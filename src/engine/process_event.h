@@ -30,6 +30,12 @@ bool RunSync(const std::function<void()>& work, int timeoutMs = 5000);
 void CallFunction(uintptr_t object, uintptr_t function, void* params);
 
 int VTableIndex();
-bool HookVTable(uintptr_t object, ProcessEventFn hook, ProcessEventFn& outPrevious);
+// UObject::ProcessEvent itself, for a hook that has no recorded original.
+ProcessEventFn OriginalProcessEvent();
+// The address of the ProcessEvent slot in the object's vtable, or 0. Read the
+// function there and record it before HookVTable replaces it, so a hook never
+// runs without knowing what to call on to.
+uintptr_t VTableSlot(uintptr_t object);
+bool HookVTable(uintptr_t slotAddress, ProcessEventFn hook);
 
 }

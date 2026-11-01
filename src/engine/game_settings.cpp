@@ -34,13 +34,14 @@ uintptr_t FindSettings() {
     Engine* engine = g_Engine;
     uintptr_t type = Reflect::FindType("InventorySettings");
     if (!type) return 0;
-    int32_t count = engine->GetObjectCount();
-    for (int32_t i = 0; i < count; i++) {
-        uintptr_t object = engine->GetObjectByIndex(i);
-        if (!object || Mem::ReadPtr(object + Offsets::UObject_Class) != type) continue;
-        if (Mem::ReadI32(object + Offsets::UObject_Flags) & kClassDefaultObject) return object;
-    }
-    return 0;
+    uintptr_t found = 0;
+    engine->ForEachObject([&](uintptr_t object) {
+        if (Mem::ReadPtr(object + Offsets::UObject_Class) != type) return true;
+        if (!(Mem::ReadI32(object + Offsets::UObject_Flags) & kClassDefaultObject)) return true;
+        found = object;
+        return false;
+    });
+    return found;
 }
 
 }

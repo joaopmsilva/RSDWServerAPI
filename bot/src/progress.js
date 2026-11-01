@@ -1,4 +1,5 @@
-// Quests, journal, skill perks and the in-game clock, as reported by mod 0.6.0+.
+// Quests, journal and skill perks, as reported by mod 0.6.0+, and names for
+// creatures and deaths.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,7 +54,7 @@ export function questName(q) {
 // game's own name first, then its class with variants dropped one word at a
 // time ("Goblin Melee" -> "Goblin") - else the game's name, else the class tidied up.
 export function creatureName(gameName, cls) {
-    const pretty = prettify(String(cls || '').replace(/\s+boss$/, '').replace(/^BP_/, '').replace(/^(AI|NPC|Enemy|Creature|Character|Dom)_/i, ''));
+    const pretty = prettify(String(cls || '').replace(/\s+boss$/, '').replace(/^BP_/, '').replace(/^(AI|NPC|Enemy|Creature|Character|Dom)_/i, '')).replace(/\s+Character$/, '');
     const tries = [gameName];
     const words = pretty.split(' ');
     for (let n = words.length; n > 0; n--) tries.push(words.slice(0, n).join(' '));
@@ -62,6 +63,29 @@ export function creatureName(gameName, cls) {
         if (hit) return hit;
     }
     return gameName || pretty || 'Something';
+}
+
+// What a death event (mod 0.9.0+) says killed them, as text after "has died":
+// "killed by a Giant Rat", "killed by Tobin", "" when the game didn't say.
+// Older mods sent the game's event tag instead, which says nothing useful.
+export function deathCause(event) {
+    switch (event?.cause) {
+        case 'creature': {
+            const name = creatureName('', event.message);
+            const article = /\sboss$/.test(event.message || '') ? 'the boss' : /^[aeiou]/i.test(name) ? 'an' : 'a';
+            return `killed by ${article} ${name}`;
+        }
+        case 'player':
+            return event.message ? `killed by ${event.message}` : 'killed by another player';
+        case 'self':
+            return 'a fall or the elements';
+        case 'other': {
+            const what = prettify(event.message || '');
+            return what ? `killed by ${what}` : '';
+        }
+        default:
+            return '';
+    }
 }
 
 // "PerkV2_Attack_Parry" -> "Parry"
@@ -123,31 +147,6 @@ const JOURNAL_KINDS = [
 export function journalKinds(journal) {
     if (!journal?.kinds) return [];
     return JOURNAL_KINDS.filter(([kind]) => journal.kinds[kind] > 0).map(([kind, emoji, name]) => ({ emoji, name, count: journal.kinds[kind] }));
-}
-
-// ---- in-game clock --------------------------------------------------------
-
-const hhmm = hour => {
-    const total = Math.floor((((hour % 24) + 24) % 24) * 60);
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-};
-
-// { emoji, time, day, next } or null. next says when day or night starts, in
-// game time and - when the day length is known - real minutes.
-export function clock(world) {
-    const t = world?.time;
-    if (!t) return null;
-    const until = (t.isDay ? t.dusk : t.dawn) - t.hour;
-    const hoursUntil = until < 0 ? until + 24 : until;
-    const realMinutes = t.minutesPerDay > 0 ? Math.round((hoursUntil / 24) * t.minutesPerDay) : null;
-    const when = realMinutes === null ? '' : realMinutes < 1 ? ' · any moment' : ` · in ${realMinutes} min`;
-    return {
-        emoji: t.isDay ? '☀️' : '🌙',
-        time: hhmm(t.hour),
-        day: t.day,
-        paused: t.paused,
-        next: `${t.isDay ? '🌙 Night' : '☀️ Dawn'} at ${hhmm(t.isDay ? t.dusk : t.dawn)}${when}`,
-    };
 }
 
 const DIFFICULTY = { normal: '🟢 Normal', hard: '🔴 Hard', creative: '🎨 Creative', custom: '⚙️ Custom' };

@@ -1,8 +1,10 @@
 #include "process_event.h"
 #include "dom_engine.h"
+#include "../utils/crash_log.h"
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <cstring>
 #include <deque>
@@ -30,12 +32,20 @@ std::string g_Status = "not initialised";
 std::mutex g_QueueMutex;
 std::condition_variable g_QueueSignal;
 
+// A job lives on its caller's stack. The caller may stop waiting only while the
+// job is still queued; once the game thread has taken it, the caller waits for
+// it to finish, or the game thread would run - and write into - a stack frame
+// that's gone.
+enum class JobState { Queued, Running, Done };
+
 struct Job {
     const std::function<void()>* work;
-    bool done = false;
+    JobState state = JobState::Queued;
 };
 
 std::deque<Job*> g_Queue;
+// Jobs queued, checked without the lock on every pumped call.
+std::atomic<int> g_Pending{0};
 
 const char* kProcessEventSymbols[] = {
     "_ZN7UObject12ProcessEventEP9UFunctionPv",
@@ -155,6 +165,7 @@ uintptr_t FindBySymbol(std::string& outSource) {
 }
 
 void Drain() {
+    CrashLog::Activity activity("running a queued job on the game thread");
     for (;;) {
         Job* job = nullptr;
         {
@@ -162,6 +173,8 @@ void Drain() {
             if (g_Queue.empty()) return;
             job = g_Queue.front();
             g_Queue.pop_front();
+            g_Pending.fetch_sub(1);
+            job->state = JobState::Running;
         }
 
         try {
@@ -171,21 +184,43 @@ void Drain() {
 
         {
             std::lock_guard<std::mutex> lock(g_QueueMutex);
-            job->done = true;
+            job->state = JobState::Done;
         }
         g_QueueSignal.notify_all();
     }
 }
 
 void HookedProcessEvent(void* self, void* function, void* params) {
-    bool hasWork;
-    {
-        std::lock_guard<std::mutex> lock(g_QueueMutex);
-        hasWork = !g_Queue.empty();
-    }
-    if (hasWork) Drain();
-
+    if (g_Pending.load(std::memory_order_relaxed) > 0) Drain();
     g_Original(self, function, params);
+}
+
+// Writes one vtable slot, putting the page back as it was: vtables sit in
+// read-only memory, and the next page may well be writable game data.
+bool WriteSlot(uintptr_t slotAddress, uintptr_t value) {
+    long pageSize = sysconf(_SC_PAGESIZE);
+    uintptr_t page = slotAddress & ~(uintptr_t)(pageSize - 1);
+
+    int original = -1;
+    if (FILE* maps = fopen("/proc/self/maps", "r")) {
+        char line[512];
+        while (fgets(line, sizeof(line), maps)) {
+            unsigned long long start = 0, end = 0;
+            char perms[8] = {};
+            if (sscanf(line, "%llx-%llx %7s", &start, &end, perms) != 3) continue;
+            if (page < start || page >= end) continue;
+            original = (perms[0] == 'r' ? PROT_READ : 0) | (perms[1] == 'w' ? PROT_WRITE : 0) |
+                       (perms[2] == 'x' ? PROT_EXEC : 0);
+            break;
+        }
+        fclose(maps);
+    }
+    if (original < 0) return false;
+
+    if (!(original & PROT_WRITE) && mprotect((void*)page, (size_t)pageSize, original | PROT_WRITE) != 0) return false;
+    __atomic_store_n((uintptr_t*)slotAddress, value, __ATOMIC_SEQ_CST);
+    if (!(original & PROT_WRITE)) mprotect((void*)page, (size_t)pageSize, original);
+    return true;
 }
 
 int FindVTableIndex(uintptr_t vtable, uintptr_t target) {
@@ -352,15 +387,13 @@ void PumpThunk(void* context, void* frame, void* result) {
         g_GameThread = pthread_self();
         g_GameThreadKnown = true;
     }
-    DeriveProcessEvent();
-    LearnFrameLayout(frame, context);
-
-    bool hasWork;
-    {
-        std::lock_guard<std::mutex> lock(g_QueueMutex);
-        hasWork = !g_Queue.empty();
+    if (!g_ProcessEvent || !g_LayoutReady) {
+        CrashLog::Activity activity("learning ProcessEvent and the FFrame layout");
+        DeriveProcessEvent();
+        LearnFrameLayout(frame, context);
     }
-    if (hasWork) Drain();
+
+    if (g_Pending.load(std::memory_order_relaxed) > 0) Drain();
 
     if (g_PumpOriginal) g_PumpOriginal(context, frame, result);
 }
@@ -473,16 +506,11 @@ bool Initialize(uintptr_t moduleBase, uintptr_t moduleEnd) {
     uintptr_t slotAddress = vtable + (uintptr_t)g_VTableIndex * sizeof(uintptr_t);
     g_Original = (ProcessEventFn)g_ProcessEvent;
 
-    long pageSize = sysconf(_SC_PAGESIZE);
-    uintptr_t page = slotAddress & ~(uintptr_t)(pageSize - 1);
-    if (mprotect((void*)page, (size_t)pageSize * 2, PROT_READ | PROT_WRITE) != 0) {
+    if (!WriteSlot(slotAddress, (uintptr_t)&HookedProcessEvent)) {
         g_Status = "could not make the vtable page writable";
         LogMessage("GameThread: " + g_Status);
         return false;
     }
-
-    *(uintptr_t*)slotAddress = (uintptr_t)&HookedProcessEvent;
-    mprotect((void*)page, (size_t)pageSize * 2, PROT_READ);
 
     (void)objectClass;
     g_Ready = true;
@@ -499,28 +527,19 @@ void CallFunction(uintptr_t object, uintptr_t function, void* params) {
 
 int VTableIndex() { return g_VTableIndex; }
 
-bool HookVTable(uintptr_t object, ProcessEventFn hook, ProcessEventFn& outPrevious) {
-    if (g_VTableIndex < 0 || !object || !Mem::Readable((void*)object, sizeof(uintptr_t))) return false;
+ProcessEventFn OriginalProcessEvent() { return g_Original; }
 
+uintptr_t VTableSlot(uintptr_t object) {
+    if (g_VTableIndex < 0 || !object || !Mem::Readable((void*)object, sizeof(uintptr_t))) return 0;
     uintptr_t vtable = Mem::ReadPtr(object);
-    if (!vtable || !Mem::InImage((void*)vtable)) return false;
+    if (!vtable || !Mem::InImage((void*)vtable)) return 0;
+    return vtable + (uintptr_t)g_VTableIndex * sizeof(uintptr_t);
+}
 
-    uintptr_t slotAddress = vtable + (uintptr_t)g_VTableIndex * sizeof(uintptr_t);
-    uintptr_t previous = Mem::ReadPtr(slotAddress);
-    if (!previous) return false;
-    if (previous == (uintptr_t)hook) {
-        outPrevious = nullptr;
-        return true;
-    }
-
-    long pageSize = sysconf(_SC_PAGESIZE);
-    uintptr_t page = slotAddress & ~(uintptr_t)(pageSize - 1);
-    if (mprotect((void*)page, (size_t)pageSize * 2, PROT_READ | PROT_WRITE) != 0) return false;
-    *(uintptr_t*)slotAddress = (uintptr_t)hook;
-    mprotect((void*)page, (size_t)pageSize * 2, PROT_READ);
-
-    outPrevious = (ProcessEventFn)previous;
-    return true;
+bool HookVTable(uintptr_t slotAddress, ProcessEventFn hook) {
+    if (!slotAddress || !Mem::ReadPtr(slotAddress)) return false;
+    if (Mem::ReadPtr(slotAddress) == (uintptr_t)hook) return true;
+    return WriteSlot(slotAddress, (uintptr_t)hook);
 }
 
 bool IsGameThread() {
@@ -541,23 +560,26 @@ bool RunSync(const std::function<void()>& work, int timeoutMs) {
     Job job;
     job.work = &work;
 
-    {
-        std::lock_guard<std::mutex> lock(g_QueueMutex);
-        g_Queue.push_back(&job);
-    }
-
     std::unique_lock<std::mutex> lock(g_QueueMutex);
-    bool ran = g_QueueSignal.wait_for(lock, std::chrono::milliseconds(timeoutMs),
-                                      [&job]() { return job.done; });
-    if (!ran) {
+    g_Queue.push_back(&job);
+    g_Pending.fetch_add(1);
+
+    g_QueueSignal.wait_for(lock, std::chrono::milliseconds(timeoutMs),
+                           [&job]() { return job.state == JobState::Done; });
+    if (job.state == JobState::Queued) {
+        // Never started: take it back.
         for (auto it = g_Queue.begin(); it != g_Queue.end(); ++it) {
             if (*it == &job) {
                 g_Queue.erase(it);
+                g_Pending.fetch_sub(1);
                 break;
             }
         }
+        return false;
     }
-    return ran;
+    // Started: it's using this frame, so wait for it whatever the timeout.
+    g_QueueSignal.wait(lock, [&job]() { return job.state == JobState::Done; });
+    return true;
 }
 
 }

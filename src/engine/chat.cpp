@@ -5,10 +5,12 @@
 #include "native_call.h"
 #include "process_event.h"
 #include "../events/event_log.h"
+#include "../utils/crash_log.h"
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <map>
@@ -55,7 +57,6 @@ uintptr_t g_AdminFunction = 0;
 uintptr_t g_AdminLibrary = 0;
 uintptr_t g_ClientEventFunction = 0;
 uintptr_t g_ServerEventFunction = 0;
-uintptr_t g_SystemMessageFunction = 0;
 bool g_Hooked = false;
 std::string g_Status = "not initialised";
 
@@ -72,8 +73,28 @@ std::mutex g_ListenerMutex;
 std::vector<Listener> g_Listeners;
 std::vector<EventListener> g_EventListeners;
 
-std::mutex g_VTableMutex;
-std::map<uintptr_t, GameThread::ProcessEventFn> g_HookedVTables;
+// The chat component vtables whose ProcessEvent is hooked, with the function
+// each had. Entries are filled in before the slot is patched and never
+// removed, so the hook reads them without a lock.
+struct HookedVTable {
+    std::atomic<uintptr_t> vtable{0};
+    std::atomic<GameThread::ProcessEventFn> previous{nullptr};
+};
+constexpr int kMaxHookedVTables = 16;
+HookedVTable g_HookedVTables[kMaxHookedVTables];
+std::atomic<int> g_HookedCount{0};
+std::mutex g_HookMutex; // installing only
+
+// Player events seen on the game thread, handed to the init thread's Poll to
+// look up who they're about - that takes a scan the game thread mustn't do.
+struct RawEvent {
+    std::string tag;
+    std::string characterGuid;
+    std::string senderNetId;
+    int32_t playerId = 0;
+};
+std::mutex g_RawMutex;
+std::vector<RawEvent> g_RawEvents;
 std::map<std::string, std::chrono::steady_clock::time_point> g_RecentEvents;
 
 void WriteFString(uintptr_t dest, const std::string& value) {
@@ -115,11 +136,12 @@ void DeliverEvent(const PlayerEvent& event) {
     }
 }
 
-void HandlePlayerEvent(uintptr_t params) {
+// On the game thread: copy what the event says and leave the rest to Poll.
+void QueuePlayerEvent(uintptr_t params) {
     Engine* engine = g_Engine;
     if (!engine || !Mem::Readable((void*)params, kEventSize)) return;
 
-    PlayerEvent event;
+    RawEvent event;
     uint32_t tagIndex = (uint32_t)Mem::ReadI32(params + kEventTag);
     uint32_t tagNumber = (uint32_t)Mem::ReadI32(params + kEventTag + 4);
     event.tag = engine->NameToString(tagIndex, tagNumber);
@@ -130,48 +152,65 @@ void HandlePlayerEvent(uintptr_t params) {
     std::string source;
     event.senderNetId = engine->ReadUniqueNetId(params + kSenderId, source);
 
-    std::string key = std::to_string(event.playerId) + "|" + event.characterGuid + "|" + event.tag;
-    auto now = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lock(g_RawMutex);
+    if (g_RawEvents.size() < 256) g_RawEvents.push_back(std::move(event));
+}
+
+// On the init thread, from Poll: who each queued event is about, then the listeners.
+void DeliverQueuedEvents(const std::vector<PlayerInfo>& players) {
+    std::vector<RawEvent> raw;
     {
-        std::lock_guard<std::mutex> lock(g_VTableMutex);
+        std::lock_guard<std::mutex> lock(g_RawMutex);
+        raw.swap(g_RawEvents);
+    }
+    auto now = std::chrono::steady_clock::now();
+    for (RawEvent& r : raw) {
+        std::string key = std::to_string(r.playerId) + "|" + r.characterGuid + "|" + r.tag;
         auto it = g_RecentEvents.find(key);
-        if (it != g_RecentEvents.end() && now - it->second < std::chrono::seconds(3)) return;
+        if (it != g_RecentEvents.end() && now - it->second < std::chrono::seconds(3)) continue;
         g_RecentEvents[key] = now;
-        for (auto entry = g_RecentEvents.begin(); entry != g_RecentEvents.end();) {
-            if (now - entry->second > std::chrono::seconds(30)) entry = g_RecentEvents.erase(entry);
-            else ++entry;
+
+        PlayerEvent event;
+        event.tag = r.tag;
+        event.characterGuid = r.characterGuid;
+        event.playerId = r.playerId;
+        event.senderNetId = r.senderNetId;
+        for (const PlayerInfo& player : players) {
+            if (player.playerId != event.playerId &&
+                (event.characterGuid.empty() || player.characterGuid != event.characterGuid)) continue;
+            event.senderName = player.characterName.empty() ? player.name : player.characterName;
+            if (event.senderNetId.empty()) event.senderNetId = player.uniqueNetId;
+            break;
+        }
+        LogMessage("Chat: player event '" + event.tag + "' from " +
+                   (event.senderName.empty() ? "playerId " + std::to_string(event.playerId) : event.senderName));
+        DeliverEvent(event);
+    }
+    for (auto entry = g_RecentEvents.begin(); entry != g_RecentEvents.end();) {
+        if (now - entry->second > std::chrono::seconds(30)) entry = g_RecentEvents.erase(entry);
+        else ++entry;
+    }
+}
+
+GameThread::ProcessEventFn PreviousFor(uintptr_t vtable) {
+    int count = g_HookedCount.load(std::memory_order_acquire);
+    for (int i = 0; i < count; i++) {
+        if (g_HookedVTables[i].vtable.load(std::memory_order_acquire) == vtable) {
+            return g_HookedVTables[i].previous.load(std::memory_order_acquire);
         }
     }
-
-    for (const PlayerInfo& player : engine->GetAllPlayers()) {
-        if (player.playerId != event.playerId &&
-            (event.characterGuid.empty() || player.characterGuid != event.characterGuid)) continue;
-        event.senderName = player.characterName.empty() ? player.name : player.characterName;
-        if (event.senderNetId.empty()) event.senderNetId = player.uniqueNetId;
-        break;
-    }
-
-    LogMessage("Chat: player event '" + event.tag + "' from " +
-               (event.senderName.empty() ? "playerId " + std::to_string(event.playerId) : event.senderName));
-    DeliverEvent(event);
+    return nullptr;
 }
 
 void HookedChatProcessEvent(void* self, void* function, void* params) {
-    GameThread::ProcessEventFn previous = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(g_VTableMutex);
-        uintptr_t vtable = Mem::ReadPtr((uintptr_t)self);
-        auto it = g_HookedVTables.find(vtable);
-        if (it != g_HookedVTables.end()) previous = it->second;
-    }
+    // Always passes the call on: to what the slot held, or ProcessEvent itself.
+    GameThread::ProcessEventFn previous = self ? PreviousFor(*(uintptr_t*)self) : nullptr;
+    if (!previous) previous = GameThread::OriginalProcessEvent();
 
     uintptr_t fn = (uintptr_t)function;
     if (fn && (fn == g_ClientEventFunction || fn == g_ServerEventFunction)) {
-        HandlePlayerEvent((uintptr_t)params);
-    } else if (fn && fn == g_SystemMessageFunction && g_Engine && Mem::Readable(params, 8)) {
-        uint32_t tagIndex = (uint32_t)Mem::ReadI32((uintptr_t)params);
-        uint32_t tagNumber = (uint32_t)Mem::ReadI32((uintptr_t)params + 4);
-        LogMessage("Chat: system message '" + g_Engine->NameToString(tagIndex, tagNumber) + "'");
+        CrashLog::Activity activity("chat hook: reading a player event");
+        QueuePlayerEvent((uintptr_t)params);
     }
 
     if (previous) previous(self, function, params);
@@ -377,6 +416,7 @@ void SendThunk(void* context, void* frame, void* result) {
     bool suppress = false;
 
     if (engine && engine->IsInitialized() && GameThread::FrameLayoutReady()) {
+        CrashLog::Activity activity("chat hook: reading a chat message");
         uintptr_t locals = Mem::ReadPtr((uintptr_t)frame + GameThread::FrameLocalsOffset());
         if (locals && Mem::Readable((void*)locals, kMessageSize)) {
             Message message;
@@ -388,9 +428,10 @@ void SendThunk(void* context, void* frame, void* result) {
                 std::string source;
                 message.senderNetId = engine->ReadUniqueNetId(locals + kSenderId, source);
 
+                // The init thread's last scan: one here would hitch the server.
                 PlayerInfo sender;
                 bool haveSender = false;
-                for (const PlayerInfo& player : engine->GetAllPlayers()) {
+                for (const PlayerInfo& player : engine->CachedPlayers()) {
                     if (player.playerId != message.playerId) continue;
                     sender = player;
                     haveSender = true;
@@ -504,7 +545,6 @@ void Lookup() {
     want("PlayerChatComponent", "Client_ReceiveChatMessage", &g_ReceiveFunction, "Chat");
     want("PlayerChatComponent", "Client_ReceivePlayerEvent", &g_ClientEventFunction, "Chat");
     want("PlayerChatComponent", "Server_SendPlayerEvent", &g_ServerEventFunction, "Chat");
-    want("PlayerChatComponent", "Client_ReceiveSystemMessage", &g_SystemMessageFunction, "Chat");
     want("PrivilegeFunctionLibrary", "ControllerIsOwnerOrAdmin", &g_AdminFunction, "");
 
     // Still missing after two minutes: list what the game has instead, once.
@@ -581,33 +621,37 @@ void AddEventListener(EventListener listener) {
     g_EventListeners.push_back(listener);
 }
 
-void Poll() {
+void Poll(const std::vector<PlayerInfo>& players) {
     Engine* engine = g_Engine;
     if (!engine || !engine->IsInitialized()) return;
     Lookup();
+    DeliverQueuedEvents(players);
 
-    bool watchEvents = (g_ClientEventFunction || g_ServerEventFunction || g_SystemMessageFunction) &&
-                       GameThread::VTableIndex() >= 0;
+    bool watchEvents = (g_ClientEventFunction || g_ServerEventFunction) && GameThread::VTableIndex() >= 0;
+    if (!watchEvents) return;
 
-    for (const PlayerInfo& player : engine->GetAllPlayers()) {
+    for (const PlayerInfo& player : players) {
         if (!player.controllerPtr) continue;
         uintptr_t component = ChatComponentOf(player.controllerPtr);
-        if (!component || !watchEvents) continue;
+        if (!component) continue;
         uintptr_t vtable = Mem::ReadPtr(component);
-        if (!vtable) continue;
+        uintptr_t slot = GameThread::VTableSlot(component);
+        if (!vtable || !slot || PreviousFor(vtable)) continue;
 
-        {
-            std::lock_guard<std::mutex> lock(g_VTableMutex);
-            if (g_HookedVTables.count(vtable)) continue;
-        }
+        std::lock_guard<std::mutex> lock(g_HookMutex);
+        int count = g_HookedCount.load();
+        if (count >= kMaxHookedVTables) continue;
+        auto previous = (GameThread::ProcessEventFn)Mem::ReadPtr(slot);
+        if (!previous || previous == &HookedChatProcessEvent || !Mem::InImage((void*)previous)) continue;
 
-        GameThread::ProcessEventFn previous = nullptr;
-        if (!GameThread::HookVTable(component, &HookedChatProcessEvent, previous)) continue;
-        if (!previous) continue;
-
-        {
-            std::lock_guard<std::mutex> lock(g_VTableMutex);
-            g_HookedVTables[vtable] = previous;
+        // Recorded first, published, and only then patched: the hook must
+        // never run without knowing what to call on to.
+        g_HookedVTables[count].vtable.store(vtable);
+        g_HookedVTables[count].previous.store(previous);
+        g_HookedCount.store(count + 1, std::memory_order_release);
+        if (!GameThread::HookVTable(slot, &HookedChatProcessEvent)) {
+            LogMessage("Chat: could not hook player events on " + engine->GetObjectClassName(component));
+            continue;
         }
         LogMessage("Chat: watching player events on " + engine->GetObjectClassName(component));
     }

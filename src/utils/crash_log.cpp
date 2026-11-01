@@ -1,5 +1,7 @@
 #include "crash_log.h"
+#include "memory.h"
 
+#include <atomic>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -22,6 +24,8 @@ constexpr int kSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT};
 char g_Path[1024];
 struct sigaction g_Previous[NSIG];
 volatile sig_atomic_t g_Entered = 0;
+std::atomic<const char*> g_Activity{nullptr};
+std::atomic<int> g_ActivityThread{0};
 
 // Where librsdwapi.so is mapped, to tell the mod's own frames apart.
 uintptr_t g_ModStart = 0;
@@ -116,13 +120,16 @@ void Handler(int sig, siginfo_t* info, void* context) {
             void* frames[64];
             int count = backtrace(frames, 64);
 
-            uintptr_t pc = 0;
+            uintptr_t pc = 0, sp = 0;
 #if defined(__x86_64__)
-            if (context) pc = (uintptr_t)((ucontext_t*)context)->uc_mcontext.gregs[REG_RIP];
+            if (context) {
+                pc = (uintptr_t)((ucontext_t*)context)->uc_mcontext.gregs[REG_RIP];
+                sp = (uintptr_t)((ucontext_t*)context)->uc_mcontext.gregs[REG_RSP];
+            }
 #endif
             // The first frames are this handler and the kernel's signal
             // trampoline; the real stack starts at the faulting instruction.
-            int first = 0;
+            int first = -1;
             for (int i = 0; pc && i < count; i++) {
                 if ((uintptr_t)frames[i] == pc) {
                     first = i;
@@ -130,26 +137,60 @@ void Handler(int sig, siginfo_t* info, void* context) {
                 }
             }
             int modFrames = 0;
-            for (int i = first; i < count; i++) modFrames += InMod((uintptr_t)frames[i]) ? 1 : 0;
+            for (int i = first < 0 ? count : first; i < count; i++) modFrames += InMod((uintptr_t)frames[i]) ? 1 : 0;
 
-            if (pc) {
-                Write(fd, "\ninstruction: ");
-                WriteNumber(fd, (unsigned long long)pc, 16);
+            Write(fd, "\ninstruction: ");
+            WriteNumber(fd, (unsigned long long)pc, 16);
+            // A jump to a null or junk address can't be unwound, but the call
+            // that made it left its return address on top of the stack.
+            uintptr_t caller = 0;
+            if (first < 0 && sp) {
+                caller = *(uintptr_t*)sp;
+                Write(fd, "\ncalled from: ");
+                WriteNumber(fd, (unsigned long long)caller, 16);
+                if (InMod(caller)) {
+                    Write(fd, " (librsdwapi.so+");
+                    WriteNumber(fd, (unsigned long long)(caller - g_ModStart), 16);
+                    Write(fd, ")");
+                }
+            }
+            const char* activity = g_Activity.load();
+            if (activity && g_ActivityThread.load() == (int)syscall(SYS_gettid)) {
+                Write(fd, "\nmod activity on this thread: ");
+                Write(fd, activity);
             }
             Write(fd, "\ncrashed in: ");
             if (pc && InMod(pc)) {
                 Write(fd, "the mod (librsdwapi.so)");
-            } else if (modFrames) {
-                Write(fd, "the game, called from the mod (");
-                WriteNumber(fd, (unsigned long long)modFrames, 10);
-                Write(fd, " mod frame(s) on the stack)");
-            } else if (first) {
+            } else if (caller && InMod(caller)) {
+                Write(fd, "a call the mod made to a bad address");
+            } else if (modFrames || (activity && g_ActivityThread.load() == (int)syscall(SYS_gettid))) {
+                Write(fd, "the game, while the mod was running on this thread");
+            } else if (first >= 0) {
                 Write(fd, "the game (no mod code on the stack)");
+            } else if (caller) {
+                Write(fd, "a call from the game to a bad address (no mod code involved)");
             } else {
                 Write(fd, "unknown");
             }
             Write(fd, "\nbacktrace (frames in librsdwapi.so are the mod's own code):\n");
-            backtrace_symbols_fd(frames + first, count - first, fd);
+            if (first >= 0) {
+                backtrace_symbols_fd(frames + first, count - first, fd);
+            } else if (sp) {
+                // No unwind: list the words on the stack that point at code,
+                // most recent first - the return addresses among them.
+                Write(fd, "(not unwindable; code addresses found on the stack instead)\n");
+                int shown = 0;
+                for (int i = 0; i < 512 && shown < 24; i++) {
+                    uintptr_t word = ((uintptr_t*)sp)[i];
+                    bool mod = InMod(word);
+                    if (!mod && !Mem::InImage((void*)word)) continue;
+                    Write(fd, mod ? "  librsdwapi.so+" : "  game ");
+                    WriteNumber(fd, (unsigned long long)(mod ? word - g_ModStart : word), 16);
+                    Write(fd, "\n");
+                    shown++;
+                }
+            }
             Write(fd, "=== end ===\n\n");
             close(fd);
         }
@@ -158,6 +199,15 @@ void Handler(int sig, siginfo_t* info, void* context) {
 }
 
 }
+
+bool Crashed() { return g_Entered != 0; }
+
+Activity::Activity(const char* what) : previous(g_Activity.load()) {
+    g_ActivityThread.store((int)syscall(SYS_gettid));
+    g_Activity.store(what);
+}
+
+Activity::~Activity() { g_Activity.store(previous); }
 
 void Install(const std::string& path) {
     snprintf(g_Path, sizeof(g_Path), "%s", path.c_str());

@@ -51,7 +51,7 @@ export const api = {
     // A private line to one player (net id, character GUID or name). Mod 0.6.0+.
     whisper: (to, message, sender = 'Server') =>
         request('/api/broadcast', { method: 'POST', body: { sender, message, to }, timeout: 15000 }),
-    // World name and settings, the in-game clock, running raids. Mod 0.6.0+; older mods answer 404.
+    // World name and settings, running raids. Mod 0.6.0+; older mods answer 404.
     world: () => request('/api/world'),
     // player: name, character name or net id (SteamID64 for unban / offline bans)
     kick: (player, reason) => request('/api/kick', { method: 'POST', body: reason ? { player, reason } : { player }, timeout: 15000 }),

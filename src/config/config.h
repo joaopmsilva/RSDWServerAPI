@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -70,6 +71,7 @@ struct GameConfig {
 struct APIConfig {
     bool enableLogging = true;
     bool verboseLogging = true;
+    int tickSeconds = 3; // how often players are checked (joins, deaths, kills, AFK)
     RestConfig rest;
     RconConfig rcon;
     AfkConfig afk;
@@ -122,7 +124,10 @@ struct APIConfig {
         file << "[General]\n";
         file << "EnableLogging=" << Bool(enableLogging) << "\n";
         file << "# Logs every discovery step and every request. Leave on unless the volume hurts.\n";
-        file << "VerboseLogging=" << Bool(verboseLogging) << "\n\n";
+        file << "VerboseLogging=" << Bool(verboseLogging) << "\n";
+        file << "# Seconds between checks of the players (joins, leaves, deaths, kills, AFK).\n";
+        file << "# Each check reads every object in the game; higher is lighter. 1-30.\n";
+        file << "TickSeconds=" << tickSeconds << "\n\n";
 
         file << "[API]\n";
         file << "# Set to false to disable the REST API.\n";
@@ -203,6 +208,7 @@ private:
         if (section == "General") {
             if (key == "EnableLogging") enableLogging = ParseBool(value);
             else if (key == "VerboseLogging") verboseLogging = ParseBool(value);
+            else if (key == "TickSeconds") tickSeconds = std::min(30, std::max(1, atoi(value.c_str())));
             return;
         }
 

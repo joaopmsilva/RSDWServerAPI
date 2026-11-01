@@ -4,6 +4,7 @@ import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
 import { Alerts } from './alerts.js';
 import { StatusBoard } from './board.js';
 import { Bridge } from './bridge.js';
+import { CarryOver } from './carryover.js';
 import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
@@ -47,7 +48,8 @@ const poller = new Poller(client, store);
 const activity = new Activity(client, store, history);
 const bridge = new Bridge();
 const links = new Links(config.dataDir, store, client);
-const relay = new Relay(client, bridge, activity, links);
+const carryOver = new CarryOver(client, store);
+const relay = new Relay(client, bridge, activity, links, carryOver);
 const notices = new Notices(client);
 const alerts = new Alerts(client, poller);
 const control = new ServerControl(client);
@@ -74,7 +76,10 @@ const updates = new UpdateWatcher(client, poller, control);
 ctx.updates = updates;
 const lastUse = new Map();
 
-poller.onPlayers = (players, health) => activity.observe(players, health);
+poller.onPlayers = (players, health) => {
+    activity.observe(players, health);
+    carryOver.observe(players);
+};
 poller.onTick = state => {
     notices.observe(state);
     worldWatch.observe(state.world, state.players);
@@ -88,6 +93,7 @@ client.once(Events.ClientReady, async c => {
     notices.start();
     alerts.start();
     activity.start();
+    carryOver.start();
     board.start();
     commandsPost.start();
     commandsPost.startSweeping(config.commandsCleanupMinutes);

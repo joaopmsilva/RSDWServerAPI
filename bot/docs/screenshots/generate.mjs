@@ -100,7 +100,7 @@ const profile = name => {
 const skillOf = (name, skill) => describeSkills(raw(PLAYERS[name])).find(s => s.name === skill);
 const online = ['Mira', 'Elske', 'Kit'].map(player);
 const health = { uptimeSeconds: 6 * 3600 + 23 * 60, version: '0.6.0' };
-const world = { worldName: 'Ashfall', host: 'Mira', difficulty: 'normal', hardcore: 'off', time: { day: 37, hour: 14.34, dawn: 6, dusk: 20, isDay: true, paused: false, minutesPerDay: 60 }, events: [] };
+const world = { worldName: 'Ashfall', host: 'Mira', difficulty: 'normal', hardcore: 'off', events: [] };
 const located = [{ ...player('Mira'), uniqueNetId: 'm' }, { ...player('Elske'), uniqueNetId: 'e' }, { ...player('Kit'), uniqueNetId: 'k' }];
 const perks = { max: 6, active: [
     { id: 'PerkV2_Attack_Parry', name: 'Parry', description: 'Block just as an attack lands to stagger the attacker.', skill: 'SKILL_Attack' },

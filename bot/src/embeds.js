@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
-import { clock, eventName, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
+import { eventName, journalKinds, outOf, perkName, questName, questStats } from './progress.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
 
@@ -428,6 +428,17 @@ export function levelUpEmbed(u) {
     return embed;
 }
 
+const QUEST_KINDS = { main: '📜 Main quest', side: '🗺️ Side quest' };
+
+// u: { name, quest: { id, name, kind } }
+export function questDoneEmbed(u) {
+    return new EmbedBuilder()
+        .setColor(0xc9a227)
+        .setAuthor({ name: `${QUEST_KINDS[u.quest.kind] || '📜 Quest'} complete!` })
+        .setDescription(`**${escapeMarkdown(u.name)}** completed **${escapeMarkdown(questName(u.quest))}**`)
+        .setTimestamp();
+}
+
 export function maxedEmbed(u) {
     const s = u.skill;
     const embed = new EmbedBuilder()
@@ -628,8 +639,6 @@ export function boardEmbed({ state, gainers, vps, compact = false }) {
     if (join.length) embed.addFields({ name: '🎮 How to join', value: join.join('\n') + gap });
 
     if (online) {
-        const c = clock(state.world);
-        if (c) embed.addFields({ name: '🕰️ In game', value: `${c.emoji} **${c.time}**  ·  Day ${c.day}\n${c.next}` + gap });
         const names = state.players.slice(0, 20).map(p => escapeMarkdown(p.characterName || p.name));
         if (count > 20) names.push(`and ${count - 20} more`);
         embed.addFields({ name: '👥 Playing now', value: (names.length ? names.join('  ·  ') : '*Nobody yet - be the first!*') + gap });
@@ -861,7 +870,7 @@ export function helpEmbed() {
             {
                 name: '🐉 Server & more',
                 value: [
-                    '`/status` · is it up, who is on, the world and the time in game',
+                    '`/status` · is it up, who is on and the world',
                     '`/item item` · what an item is and does, from the wiki',
                     '`/help` · this list',
                     ...(config.hasClientMod ? ['📦 **Longer chest range** · the installer is pinned in this channel'] : []),

@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.10.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.11.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -40,7 +40,7 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 📈 **`/gains`** `[player]` `[period]` | Who gained the most XP, or one player skill by skill |
 | ⏱️ **`/playtime`** `[player]` | Most played this week, or one player's time |
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
-| 🐉 **`/status`** | Online / starting / offline, who is on, the world, the in-game clock |
+| 🐉 **`/status`** | Online / starting / offline, who is on, the world |
 | 🎒 **`/item`** `item` 🔒 | Any item: what it is and does (from the wiki), type, stack size, weight |
 | ❓ **`/help`** 🔒 | All of the above |
 
@@ -54,7 +54,7 @@ install steps - for example UE4SS + ChestLink for the longer chest range the mod
 `[Game] LinkedStorageRadius` allows.
 
 `/levels` also shows quests done and journal entries, and `/status` and the status board show the
-world (name, host, difficulty) and the in-game clock - all from mod 0.6.0.
+world (name, host, difficulty) - from mod 0.6.0.
 
 ## 🔗 Account linking
 

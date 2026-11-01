@@ -30,6 +30,45 @@ std::string Pad(const std::string& value, size_t width) {
 
 }
 
+// {"ITEM_Logs_Oak":12,...}
+std::string ItemCounts(const std::vector<std::pair<std::string, int32_t>>& items) {
+    std::ostringstream oss;
+    oss << "{";
+    for (size_t i = 0; i < items.size(); i++) {
+        if (i) oss << ",";
+        oss << Q(items[i].first) << ":" << items[i].second;
+    }
+    oss << "}";
+    return oss.str();
+}
+
+std::string Carried(const DomEngine::PlayerInfo& p) {
+    std::ostringstream oss;
+    oss << "{\"skills\":{";
+    for (size_t i = 0; i < p.skills.size(); i++) {
+        if (i) oss << ",";
+        oss << Q(p.skills[i].skill) << ":" << p.skills[i].currentXP;
+    }
+    oss << "},\"inventory\":" << (p.hasInventory ? ItemCounts(p.inventory) : "null")
+        << ",\"personalChest\":" << (p.hasPersonalChest ? ItemCounts(p.personalChest) : "null")
+        << ",\"questsDone\":";
+    if (p.hasQuests) {
+        oss << "[";
+        bool first = true;
+        for (const DomEngine::QuestInfo& q : p.quests) {
+            if (!q.complete) continue;
+            if (!first) oss << ",";
+            oss << Q(q.id);
+            first = false;
+        }
+        oss << "]";
+    } else {
+        oss << "null";
+    }
+    oss << "}";
+    return oss.str();
+}
+
 std::string Player(const DomEngine::PlayerInfo& p) {
     std::ostringstream oss;
     oss << "{"
@@ -151,6 +190,9 @@ std::string Player(const DomEngine::PlayerInfo& p) {
         oss << "\"perks\":null,";
     }
 
+    oss << "\"inventory\":" << (p.hasInventory ? ItemCounts(p.inventory) : "null") << ","
+        << "\"personalChest\":" << (p.hasPersonalChest ? ItemCounts(p.personalChest) : "null") << ",";
+
     char pointers[128];
     snprintf(pointers, sizeof(pointers),
              "\"pointers\":{\"playerState\":\"0x%llX\",\"pawn\":\"0x%llX\",\"controller\":\"0x%llX\"}",
@@ -191,13 +233,9 @@ std::string World(const DomWorld::State& w) {
     std::ostringstream oss;
     oss << "{\"worldName\":" << Q(w.worldName) << ",\"host\":" << Q(w.host)
         << ",\"difficulty\":" << Q(w.difficulty) << ",\"hardcore\":" << Q(w.hardcore) << ",";
-    if (w.hasTime) {
-        oss << "\"time\":{\"day\":" << w.day << ",\"hour\":" << Num(w.hour) << ",\"dawn\":" << Num(w.dawn)
-            << ",\"dusk\":" << Num(w.dusk) << ",\"isDay\":" << Bool(w.isDay) << ",\"paused\":" << Bool(w.paused)
-            << ",\"minutesPerDay\":" << w.minutesPerDay << "},";
-    } else {
-        oss << "\"time\":null,";
-    }
+    // The in-game clock is gone (mod 0.9.0): reading it meant calling into the
+    // game thread every poll. Kept as null for older bots.
+    oss << "\"time\":null,";
     oss << "\"totals\":{\"quests\":" << w.totalQuests << ",\"journal\":" << w.totalJournal << "},";
     oss << "\"events\":[";
     for (size_t i = 0; i < w.events.size(); i++) {

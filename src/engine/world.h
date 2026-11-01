@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-// The world itself: its name and settings, the in-game clock, and raid and
-// hunted events while they run. For GET /api/world.
+// The world itself: its name and settings, and raid and hunted events while
+// they run. For GET /api/world.
 namespace DomWorld {
 
 struct EventInfo {
@@ -22,14 +22,6 @@ struct State {
     std::string host;
     std::string difficulty; // normal, hard, creative, custom, or ""
     std::string hardcore;   // off, active, failed, succeeded, or ""
-
-    bool hasTime = false;
-    int32_t day = 0;     // 1 on the first day
-    double hour = 0;     // 0-24, time of day
-    double dawn = 6, dusk = 20;
-    bool isDay = false;
-    bool paused = false;
-    int32_t minutesPerDay = 0; // real minutes in an in-game day, 0 if unknown
 
     std::vector<EventInfo> events;
 

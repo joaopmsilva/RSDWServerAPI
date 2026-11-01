@@ -34,8 +34,9 @@ const std::string& Status();
 void AddListener(Listener listener);
 void AddEventListener(EventListener listener);
 
-// Every two seconds, from the init thread.
-void Poll();
+// Every tick, from the init thread, with that tick's players: finishes lookups,
+// hands queued player events (deaths) to the listeners, hooks new chat components.
+void Poll(const std::vector<DomEngine::PlayerInfo>& players);
 
 bool Broadcast(const std::string& body, std::string& outError);
 

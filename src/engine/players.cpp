@@ -3,6 +3,7 @@
 #include "../utils/logger.h"
 #include "../utils/memory.h"
 
+#include <algorithm>
 #include <cstring>
 #include <sstream>
 #include <unordered_map>
@@ -15,6 +16,7 @@ namespace {
 struct PawnComponents {
     uintptr_t sustenance = 0;
     uintptr_t hydration = 0;
+    uintptr_t damage = 0;
 };
 
 struct ControllerComponents {
@@ -124,7 +126,82 @@ void Engine::ReadSkills(PlayerInfo& info) const {
     }
 }
 
-std::vector<PlayerInfo> Engine::GetAllPlayers() const {
+// The items in an inventory component's ItemSlots, stacks of one item added
+// up, sorted by id. False when the component or its slots can't be read.
+bool Engine::ReadItems(uintptr_t component, std::vector<std::pair<std::string, int32_t>>& out) const {
+    out.clear();
+    int32_t slotsOffset = Reflect::Offset("InventoryComponent", "ItemSlots");
+    int32_t countOffset = Reflect::Offset("Item", "Count");
+    int32_t dataOffset = Reflect::Offset("Item", "ItemData");
+    // UItem by the SDK if reflection can't name it: "Item" is a short name to look up.
+    if (countOffset < 0) countOffset = 0x58;
+    if (dataOffset < 0) dataOffset = 0xB0;
+    if (!component || slotsOffset < 0) return false;
+
+    FUEArray slots = {};
+    if (!ReadArray(component + (uintptr_t)slotsOffset, slots, 1024)) {
+        // An empty inventory is a readable one.
+        return Mem::Readable((void*)(component + (uintptr_t)slotsOffset), sizeof(FUEArray));
+    }
+    if (!Mem::Readable(slots.Data, sizeof(uintptr_t) * (size_t)slots.Num)) return false;
+
+    std::unordered_map<std::string, int32_t> counts;
+    for (int32_t i = 0; i < slots.Num; i++) {
+        uintptr_t item = ((uintptr_t*)slots.Data)[i];
+        if (!item) continue; // an empty slot
+        int32_t count = Mem::ReadI32(item + (uintptr_t)countOffset);
+        uintptr_t data = Mem::ReadPtr(item + (uintptr_t)dataOffset);
+        if (!data || count <= 0 || count > 1000000) continue;
+        auto name = itemNames.find(data);
+        if (name == itemNames.end()) name = itemNames.emplace(data, GetObjectName(data)).first;
+        if (!name->second.empty()) counts[name->second] += count;
+    }
+    out.assign(counts.begin(), counts.end());
+    std::sort(out.begin(), out.end());
+    return true;
+}
+
+void Engine::ReadInventories(PlayerInfo& info) const {
+    if (!info.controllerPtr) return;
+    int32_t carried = Reflect::Offset("DominionPlayerController", "InventoryComponent");
+    int32_t chest = Reflect::Offset("DominionPlayerController", "PersonalInventoryComponent");
+    if (carried >= 0) {
+        info.hasInventory = ReadItems(Mem::ReadPtr(info.controllerPtr + (uintptr_t)carried), info.inventory);
+    }
+    if (chest >= 0) {
+        info.hasPersonalChest = ReadItems(Mem::ReadPtr(info.controllerPtr + (uintptr_t)chest), info.personalChest);
+    }
+}
+
+std::vector<PlayerInfo> Engine::CachedPlayers() const {
+    std::lock_guard<std::mutex> lock(snapshotMutex);
+    return snapshot ? *snapshot : std::vector<PlayerInfo>();
+}
+
+std::vector<PlayerInfo> Engine::GetAllPlayers(int maxAgeMs) const {
+    auto fresh = [&]() {
+        std::lock_guard<std::mutex> lock(snapshotMutex);
+        if (snapshot && maxAgeMs > 0 &&
+            std::chrono::steady_clock::now() - snapshotAt < std::chrono::milliseconds(maxAgeMs)) {
+            return snapshot;
+        }
+        return std::shared_ptr<const std::vector<PlayerInfo>>();
+    };
+    if (auto cached = fresh()) return *cached;
+
+    // One scan at a time; whoever waited for it uses its result.
+    std::lock_guard<std::mutex> scanning(playersMutex);
+    if (auto cached = fresh()) return *cached;
+    auto players = std::make_shared<const std::vector<PlayerInfo>>(ScanPlayers());
+    {
+        std::lock_guard<std::mutex> lock(snapshotMutex);
+        snapshot = players;
+        snapshotAt = std::chrono::steady_clock::now();
+    }
+    return *players;
+}
+
+std::vector<PlayerInfo> Engine::ScanPlayers() const {
     std::vector<PlayerInfo> players;
     if (!initialized) return players;
 
@@ -258,16 +335,15 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
     uintptr_t journalType = Reflect::FindType("JournalComponent");
     uintptr_t perkType = Reflect::FindType("SkillPerkComponent");
     uintptr_t progressType = Reflect::FindType("ProgressComponent");
+    uintptr_t sustenanceType = Reflect::FindType("SustenanceComponent");
+    uintptr_t hydrationType = Reflect::FindType("HydrationComponent");
+    uintptr_t damageType = Reflect::FindType("DamageComponent");
 
     std::unordered_map<uintptr_t, PawnComponents> byPawn;
     std::unordered_map<uintptr_t, ControllerComponents> byController;
-    int32_t objectCount = GetObjectCount();
-    for (int32_t i = 0; i < objectCount; i++) {
-        uintptr_t object = GetObjectByIndex(i);
-        if (!object) continue;
-
+    ForEachObject([&](uintptr_t object) {
         uintptr_t outer = Mem::ReadPtr(object + Offsets::UObject_Outer);
-        if (!outer) continue;
+        if (!outer) return true;
         auto owner = ownerToController.find(outer);
         if (owner != ownerToController.end()) {
             ControllerComponents& parts = byController[owner->second];
@@ -275,23 +351,27 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
             else if (!parts.journal && Reflect::IsA(object, journalType)) parts.journal = object;
             else if (!parts.perks && Reflect::IsA(object, perkType)) parts.perks = object;
             else if (!parts.progress && Reflect::IsA(object, progressType)) parts.progress = object;
-            continue;
+            return true;
         }
-        if (pawnSet.find(outer) == pawnSet.end()) continue;
+        if (pawnSet.find(outer) == pawnSet.end()) return true;
 
         PawnComponents& slots = byPawn[outer];
-        if (!slots.sustenance && IsA(object, "SustenanceComponent")) {
+        if (!slots.sustenance && Reflect::IsA(object, sustenanceType)) {
             slots.sustenance = object;
-        } else if (!slots.hydration && IsA(object, "HydrationComponent")) {
+        } else if (!slots.hydration && Reflect::IsA(object, hydrationType)) {
             slots.hydration = object;
+        } else if (!slots.damage && Reflect::IsA(object, damageType)) {
+            slots.damage = object;
         }
-    }
+        return true;
+    });
 
     for (PlayerInfo& info : players) {
         if (!info.pawnPtr) continue;
 
         ReadHealthAndAttributes(info);
         ReadSkills(info);
+        ReadInventories(info);
 
         auto parts = byController.find(info.controllerPtr);
         if (parts != byController.end()) {
@@ -304,6 +384,7 @@ std::vector<PlayerInfo> Engine::GetAllPlayers() const {
         auto it = byPawn.find(info.pawnPtr);
         if (it == byPawn.end()) continue;
         const PawnComponents& slots = it->second;
+        info.damagePtr = slots.damage;
 
         if (slots.sustenance && Mem::Readable((void*)slots.sustenance, 0x140)) {
             info.hasSustenance = true;

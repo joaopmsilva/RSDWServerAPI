@@ -55,6 +55,13 @@ export const config = {
     levelUpNotices: bool('LEVELUP_NOTICES', true),
     levelUpMinLevel: Math.max(2, int('LEVELUP_MIN_LEVEL', 10)),
     levelUpChannelId: id('LEVELUP_CHANNEL_ID') || chatChannelId,
+    // Main and side quests finished, posted with the level-ups (mod 0.6.0+).
+    questNotices: bool('QUEST_NOTICES', true),
+    // Admin DMs when a character comes back with items, XP or quests it didn't
+    // get here (mod 0.9.0+), past these thresholds - a new item always counts.
+    carryoverAlerts: bool('CARRYOVER_ALERTS', true),
+    carryoverMinXp: Math.max(1, int('CARRYOVER_MIN_XP', 2000)),
+    carryoverMinItems: Math.max(1, int('CARRYOVER_MIN_ITEMS', 5)),
     joinLeaveNotices: bool('JOIN_LEAVE_NOTICES', true),
     weeklySummary: bool('WEEKLY_SUMMARY', true),
     summaryChannelId: id('SUMMARY_CHANNEL_ID') || chatChannelId,

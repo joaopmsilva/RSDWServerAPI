@@ -1,8 +1,10 @@
 #include "memory.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <mutex>
 #include <vector>
 #include <link.h>
@@ -16,20 +18,46 @@ struct Region {
     uintptr_t end;
 };
 
-std::mutex g_Mutex;
-std::vector<Region> g_Regions;
-std::chrono::steady_clock::time_point g_LastRefresh;
-bool g_Loaded = false;
+// The readable regions of /proc/self/maps, published as an immutable list so
+// a check takes no lock: the mod reads the game's memory a million times per
+// pass, partly on the game thread. A replaced list is kept a while before it's
+// freed, as a reader may still be searching it.
+struct Regions {
+    std::vector<Region> list;
+    uint64_t generation = 0;
+};
+
+std::atomic<const Regions*> g_Current{nullptr};
+std::mutex g_RefreshMutex;
+std::deque<std::pair<const Regions*, std::chrono::steady_clock::time_point>> g_Retired;
+std::atomic<int64_t> g_LastRefreshMs{0};
+uint64_t g_Generation = 0;
 
 uintptr_t g_ImageStart = 0;
 uintptr_t g_ImageEnd = 0;
+
+// A miss reloads the list at most this often: freed or garbage addresses miss
+// every time, and parsing /proc/self/maps takes a few milliseconds.
+constexpr int64_t kRefreshEveryMs = 1000;
+
+// The region the last hit on this thread fell in; most reads land in the same
+// object, so this skips the search almost every time.
+thread_local uintptr_t t_HitStart = 0;
+thread_local uintptr_t t_HitEnd = 0;
+thread_local uint64_t t_HitGeneration = 0;
+
+int64_t NowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
 
 void LoadRegionsLocked() {
     FILE* maps = fopen("/proc/self/maps", "r");
     if (!maps) return;
 
-    std::vector<Region> regions;
-    regions.reserve(2048);
+    Regions* next = new Regions();
+    next->list.reserve(4096);
 
     char line[1024];
     while (fgets(line, sizeof(line), maps)) {
@@ -38,30 +66,42 @@ void LoadRegionsLocked() {
         if (sscanf(line, "%llx-%llx %7s", &start, &end, perms) != 3) continue;
         if (perms[0] != 'r') continue;
 
-        if (!regions.empty() && regions.back().end == (uintptr_t)start) {
-            regions.back().end = (uintptr_t)end;
+        if (!next->list.empty() && next->list.back().end == (uintptr_t)start) {
+            next->list.back().end = (uintptr_t)end;
         } else {
-            regions.push_back({(uintptr_t)start, (uintptr_t)end});
+            next->list.push_back({(uintptr_t)start, (uintptr_t)end});
         }
     }
     fclose(maps);
 
-    std::sort(regions.begin(), regions.end(),
+    std::sort(next->list.begin(), next->list.end(),
               [](const Region& a, const Region& b) { return a.start < b.start; });
+    next->generation = ++g_Generation;
 
-    g_Regions.swap(regions);
-    g_LastRefresh = std::chrono::steady_clock::now();
-    g_Loaded = true;
+    auto now = std::chrono::steady_clock::now();
+    const Regions* old = g_Current.exchange(next, std::memory_order_acq_rel);
+    if (old) g_Retired.emplace_back(old, now);
+    while (!g_Retired.empty() && now - g_Retired.front().second > std::chrono::seconds(10)) {
+        delete g_Retired.front().first;
+        g_Retired.pop_front();
+    }
+    g_LastRefreshMs.store(NowMs(), std::memory_order_relaxed);
 }
 
-bool ContainsLocked(uintptr_t addr, size_t size) {
-    if (g_Regions.empty()) return false;
+bool Contains(const Regions* regions, uintptr_t addr, size_t size) {
+    if (!regions || regions->list.empty()) return false;
+    const std::vector<Region>& list = regions->list;
 
-    auto it = std::upper_bound(g_Regions.begin(), g_Regions.end(), addr,
+    auto it = std::upper_bound(list.begin(), list.end(), addr,
                                [](uintptr_t value, const Region& r) { return value < r.start; });
-    if (it == g_Regions.begin()) return false;
+    if (it == list.begin()) return false;
     --it;
-    return addr >= it->start && (addr + size) <= it->end;
+    if (addr < it->start || addr + size > it->end) return false;
+
+    t_HitStart = it->start;
+    t_HitEnd = it->end;
+    t_HitGeneration = regions->generation;
+    return true;
 }
 
 int ImagePhdrCallback(struct dl_phdr_info* info, size_t, void* data) {
@@ -90,8 +130,10 @@ int ImagePhdrCallback(struct dl_phdr_info* info, size_t, void* data) {
 }
 
 void Init() {
-    std::lock_guard<std::mutex> lock(g_Mutex);
-    if (!g_Loaded) LoadRegionsLocked();
+    {
+        std::lock_guard<std::mutex> lock(g_RefreshMutex);
+        if (!g_Current.load(std::memory_order_acquire)) LoadRegionsLocked();
+    }
 
     if (!g_ImageStart) {
         uintptr_t bounds[2] = {0, 0};
@@ -102,7 +144,7 @@ void Init() {
 }
 
 void Refresh() {
-    std::lock_guard<std::mutex> lock(g_Mutex);
+    std::lock_guard<std::mutex> lock(g_RefreshMutex);
     LoadRegionsLocked();
 }
 
@@ -112,15 +154,19 @@ bool Readable(const void* addr, size_t size) {
     if (value < 0x10000 || value >= 0x0000800000000000ULL) return false;
     if (value + size < value) return false;
 
-    std::lock_guard<std::mutex> lock(g_Mutex);
-    if (!g_Loaded) LoadRegionsLocked();
-    if (ContainsLocked(value, size)) return true;
+    const Regions* regions = g_Current.load(std::memory_order_acquire);
+    if (regions && t_HitGeneration == regions->generation && value >= t_HitStart && value + size <= t_HitEnd) {
+        return true;
+    }
+    if (Contains(regions, value, size)) return true;
 
-    auto now = std::chrono::steady_clock::now();
-    if (now - g_LastRefresh < std::chrono::milliseconds(100)) return false;
-
-    LoadRegionsLocked();
-    return ContainsLocked(value, size);
+    // A miss: the game may have mapped new memory since the list was read.
+    if (NowMs() - g_LastRefreshMs.load(std::memory_order_relaxed) < kRefreshEveryMs) return false;
+    {
+        std::lock_guard<std::mutex> lock(g_RefreshMutex);
+        if (NowMs() - g_LastRefreshMs.load(std::memory_order_relaxed) >= kRefreshEveryMs) LoadRegionsLocked();
+    }
+    return Contains(g_Current.load(std::memory_order_acquire), value, size);
 }
 
 bool InImage(const void* addr) {

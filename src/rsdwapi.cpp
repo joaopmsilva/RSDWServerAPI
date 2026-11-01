@@ -1,4 +1,5 @@
 #include "api/api_routes.h"
+#include "api/serialize.h"
 #include "config/config.h"
 #include "engine/bans.h"
 #include "engine/chat.h"
@@ -43,7 +44,9 @@ std::atomic<bool> g_StoppedCleanly{false};
 void ShutdownListeners() {
     if (g_StoppedCleanly.exchange(true)) return;
     // A log that ends without this line means the server crashed or was killed.
-    LogMessage("RSDWRestAPI: server is shutting down normally");
+    // The game's crash reporter ends with exit() too, which lands here.
+    if (CrashLog::Crashed()) LogMessage("RSDWRestAPI: server crashed - see crash.log");
+    else LogMessage("RSDWRestAPI: server is shutting down normally");
     g_Shutdown = true;
 
     if (g_HttpServer) g_HttpServer->Stop();
@@ -84,41 +87,58 @@ void StartListeners() {
 }
 
 // LD_PRELOAD is inherited by everything the launch script runs (its own shell,
-// chmod, dirname) and anything the server spawns. Left alone, each of those
-// binds the API port first, rotates the log and rewrites settings.ini. Only the
-// game server process itself carries on.
-bool GameImageMapped() {
-    FILE* maps = fopen("/proc/self/maps", "r");
-    if (!maps) return false;
-
-    bool found = false;
-    char line[4096];
-    while (!found && fgets(line, sizeof(line), maps)) {
-        if (strstr(line, "RSDragonwilds") && !strstr(line, "librsdwapi") && !strstr(line, ".sh")) {
-            found = true;
-        }
-    }
-    fclose(maps);
-    return found;
-}
-
-// The server binary is well over 100MB; shells and curl are a few MB at most.
-bool ExecutableIsGameSized() {
+// chmod, dirname) and anything the server spawns - like the crash reporter
+// (Sentry's crashpad_handler, which lives under the game's folder). Left alone,
+// each of those binds the API port first, rotates the log and rewrites
+// settings.ini. Only the game server process itself carries on: the server
+// binary is well over 100MB, the rest a few MB at most.
+bool IsGameServerProcess() {
+    const char* force = getenv("RSDWAPI_FORCE");
+    if (force && *force && strcmp(force, "0") != 0) return true;
     struct stat st;
     return stat("/proc/self/exe", &st) == 0 && st.st_size >= 64ll * 1024 * 1024;
 }
 
-bool IsGameServerProcess() {
-    const char* force = getenv("RSDWAPI_FORCE");
-    if (force && *force && strcmp(force, "0") != 0) return true;
-    if (ExecutableIsGameSized()) return true;
+// Deaths: each is posted once, from whichever sees it first - the game's own
+// death event or the health check. Kept here rather than on the init thread's
+// stack, as the event listener holding them outlives no thread but must not
+// point into one.
+std::mutex g_DeathMutex;
+std::map<std::string, std::chrono::steady_clock::time_point> g_DeathPosted;
 
-    // A launcher stub may map the game a moment after we load, so allow a minute.
-    for (int i = 0; i < 120 && !g_Shutdown; i++) {
-        if (GameImageMapped()) return true;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+// Pushes a death with what killed them, read from their damage component.
+void ReportDeath(const std::string& key, int32_t playerId, const std::string& netId) {
+    auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(g_DeathMutex);
+        auto it = g_DeathPosted.find(key);
+        if (it != g_DeathPosted.end() && now - it->second < std::chrono::seconds(10)) return;
+        g_DeathPosted[key] = now;
     }
-    return false;
+
+    std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->CachedPlayers();
+    EventLog::Event event;
+    event.type = "death";
+    event.netId = netId;
+    for (const DomEngine::PlayerInfo& player : players) {
+        if (player.playerId != playerId && (netId.empty() || player.uniqueNetId != netId)) continue;
+        event.name = player.characterName.empty() ? player.name : player.characterName;
+        if (event.netId.empty()) event.netId = player.uniqueNetId;
+        if (player.hasLocation) {
+            char where[96];
+            snprintf(where, sizeof(where), "%.0f, %.0f, %.0f", player.x, player.y, player.z);
+            event.location = where;
+        }
+        // cause: creature (message: its class), player (message: their name),
+        // self (a fall, drowning...), other, or "" when the game didn't say.
+        DomKills::KillerOf(player, players, event.cause, event.message);
+        break;
+    }
+    if (event.name.empty()) event.name = "playerId " + std::to_string(playerId);
+
+    LogMessage("Deaths: " + event.name + " died" + (event.location.empty() ? "" : " at " + event.location) +
+               (event.cause.empty() ? "" : " (" + event.cause + (event.message.empty() ? "" : ": " + event.message) + ")"));
+    EventLog::Push(std::move(event));
 }
 
 // AFK: a player who hasn't moved or looked around for [AFK] KickMinutes gets a
@@ -278,31 +298,9 @@ void InitThread() {
         DomBans::Load();
 
         std::map<std::string, bool> wasDead;
-        std::map<std::string, std::chrono::steady_clock::time_point> deathPosted;
-        std::mutex deathMutex;
 
-        auto reportDeath = [&](const std::string& key, const std::string& name, const std::string& where,
-                               const std::string& netId, const std::string& cause) {
-            auto now = std::chrono::steady_clock::now();
-            {
-                std::lock_guard<std::mutex> lock(deathMutex);
-                auto it = deathPosted.find(key);
-                if (it != deathPosted.end() && now - it->second < std::chrono::seconds(10)) return;
-                deathPosted[key] = now;
-            }
-            LogMessage("Deaths: " + name + " died" + (where.empty() ? "" : " at " + where) +
-                       (cause.empty() ? "" : " (" + cause + ")"));
-
-            EventLog::Event event;
-            event.type = "death";
-            event.name = name;
-            event.netId = netId;
-            event.location = where;
-            event.cause = cause;
-            EventLog::Push(std::move(event));
-        };
-
-        DomChat::AddEventListener([&](const DomChat::PlayerEvent& event) {
+        // The game's death event, delivered from DomChat::Poll on this thread.
+        DomChat::AddEventListener([](const DomChat::PlayerEvent& event) {
             std::string tag = event.tag;
             std::transform(tag.begin(), tag.end(), tag.begin(),
                            [](unsigned char c) { return (char)tolower(c); });
@@ -310,52 +308,64 @@ void InitThread() {
                 tag.find("die") == std::string::npos) {
                 return;
             }
-            std::string name = event.senderName.empty() ? "playerId " + std::to_string(event.playerId)
-                                                        : event.senderName;
             std::string key = event.senderNetId.empty() ? std::to_string(event.playerId) : event.senderNetId;
-            std::string where;
-            for (const DomEngine::PlayerInfo& player : DomEngine::g_Engine->GetAllPlayers()) {
-                if (player.playerId != event.playerId) continue;
-                if (!player.hasLocation) break;
-                char buffer[96];
-                snprintf(buffer, sizeof(buffer), "%.0f, %.0f, %.0f", player.x, player.y, player.z);
-                where = buffer;
-                break;
-            }
-            reportDeath(key, name, where, event.senderNetId, event.tag);
+            ReportDeath(key, event.playerId, event.senderNetId);
         });
 
         // Join / leave, by net id. A player still loading in has no id or name yet,
         // so they count once both are readable.
-        std::map<std::string, std::string> wasOnline;
-        auto pushPresence = [](const char* type, const std::string& netId, const std::string& name, size_t online) {
-            LogMessage(std::string("Players: ") + name + (type[0] == 'j' ? " joined" : " left") + ", " +
-                       std::to_string(online) + " online");
+        //
+        // Characters travel between worlds, so a leave carries what the
+        // character had (skills, items) as last seen, and once a returning
+        // character has loaded - skills and inventory read the same two ticks
+        // running - an "arrive" event carries what they came back with. The bot
+        // compares the two.
+        struct Presence {
+            std::string name;
+            DomEngine::PlayerInfo last;
+            std::chrono::steady_clock::time_point joinedAt;
+            bool arrived = false;
+            std::string carried; // the previous tick's, to see it settle
+            int steadyTicks = 0;
+        };
+        std::map<std::string, Presence> wasOnline;
+        auto pushPresence = [](const char* type, const std::string& netId, const std::string& name,
+                               const std::string& guid, size_t online, std::string data) {
+            if (type[0] != 'a') {
+                LogMessage(std::string("Players: ") + name + (type[0] == 'j' ? " joined" : " left") + ", " +
+                           std::to_string(online) + " online");
+            }
             EventLog::Event event;
             event.type = type;
             event.name = name;
             event.netId = netId;
+            event.characterGuid = guid;
             event.players = (int32_t)online;
+            event.data = std::move(data);
             EventLog::Push(std::move(event));
         };
+        auto canCarry = [](const DomEngine::PlayerInfo& p) { return p.spawned && !p.skills.empty() && p.hasInventory; };
 
         // A line every ten minutes, so the log shows memory climbing before an
         // out-of-memory kill and roughly when a crash happened.
         auto nextHeartbeat = std::chrono::steady_clock::now();
 
+        int tickTenths = g_Config.tickSeconds * 10;
+        LogMessage("RSDWRestAPI: checking players every " + std::to_string(g_Config.tickSeconds) + "s");
         while (!g_Shutdown) {
-            for (int i = 0; i < 20 && !g_Shutdown; i++) {
+            for (int i = 0; i < tickTenths && !g_Shutdown; i++) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             if (g_Shutdown) break;
 
+            // One scan per tick; everything below, and the API until the next
+            // tick, shares it.
+            std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers(0);
+
             DomEngine::g_Engine->EnforceKicks();
             DomBans::Enforce();
-            DomChat::Poll();
-            DomKills::Poll();
+            DomChat::Poll(players);
             DomGameSettings::Apply();
-
-            std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
             DomKills::Scan(players);
 
             if (std::chrono::steady_clock::now() >= nextHeartbeat) {
@@ -365,17 +375,50 @@ void InitThread() {
                            std::to_string(CrashLog::ResidentMegabytes()) + " MB");
             }
 
-            std::map<std::string, std::string> nowOnline;
+            auto now = std::chrono::steady_clock::now();
+            std::map<std::string, Presence> nowOnline;
+            size_t onlineCount = 0;
+            for (const DomEngine::PlayerInfo& player : players) {
+                std::string name = player.characterName.empty() ? player.name : player.characterName;
+                if (!player.uniqueNetId.empty() && !name.empty()) onlineCount++;
+            }
             for (const DomEngine::PlayerInfo& player : players) {
                 if (player.uniqueNetId.empty()) continue;
                 std::string name = player.characterName.empty() ? player.name : player.characterName;
-                if (!name.empty()) nowOnline[player.uniqueNetId] = name;
-            }
-            for (const auto& entry : nowOnline) {
-                if (!wasOnline.count(entry.first)) pushPresence("join", entry.first, entry.second, nowOnline.size());
+                if (name.empty()) continue;
+
+                auto previous = wasOnline.find(player.uniqueNetId);
+                Presence presence;
+                if (previous == wasOnline.end()) {
+                    presence.joinedAt = now;
+                    pushPresence("join", player.uniqueNetId, name, player.characterGuid, onlineCount, "");
+                } else {
+                    presence = std::move(previous->second);
+                }
+                presence.name = name;
+                // Keep the last full read: a tick where the inventory didn't
+                // read shouldn't become what they "left with".
+                if (canCarry(player) || !canCarry(presence.last)) presence.last = player;
+
+                if (!presence.arrived && canCarry(player)) {
+                    std::string carried = Serialize::Carried(player);
+                    presence.steadyTicks = carried == presence.carried ? presence.steadyTicks + 1 : 0;
+                    presence.carried = carried;
+                    auto since = now - presence.joinedAt;
+                    if ((presence.steadyTicks >= 1 && since >= std::chrono::seconds(6)) || since >= std::chrono::seconds(60)) {
+                        presence.arrived = true;
+                        pushPresence("arrive", player.uniqueNetId, name, player.characterGuid, onlineCount, carried);
+                    }
+                }
+                nowOnline[player.uniqueNetId] = std::move(presence);
             }
             for (const auto& entry : wasOnline) {
-                if (!nowOnline.count(entry.first)) pushPresence("leave", entry.first, entry.second, nowOnline.size());
+                if (nowOnline.count(entry.first)) continue;
+                const DomEngine::PlayerInfo& last = entry.second.last;
+                // Only once they've arrived: before that, what was read may be a
+                // character still loading in.
+                std::string data = entry.second.arrived && canCarry(last) ? Serialize::Carried(last) : "";
+                pushPresence("leave", entry.first, entry.second.name, last.characterGuid, onlineCount, data);
             }
             wasOnline.swap(nowOnline);
 
@@ -387,11 +430,7 @@ void InitThread() {
                 auto previous = wasDead.find(player.uniqueNetId);
                 bool justDied = player.isDead && previous != wasDead.end() && !previous->second;
                 if (!justDied) continue;
-
-                std::string name = player.characterName.empty() ? player.name : player.characterName;
-                char where[96];
-                snprintf(where, sizeof(where), "%.0f, %.0f, %.0f", player.x, player.y, player.z);
-                reportDeath(player.uniqueNetId, name, where, player.uniqueNetId, "");
+                ReportDeath(player.uniqueNetId, player.playerId, player.uniqueNetId);
             }
             wasDead.swap(nowDead);
 

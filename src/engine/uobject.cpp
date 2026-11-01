@@ -80,6 +80,29 @@ uintptr_t Engine::GetObjectByIndex(int32_t index) const {
     return Mem::ReadPtr(chunk + (uintptr_t)inChunk * Offsets::ObjectItem_Size);
 }
 
+void Engine::ForEachObject(const std::function<bool(uintptr_t object)>& fn) const {
+    if (!gObjects) return;
+    int32_t numElements = Mem::ReadI32(gObjects + Offsets::ObjArray_NumElements);
+    int32_t numChunks = Mem::ReadI32(gObjects + Offsets::ObjArray_NumChunks);
+    uintptr_t chunks = Mem::ReadPtr(gObjects + Offsets::ObjArray_Objects);
+    if (numElements <= 0 || numChunks <= 0 || !chunks) return;
+    if (!Mem::Readable((void*)chunks, sizeof(uintptr_t) * (size_t)numChunks)) return;
+
+    for (int32_t c = 0; c < numChunks; c++) {
+        uintptr_t chunk = ((const uintptr_t*)chunks)[c];
+        int32_t first = c * Offsets::ObjectsPerChunk;
+        int32_t inChunk = numElements - first;
+        if (inChunk <= 0) break;
+        if (inChunk > Offsets::ObjectsPerChunk) inChunk = Offsets::ObjectsPerChunk;
+        if (!chunk || !Mem::Readable((void*)chunk, (size_t)inChunk * Offsets::ObjectItem_Size)) continue;
+
+        for (int32_t i = 0; i < inChunk; i++) {
+            uintptr_t object = *(const uintptr_t*)(chunk + (uintptr_t)i * Offsets::ObjectItem_Size);
+            if (object && !fn(object)) return;
+        }
+    }
+}
+
 std::string Engine::NameToString(uint32_t comparisonIndex, uint32_t number) const {
     if (!gNames) return "";
 
@@ -140,37 +163,55 @@ bool Engine::IsA(uintptr_t object, const char* className) const {
 uintptr_t Engine::FindObject(const char* className, bool wantDefaultObject) const {
     if (!className) return 0;
 
-    int32_t count = GetObjectCount();
-    for (int32_t i = 0; i < count; i++) {
-        uintptr_t object = GetObjectByIndex(i);
-        if (!object) continue;
-        if (GetObjectClassName(object) != className) continue;
-
+    uintptr_t found = 0;
+    ForEachObject([&](uintptr_t object) {
+        if (GetObjectClassName(object) != className) return true;
         bool isDefault = GetObjectName(object).rfind("Default__", 0) == 0;
-        if (isDefault != wantDefaultObject) continue;
-        return object;
-    }
-    return 0;
+        if (isDefault != wantDefaultObject) return true;
+        found = object;
+        return false;
+    });
+    return found;
 }
 
 uintptr_t Engine::GetWorld() const {
+    // The last world found, while it's still a world with a level loaded.
+    uintptr_t cached = cachedWorld.load();
+    uintptr_t worldClass = cachedWorldClass.load();
+    if (cached && worldClass && Mem::ReadPtr(cached + Offsets::UObject_Class) == worldClass &&
+        Mem::ReadPtr(cached + Offsets::World_PersistentLevel)) {
+        return cached;
+    }
+
     uintptr_t world = Mem::ReadPtr(moduleBase + Offsets::GWorld);
     if (world && GetObjectClassName(world) == "World" &&
         Mem::ReadPtr(world + Offsets::World_PersistentLevel)) {
         worldSource = "gworld";
+        cachedWorldClass = Mem::ReadPtr(world + Offsets::UObject_Class);
+        cachedWorld = world;
         return world;
     }
 
-    int32_t count = GetObjectCount();
-    for (int32_t i = 0; i < count; i++) {
-        uintptr_t candidate = GetObjectByIndex(i);
-        if (!candidate) continue;
-        if (GetObjectClassName(candidate) != "World") continue;
-        if (GetObjectName(candidate).rfind("Default__", 0) == 0) continue;
-        if (!Mem::ReadPtr(candidate + Offsets::World_PersistentLevel)) continue;
+    // A pass over every object comparing names, so at most one every 5 seconds.
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch()).count();
+    int64_t last = lastWorldSweepMs.load();
+    if (last && now - last < 5000) return 0;
+    lastWorldSweepMs = now;
 
+    uintptr_t found = 0;
+    ForEachObject([&](uintptr_t candidate) {
+        if (GetObjectClassName(candidate) != "World") return true;
+        if (GetObjectName(candidate).rfind("Default__", 0) == 0) return true;
+        if (!Mem::ReadPtr(candidate + Offsets::World_PersistentLevel)) return true;
+        found = candidate;
+        return false;
+    });
+    if (found) {
         worldSource = "gobjects-sweep";
-        return candidate;
+        cachedWorldClass = Mem::ReadPtr(found + Offsets::UObject_Class);
+        cachedWorld = found;
+        return found;
     }
 
     worldSource = "";

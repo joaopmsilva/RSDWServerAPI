@@ -20,6 +20,7 @@ struct Event {
     std::string location;
     std::string cause;    // death: the game's event tag, when it sent one
     int32_t players = -1; // join / leave: players online afterwards
+    std::string data;     // leave / arrive: what the character carries, as JSON (Serialize::Carried)
 };
 
 void Push(Event event);

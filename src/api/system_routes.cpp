@@ -82,7 +82,9 @@ void RegisterSystem(HttpServer& server) {
                 << ",\"message\":" << q(e.message)
                 << ",\"location\":" << q(e.location)
                 << ",\"cause\":" << q(e.cause)
-                << ",\"players\":" << e.players << "}";
+                << ",\"players\":" << e.players;
+            if (!e.data.empty()) oss << ",\"data\":" << e.data;
+            oss << "}";
         }
         oss << "]}";
         return JsonResponse(oss.str());
@@ -117,7 +119,7 @@ void RegisterSystem(HttpServer& server) {
     // A self-check of what the mod reads from the game, so a game update that
     // moves something shows up here instead of a feature quietly doing nothing.
     // ok is true, false, or null when it can't be checked yet (nobody online).
-    // The world's name and settings, the in-game clock, and running raid and hunted events.
+    // The world's name and settings, and running raid and hunted events.
     server.Get("/api/world", [](const HttpRequest&) -> HttpResponse {
         if (!EngineReady()) return EngineUnavailable();
         DomWorld::State world = DomWorld::Read();
@@ -161,14 +163,12 @@ void RegisterSystem(HttpServer& server) {
             add("chatComponent", componentState, componentDetail);
 
             add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
-            add("killHook", DomKills::IsHooked() ? 1 : 0, DomKills::Status());
+            add("kills", 1, DomKills::Status());
             add("gameSettings", g_Config.game.linkedStorageRadius > 0 ? 1 : -1, DomGameSettings::Status());
             DomWorld::State world = DomWorld::Read();
             add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,
                 world.valid ? (world.worldName.empty() ? "world name unreadable" : "world " + world.worldName)
                             : "not readable");
-            add("inGameClock", world.hasTime ? 1 : -1,
-                world.hasTime ? "day " + std::to_string(world.day) : "read once a player has joined");
 
             std::vector<DomEngine::PlayerInfo> players = DomEngine::g_Engine->GetAllPlayers();
             if (players.empty()) {

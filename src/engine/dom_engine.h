@@ -1,6 +1,13 @@
 #pragma once
+#include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 struct FString {
@@ -255,9 +262,19 @@ struct PlayerInfo {
     int32_t maxActivePerks = 0;
     std::vector<PerkInfo> perks;
 
+    // What the character carries and what's in their personal chest, as item
+    // asset id -> count (stacks of the same item added up). Characters travel
+    // between worlds, so this and the skills are what a returning player is
+    // checked against. has* is false when unreadable.
+    bool hasInventory = false;
+    std::vector<std::pair<std::string, int32_t>> inventory;
+    bool hasPersonalChest = false;
+    std::vector<std::pair<std::string, int32_t>> personalChest;
+
     uintptr_t playerStatePtr = 0;
     uintptr_t pawnPtr = 0;
     uintptr_t controllerPtr = 0;
+    uintptr_t damagePtr = 0; // the pawn's DamageComponent: how they died
 };
 
 struct ServerInfo {
@@ -315,6 +332,9 @@ public:
 
     int32_t GetObjectCount() const;
     uintptr_t GetObjectByIndex(int32_t index) const;
+    // Every live object, reading GObjects a chunk at a time rather than five
+    // checked reads per object. Return false from fn to stop.
+    void ForEachObject(const std::function<bool(uintptr_t object)>& fn) const;
     std::string NameToString(uint32_t comparisonIndex, uint32_t number) const;
     std::string GetObjectName(uintptr_t object) const;
     std::string GetObjectClassName(uintptr_t object) const;
@@ -327,9 +347,27 @@ public:
     std::string ReadGuid(uintptr_t address) const;
     std::string ReadUniqueNetId(uintptr_t netIdRepl, std::string& outSource) const;
 
-    std::vector<PlayerInfo> GetAllPlayers() const;
+    // The players, from a scan at most maxAgeMs old: every caller in one tick
+    // shares one pass over the objects. 0 forces a fresh scan (kick, give).
+    std::vector<PlayerInfo> GetAllPlayers(int maxAgeMs = 5000) const;
+    // The last scan without ever scanning - for the game thread, where a pass
+    // over every object would hitch the server.
+    std::vector<PlayerInfo> CachedPlayers() const;
 
 private:
+    std::vector<PlayerInfo> ScanPlayers() const;
+
+    mutable std::mutex playersMutex;     // one scan at a time
+    mutable std::mutex snapshotMutex;    // guards the two below
+    mutable std::shared_ptr<const std::vector<PlayerInfo>> snapshot;
+    mutable std::chrono::steady_clock::time_point snapshotAt;
+
+    // GetWorld's last answer, rechecked cheaply on every call instead of
+    // searching every object when GWorld's offset is out of date.
+    mutable std::atomic<uintptr_t> cachedWorld{0};
+    mutable std::atomic<uintptr_t> cachedWorldClass{0};
+    mutable std::atomic<int64_t> lastWorldSweepMs{0};
+
     void ReadAttributeArrays(uintptr_t attributesComponent, uintptr_t attributesOffset,
                              uintptr_t valuesOffset, bool shared,
                              std::vector<AttributeInfo>& out) const;
@@ -339,6 +377,9 @@ private:
     void ReadJournal(PlayerInfo& info, uintptr_t component) const;
     void ReadPerks(PlayerInfo& info, uintptr_t component) const;
     void ReadCreatureTypes(PlayerInfo& info, uintptr_t component) const;
+    void ReadInventories(PlayerInfo& info) const;
+    bool ReadItems(uintptr_t inventoryComponent, std::vector<std::pair<std::string, int32_t>>& out) const;
+    mutable std::unordered_map<uintptr_t, std::string> itemNames; // ItemData -> asset id; scans are serialized
 
 public:
 

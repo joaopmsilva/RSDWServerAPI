@@ -4,21 +4,21 @@
 #include <string>
 #include <vector>
 
-// Creature kills: UProgressComponent::OnAIKilled, the game's own "a creature
-// died, and this is who killed it", is hooked like chat is, and each kill a
-// player makes goes to the event feed as a "kill" event.
+// Creature kills, and what killed a player. Both come from a damage
+// component's FatalDamageInfo (KilledBy), read from memory on the init thread:
+// nothing is hooked or called on the game thread.
 namespace DomKills {
 
-// Every two seconds, from the init thread: finds the function (it can load
-// late) and hooks it once.
-void Poll();
-
-// Every two seconds while players are online: creatures that have died since
-// the last scan, from their damage component's FatalDamageInfo (KilledBy).
-// This catches kills the hook doesn't, when the game calls OnAIKilled directly.
+// Every tick while players are online: creatures that have died since the
+// last scan, pushed to the event feed as "kill" events.
 void Scan(const std::vector<DomEngine::PlayerInfo>& players);
 
-bool IsHooked();
+// What killed this player, from their pawn's damage component. cause is
+// "creature" (message: its class, then " boss" for a boss), "player"
+// (message: their name), "self" or "" when the game didn't say.
+void KillerOf(const DomEngine::PlayerInfo& victim, const std::vector<DomEngine::PlayerInfo>& players,
+              std::string& cause, std::string& message);
+
 const std::string& Status();
 
 }

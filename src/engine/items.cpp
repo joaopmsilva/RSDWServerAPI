@@ -162,7 +162,7 @@ bool GiveItem(const std::string& player, const std::string& item, int32_t count,
     uintptr_t controller = 0;
     std::string matched;
     std::string wanted = Lower(player);
-    for (const PlayerInfo& p : engine->GetAllPlayers()) {
+    for (const PlayerInfo& p : engine->GetAllPlayers(0)) {
         if (std::to_string(p.playerId) == player || Lower(p.uniqueNetId) == wanted ||
             Lower(p.characterGuid) == wanted || Lower(p.characterName) == wanted ||
             Lower(p.name) == wanted) {

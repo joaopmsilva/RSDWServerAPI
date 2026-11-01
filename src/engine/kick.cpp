@@ -53,7 +53,8 @@ bool Engine::KickPlayer(const std::string& identifier, const std::string& reason
         &PlayerInfo::name,
     };
 
-    std::vector<PlayerInfo> players = GetAllPlayers();
+    // Fresh: the controller found here is used on the game thread straight after.
+    std::vector<PlayerInfo> players = GetAllPlayers(0);
 
     uintptr_t controller = 0;
     std::string matched;
