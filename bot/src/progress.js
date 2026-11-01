@@ -170,6 +170,9 @@ export function deathCause(event) {
         case 'self':
             return 'a fall or the elements';
         case 'other': {
+            // KillZVolume: the engine's floor under the world - they fell out of it.
+            if (/KillZ/i.test(event.message || '')) return 'fell out of the world';
+            if (/PainCausing|Hazard|Water|Lava/i.test(event.message || '')) return `killed by the ${prettify(event.message).toLowerCase()}`;
             const what = prettify(event.message || '');
             return what ? `killed by ${what}` : '';
         }
