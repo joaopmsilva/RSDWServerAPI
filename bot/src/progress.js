@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
+import { questList } from './quest-list.js';
 
 // "Quest_FH_MirrorMirror" -> "Mirror Mirror", for when the game's own name
 // couldn't be read (mod 0.6.0 read only a few; 0.6.1 asks the game).
@@ -98,7 +99,9 @@ export function questName(q) {
     if (q.name) return q.name;
     if (QUEST_IDS[q.id]) return QUEST_IDS[q.id];
     const pretty = prettify(q.id);
-    return wikiTitles.get(squash(pretty)) || wikiTitles.get(squash(String(q.id).replace(/^Quest_/i, ''))) || pretty;
+    // The wiki's quest list (built in, so it works before the wiki has loaded), then its Quests category.
+    const listed = questList().find(t => squash(t.title) === squash(pretty));
+    return listed?.title || wikiTitles.get(squash(pretty)) || wikiTitles.get(squash(String(q.id).replace(/^Quest_/i, ''))) || pretty;
 }
 
 // Game quest ids that don't spell out their wiki name. From the asset folders
@@ -116,6 +119,9 @@ const QUEST_IDS = {
     Quest_DeathQuestMain: 'Withering Heights',
     Quest_DR_MainQuest: "Black Knight's Fortress",
     Quest_SW_MainQuest: 'Regicide',
+    Quest_UmS_MainQuest: "Icthlarin's Little Helper",
+    Quest_UMS_MappingTheSands: 'Mapping The Sands I',
+    Quest_UMS_MappingTheSands2: 'Mapping The Sands II',
     Quest_ElderGarou: 'A Room With A Garou',
     Quest_AMelodyRemebered: 'A Melody Remembered',
     Quest_GreatBodyRobbery: 'The Great Body Robbery',
