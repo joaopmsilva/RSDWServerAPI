@@ -1,5 +1,7 @@
 <div align="center">
 
+https://buymeacoffee.com/paradoxjs
+
 # 🐉 RSDWServerAPI
 
 ### Your _RuneScape: Dragonwilds_ server, alive in Discord.
