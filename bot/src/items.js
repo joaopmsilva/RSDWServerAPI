@@ -3,7 +3,7 @@ import path from 'node:path';
 import { api } from './api.js';
 import { config } from './config.js';
 import { logger } from './log.js';
-import { itemName } from './progress.js';
+import { gameItems, idItemName } from './progress.js';
 
 const log = logger('items');
 const REFRESH_MS = 10 * 60 * 1000;
@@ -36,21 +36,43 @@ async function refresh() {
 
 const words = s => s.replace(/_/g, ' ').replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2').trim();
 
+// The mod's /api/items only has asset ids; the in-game names, types and what
+// vestiges teach come from the game's files (progress.js, item-names.json).
+const GAME = gameItems;
+const sharedNames = new Set();
+{
+    const seen = new Set();
+    for (const n of Object.values(GAME.names)) (seen.has(n) ? sharedNames : seen).add(n);
+}
+
 // "ITEM_Resources_IronBar" -> { name: "Iron Bar", category: "Resources" }
+// "DA_Consumable_Vestige_Trinket_Amulet_of_Glory" -> { name: "Commemorative Coin", category: "Vestige · teaches Amulet of Glory" }
 export function describeItem(item) {
     const parts = item.name.replace(/^ITEM_/i, '').split('_').filter(Boolean);
-    parts.pop();
-    const name = itemName(item.name);
-    return { id: item.name, name, category: parts.map(words).join(' · '), maxStackSize: item.maxStackSize };
+    const last = parts.pop();
+    const guess = idItemName(item.name);
+    const name = GAME.names[item.name] || guess;
+    const kind = GAME.kinds[item.name];
+    let category = kind || parts.map(words).join(' · ');
+    if (GAME.teaches[item.name]) category = `${kind} · teaches ${GAME.teaches[item.name]}`;
+    // Several items share a name (ten "Dowdun Reach Letter"s): say which one.
+    else if (sharedNames.has(name) && last) category = `${category} · ${words(last)}`;
+    return { id: item.name, name, guess, category, maxStackSize: item.maxStackSize };
 }
+
+const matches = (i, q) =>
+    !q || i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q) ||
+    i.guess.toLowerCase().includes(q) || i.category.toLowerCase().includes(q);
 
 export async function itemChoices(query) {
     await refresh();
     const q = query.trim().toLowerCase();
     return cache.items
         .map(describeItem)
-        .filter(i => !q || i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .filter(i => matches(i, q))
+        // Names that start with what was typed first, then the rest, A-Z.
+        .sort((a, b) => (q ? Number(!a.name.toLowerCase().startsWith(q)) - Number(!b.name.toLowerCase().startsWith(q)) : 0) || a.name.localeCompare(b.name))
+        .slice(0, 25)
         .map(i => ({ name: `${i.name}${i.category ? ` (${i.category})` : ''}`.slice(0, 100), value: i.id.slice(0, 100) }));
 }
 
@@ -64,6 +86,7 @@ export async function findItem(query) {
         all.find(i => i.name.toLowerCase() === q) ||
         all.find(i => i.name.toLowerCase().startsWith(q)) ||
         all.find(i => i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q)) ||
+        all.find(i => matches(i, q)) ||
         null
     );
 }

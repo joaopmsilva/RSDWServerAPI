@@ -68,7 +68,23 @@ function orders(parts) {
     if (parts.length <= 1) return [parts];
     return parts.flatMap((p, i) => orders([...parts.slice(0, i), ...parts.slice(i + 1)]).map(rest => [p, ...rest]));
 }
+// The names the game shows for its items, each item's type and what each
+// vestige teaches, read from the game's files (item-names.json, game 1.0.2).
+// Ids often don't spell out the name ("Commemorative Coin" is
+// DA_Consumable_Vestige_Trinket_Amulet_of_Glory), so this comes first.
+export const gameItems = { names: {}, kinds: {}, teaches: {} };
+try {
+    Object.assign(gameItems, JSON.parse(fs.readFileSync(new URL('./item-names.json', import.meta.url), 'utf8')));
+} catch (err) {
+    console.warn(`item-names.json unreadable (${err.message}); item names come from their ids`);
+}
+
+// An item's in-game name, or one worked out from its id for items newer than item-names.json.
 export function itemName(id) {
+    return gameItems.names[id] || idItemName(id);
+}
+
+export function idItemName(id) {
     const all = String(id || '').replace(/^ITEM_/i, '').split('_').filter(Boolean);
     const kept = all.filter(p => !ID_FILING.test(p));
     const parts = (kept.length ? kept : all.slice(-1)).map(idWords);
