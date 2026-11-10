@@ -34,6 +34,48 @@ function skillsOf(list) {
     return Object.fromEntries((list || []).map(s => [s.skill, s.currentXP]));
 }
 
+// The DM sent to admins about a character that came back with more than it
+// left with. before: the snapshot it was compared against (its source).
+export function carryOverEmbed(flag, before) {
+    const away = flag.at - flag.awaySince;
+    const lines = list => {
+        const shown = list.slice(0, 15);
+        return shown.join('\n') + (list.length > shown.length ? `\n…and ${list.length - shown.length} more` : '');
+    };
+    const embed = new EmbedBuilder()
+        .setColor(0xe67e22)
+        .setTitle('🧳 Came back with more than they left with')
+        .setDescription(`**${escapeMarkdown(flag.name)}** rejoined after ${away > 0 ? formatDuration(away / 1000) : 'a while'} away, with things they didn't gain here.`)
+        .setFooter({ text: config.serverName })
+        .setTimestamp(flag.at);
+    if (flag.items.length) {
+        embed.addFields({
+            name: `🎒 Items (${flag.items.length})`,
+            value: lines(flag.items.map(i => `**+${fmt(i.now - i.had)}** ${escapeMarkdown(itemName(i.id))}${i.had ? `  ·  had ${fmt(i.had)}` : '  ·  new'}`)),
+        });
+    }
+    if (flag.skills.length) {
+        embed.addFields({
+            name: `📈 Skills (${flag.skills.length})`,
+            value: lines(flag.skills.map(s => `**${escapeMarkdown(skillName(s.skill))}** ${s.from === s.to ? `level ${s.to}` : `${s.from} → **${s.to}**`}  ·  +${fmt(s.xpTo - s.xpFrom)} xp`)),
+        });
+    }
+    if (flag.quests.length) {
+        embed.addFields({ name: `📜 Quests completed (${flag.quests.length})`, value: lines(flag.quests.map(id => escapeMarkdown(questName({ id })))) });
+    }
+    const notes = [];
+    if (before.source !== 'leave') {
+        notes.push(
+            before.source === 'history'
+                ? '⚠️ Compared with their skills as last recorded before this check existed, which can be up to a poll out of date.'
+                : '⚠️ Compared with a snapshot from up to a poll before they left (the server went down rather than them logging off), so a little of this may be ordinary play.',
+        );
+    }
+    if (!flag.itemsChecked) notes.push('Items weren\'t recorded last time, so only skills were checked.');
+    if (notes.length) embed.addFields({ name: 'Note', value: notes.join('\n') });
+    return embed;
+}
+
 // Characters live on players' PCs and travel between worlds, so one can leave,
 // gather on another server, and come back richer. Mod 0.9.0+ sends what a
 // character had when they left and what they came back with ("arrive", once
@@ -176,42 +218,7 @@ export class CarryOver {
     }
 
     async notify(flag, before) {
-        const away = flag.at - flag.awaySince;
-        const lines = list => {
-            const shown = list.slice(0, 15);
-            return shown.join('\n') + (list.length > shown.length ? `\n…and ${list.length - shown.length} more` : '');
-        };
-        const embed = new EmbedBuilder()
-            .setColor(0xe67e22)
-            .setTitle('🧳 Came back with more than they left with')
-            .setDescription(`**${escapeMarkdown(flag.name)}** rejoined after ${away > 0 ? formatDuration(away / 1000) : 'a while'} away, with things they didn't gain here.`)
-            .setFooter({ text: config.serverName })
-            .setTimestamp(flag.at);
-        if (flag.items.length) {
-            embed.addFields({
-                name: `🎒 Items (${flag.items.length})`,
-                value: lines(flag.items.map(i => `**+${fmt(i.now - i.had)}** ${escapeMarkdown(itemName(i.id))}${i.had ? `  ·  had ${fmt(i.had)}` : '  ·  new'}`)),
-            });
-        }
-        if (flag.skills.length) {
-            embed.addFields({
-                name: `📈 Skills (${flag.skills.length})`,
-                value: lines(flag.skills.map(s => `**${escapeMarkdown(skillName(s.skill))}** ${s.from === s.to ? `level ${s.to}` : `${s.from} → **${s.to}**`}  ·  +${fmt(s.xpTo - s.xpFrom)} xp`)),
-            });
-        }
-        if (flag.quests.length) {
-            embed.addFields({ name: `📜 Quests completed (${flag.quests.length})`, value: lines(flag.quests.map(id => escapeMarkdown(questName({ id })))) });
-        }
-        const notes = [];
-        if (before.source !== 'leave') {
-            notes.push(
-                before.source === 'history'
-                    ? '⚠️ Compared with their skills as last recorded before this check existed, which can be up to a poll out of date.'
-                    : '⚠️ Compared with a snapshot from up to a poll before they left (the server went down rather than them logging off), so a little of this may be ordinary play.',
-            );
-        }
-        if (!flag.itemsChecked) notes.push('Items weren\'t recorded last time, so only skills were checked.');
-        if (notes.length) embed.addFields({ name: 'Note', value: notes.join('\n') });
+        const embed = carryOverEmbed(flag, before);
 
         for (const id of config.adminUserIds) {
             try {

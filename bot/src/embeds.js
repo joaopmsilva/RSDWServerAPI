@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
-import { eventName, journalKinds, outOf, perkName, questChecklist, questName, questStats } from './progress.js';
+import { eventName, journalKinds, outOf, perkName, questChecklist, questName, questStats, wikiQuestCount } from './progress.js';
 import { questList } from './quest-list.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
@@ -67,7 +67,10 @@ function overviewPage(profile) {
     const quests = questStats(profile.player);
     const journal = profile.player.journal;
     const extra = [];
-    if (quests) extra.push(`📜 **Quests** \`${quests.done}${outOf(quests.done, 'quests')}\``);
+    if (quests) {
+        const list = wikiQuestCount(profile.player);
+        extra.push(`📜 **Quests** \`${list.done} / ${list.total}\``);
+    }
     if (journal?.total) extra.push(`📖 **Journal** \`${fmt(journal.total)}${outOf(journal.total, 'journal')}\``);
     if (extra.length) lines.push(extra.join('  ·  '));
     embed.setDescription(lines.join('\n'));
@@ -266,12 +269,13 @@ export function questsEmbed(profile) {
 }
 
 // The second card of /me: quests, journal, playtime and deaths.
-export function progressEmbed(profile, { playtime, deaths, kills }) {
+export function progressEmbed(profile, { playtime, deaths, kills, penguins }) {
     const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Progress');
     const quests = questStats(profile.player);
     if (quests) {
-        const split = [quests.main && `${quests.main} main`, quests.side && `${quests.side} side`, quests.tasks && `${quests.tasks} tasks`].filter(Boolean);
-        embed.addFields({ name: '📜 Quests done', value: `**${quests.done}${outOf(quests.done, 'quests')}**${split.length ? `\n${split.join(' · ')}` : ''}`, inline: true });
+        const list = wikiQuestCount(profile.player);
+        const split = [`${list.main} main`, `${list.side} side`];
+        embed.addFields({ name: '📜 Quests done', value: `**${list.done} / ${list.total}**\n${split.join(' · ')}`, inline: true });
         if (quests.active.length) {
             const names = quests.active.slice(0, 6).map(q => `• ${questName(q)}`);
             if (quests.active.length > 6) names.push(`…and ${quests.active.length - 6} more · \`/quests\``);
@@ -287,6 +291,7 @@ export function progressEmbed(profile, { playtime, deaths, kills }) {
     }
     if (kills?.total) embed.addFields({ name: '⚔️ Kills', value: `${fmt(kills.week)} this week\n${fmt(kills.total)} in total`, inline: true });
     if (deaths) embed.addFields({ name: '💀 Deaths', value: `${deaths.week} this week\n${deaths.total} in total`, inline: true });
+    if (penguins?.total) embed.addFields({ name: '🐧 Penguins', value: `${fmt(penguins.week)} this week\n${fmt(penguins.total)} in total`, inline: true });
     if (!embed.data.fields?.length) embed.setDescription('Nothing recorded yet.');
     return embed;
 }
@@ -592,6 +597,20 @@ export function killBoardEmbed(rows, page = 0) {
         .setTitle('⚔️ Kill leaderboard')
         .setDescription(lines.join('\n') || 'No kills counted yet - they count from mod 0.7.0 on.')
         .setFooter({ text: (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page  ·  ` : '') + 'Creatures killed, all time' })
+        .setTimestamp();
+}
+
+export function penguinBoardEmbed(rows, page = 0) {
+    const pages = Math.max(1, Math.ceil(rows.length / LEADERBOARD_PAGE_SIZE));
+    page = Math.min(Math.max(0, page), pages - 1);
+    const lines = rows
+        .slice(page * LEADERBOARD_PAGE_SIZE, (page + 1) * LEADERBOARD_PAGE_SIZE)
+        .map((r, i) => `${place(page * LEADERBOARD_PAGE_SIZE + i)} **${r.name}** ${fmt(r.total)} penguin${r.total === 1 ? '' : 's'}${r.recent ? ` · ${fmt(r.recent)} this week` : ''}`);
+    return new EmbedBuilder()
+        .setColor(0x2c3e50)
+        .setTitle('🐧 Penguin hunters')
+        .setDescription(lines.join('\n') || 'No penguins found yet. Over 200 Killer Gentoo Penguins are hiding across Ashenfall - spot one and interact with it.')
+        .setFooter({ text: (pages > 1 ? `Page ${page + 1}/${pages}  ·  ◀️ ▶️ to change page  ·  ` : '') + 'Penguins collected, all time · they respawn every 7 in-game days' })
         .setTimestamp();
 }
 
@@ -940,6 +959,7 @@ export function helpEmbed() {
                     '`/leaderboard skill mining` · any one skill',
                     '`/leaderboard quests` · most quests done',
                     '`/leaderboard kills` · most creatures killed',
+                    '`/leaderboard penguins` · most penguins found 🐧',
                     '`/playtime` · `/deaths` · `/gains` · most played, most deaths, most XP',
                 ].join('\n'),
             },

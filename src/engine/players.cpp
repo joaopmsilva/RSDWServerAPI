@@ -41,6 +41,14 @@ bool ReadArray(uintptr_t address, FUEArray& out, int32_t maxCount) {
     return out.Data && out.Num > 0 && out.Num <= maxCount;
 }
 
+// A field's offset from the game's own type information, or the SDK's when
+// reflection can't find it. Game updates move fields (1.0.2 moved the player
+// character's components), so the SDK value is only a last resort.
+uintptr_t FieldOffset(const char* type, const char* field, uintptr_t sdk) {
+    int32_t offset = Reflect::Offset(type, field);
+    return offset >= 0 ? (uintptr_t)offset : sdk;
+}
+
 }
 
 void Engine::ReadAttributeArrays(uintptr_t attributesComponent, uintptr_t attributesOffset,
@@ -67,7 +75,8 @@ void Engine::ReadAttributeArrays(uintptr_t attributesComponent, uintptr_t attrib
             info.name.erase(info.name.size() - suffix.size());
         }
         info.value = ((float*)values.Data)[i];
-        info.baseValue = Mem::ReadFloat(attribute + Offsets::FloatAttribute_BaseValue);
+        info.baseValue = Mem::ReadFloat(attribute +
+            FieldOffset("FloatAttribute", "BaseValue", Offsets::FloatAttribute_BaseValue));
         info.shared = shared;
         out.push_back(info);
     }
@@ -76,19 +85,26 @@ void Engine::ReadAttributeArrays(uintptr_t attributesComponent, uintptr_t attrib
 void Engine::ReadHealthAndAttributes(PlayerInfo& info) const {
     if (!IsA(info.pawnPtr, "DominionPlayerCharacter")) return;
 
-    uintptr_t health = Mem::ReadPtr(info.pawnPtr + Offsets::DomPlayerChar_HealthComponent);
-    if (!health || !Mem::Readable((void*)health, 0x1B8)) return;
+    uintptr_t health = Mem::ReadPtr(info.pawnPtr + FieldOffset("DominionPlayerCharacter",
+        "HealthComponent", Offsets::DomPlayerChar_HealthComponent));
+    if (health && Mem::Readable((void*)health, 0x148)) {
+        info.canDie = Mem::ReadU8(health +
+            FieldOffset("HealthComponent", "bCanDie", Offsets::Health_bCanDie)) != 0;
+    }
 
-    info.canDie = Mem::ReadU8(health + Offsets::Health_bCanDie) != 0;
+    uintptr_t attributesComponent = Mem::ReadPtr(info.pawnPtr + FieldOffset("DominionPlayerCharacter",
+        "AttributesComponent", Offsets::DomPlayerChar_AttributesComponent));
+    if (!attributesComponent || !Mem::Readable((void*)attributesComponent, 0x110)) return;
 
-    uintptr_t attributesComponent =
-        Mem::ReadPtr(info.pawnPtr + Offsets::DomPlayerChar_AttributesComponent);
-    if (!attributesComponent || !Mem::Readable((void*)attributesComponent, 0x1B8)) return;
-
-    ReadAttributeArrays(attributesComponent, Offsets::Attributes_FloatAttributes,
-                        Offsets::Attributes_AttributeValues, false, info.attributes);
-    ReadAttributeArrays(attributesComponent, Offsets::Attributes_SharedFloatAttributes,
-                        Offsets::Attributes_SharedAttributeValues, true, info.attributes);
+    const char* component = "DominionAttributesComponent";
+    ReadAttributeArrays(attributesComponent,
+                        FieldOffset(component, "FloatAttributes", Offsets::Attributes_FloatAttributes),
+                        FieldOffset(component, "AttributeValues", Offsets::Attributes_AttributeValues),
+                        false, info.attributes);
+    ReadAttributeArrays(attributesComponent,
+                        FieldOffset(component, "SharedFloatAttributes", Offsets::Attributes_SharedFloatAttributes),
+                        FieldOffset(component, "SharedAttributeValues", Offsets::Attributes_SharedAttributeValues),
+                        true, info.attributes);
 
     for (const AttributeInfo& attribute : info.attributes) {
         if (attribute.name == "Health") {
@@ -106,7 +122,8 @@ void Engine::ReadSkills(PlayerInfo& info) const {
     if (!info.controllerPtr) return;
     if (!IsA(info.controllerPtr, "DominionPlayerControllerBase")) return;
 
-    uintptr_t skills = Mem::ReadPtr(info.controllerPtr + Offsets::DomPlayerController_SkillComponent);
+    uintptr_t skills = Mem::ReadPtr(info.controllerPtr + FieldOffset("DominionPlayerControllerBase",
+        "SkillComponent", Offsets::DomPlayerController_SkillComponent));
     if (!skills || !Mem::Readable((void*)skills, 0x210)) return;
 
     FUEArray list = {};

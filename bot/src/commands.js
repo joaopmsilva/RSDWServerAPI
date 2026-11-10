@@ -24,14 +24,15 @@ import {
     progressEmbed,
     questLeaderboardEmbed,
     killBoardEmbed,
+    penguinBoardEmbed,
     killsEmbed,
     questsEmbed,
 } from './embeds.js';
-import { questStats } from './progress.js';
+import { questStats, wikiQuestCount } from './progress.js';
 import { logger } from './log.js';
 import { normEmoji } from './menus.js';
 import { catalogSkill, describeSkills, findSkill } from './skills.js';
-import { deathBoard, gainsFor, killBoard, playtimeBoard, topGainers } from './stats.js';
+import { deathBoard, gainsFor, killBoard, penguinBoard, playtimeBoard, topGainers } from './stats.js';
 import { PlayerStore } from './store.js';
 import { findItem, itemsKnown } from './items.js';
 import { wikiInfo } from './wiki.js';
@@ -163,7 +164,7 @@ function rankings(ctx, skill) {
             rows.push({ ...row, level: s.info.level, xp: s.xp });
         } else {
             if (!skills.length) continue;
-            const quests = questStats(player);
+            const quests = questStats(player) && wikiQuestCount(player);
             rows.push({
                 ...row,
                 level: skills.reduce((n, s) => n + s.info.level, 0),
@@ -181,7 +182,7 @@ function questRankings(ctx) {
     const rows = [];
     for (const player of ctx.store.all()) {
         if (ctx.history?.isHidden(PlayerStore.key(player))) continue;
-        const quests = questStats(player);
+        const quests = questStats(player) && wikiQuestCount(player);
         if (!quests?.done) continue;
         rows.push({ player, online: online.has(PlayerStore.key(player)), done: quests.done, main: quests.main });
     }
@@ -190,8 +191,12 @@ function questRankings(ctx) {
 
 export const QUESTS_BOARD = 'quests';
 
-// board: total, skill (with skillQuery), quests or kills.
+// board: total, skill (with skillQuery), quests, kills or penguins.
 async function leaderboard(ctx, board, skillQuery) {
+    if (board === 'penguins') {
+        const rows = penguinBoard(ctx);
+        return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => penguinBoardEmbed(rows, page));
+    }
     if (board === 'kills') {
         const rows = killBoard(ctx);
         return paged(rows.length, LEADERBOARD_PAGE_SIZE, page => killBoardEmbed(rows, page));
@@ -251,7 +256,7 @@ async function me(ctx, user) {
         reply: {
             embeds: [
                 renderPlayerPage(profile, 'overview'),
-                progressEmbed(profile, { playtime: ctx.history.playtime(key), deaths: ctx.history.deaths(key), kills: ctx.history.kills(key) }),
+                progressEmbed(profile, { playtime: ctx.history.playtime(key), deaths: ctx.history.deaths(key), kills: ctx.history.kills(key), penguins: ctx.history.penguins(key) }),
             ],
         },
     };

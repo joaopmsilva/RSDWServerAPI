@@ -26,7 +26,8 @@ export const definitions = [
                 .addStringOption(o => o.setName('skill').setDescription('e.g. mining or wc').setRequired(true).setAutocomplete(true)),
         )
         .addSubcommand(s => s.setName('quests').setDescription('By quests done'))
-        .addSubcommand(s => s.setName('kills').setDescription('By creatures killed')),
+        .addSubcommand(s => s.setName('kills').setDescription('By creatures killed'))
+        .addSubcommand(s => s.setName('penguins').setDescription('By penguins found')),
     new SlashCommandBuilder()
         .setName('kills')
         .setDescription('Creatures killed - the leaderboard, or one player')

@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.13.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.14.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -30,11 +30,11 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | Command | |
 | ------- | - |
 | 📊 **`/levels`** `player` | Every skill by category, total level and max health |
-| 🏆 **`/leaderboard`** `total` · `skill` · `quests` · `kills` | Top players by total level (with quests done), by XP in one skill, by quests done, or by creatures killed |
+| 🏆 **`/leaderboard`** `total` · `skill` · `quests` · `kills` · `penguins` | Top players by total level (with quests done), by XP in one skill, by quests done, by creatures killed, or by 🐧 penguins found (game 1.0.2's penguin hunt, mod 0.10.0+; each penguin counts once per character) |
 | ⚔️ **`/kills`** `[player]` | Creatures killed - the leaderboard, or one player: today, this week, all time and their most killed (named as on the wiki) |
 | 📜 **`/quests`** `[player]` | What's left of the wiki's quest list, by region, what's in progress and where the next main quest starts - your own when linked |
 | ✨ **`/perks`** `player` | Their active skill perks, by skill |
-| 🙋 **`/me`** | Everything about your linked character: skills, quests done and in progress, journal, playtime, deaths |
+| 🙋 **`/me`** | Everything about your linked character: skills, quests done and in progress, journal, playtime, kills, deaths and penguins |
 | 🔗 **`/link`** 🔒 · **`/unlink`** 🔒 | Link your Discord to your character - see [Account linking](#-account-linking) |
 | 🔔 **`/alerts`** 🔒 | Turn raid and hunt DMs on or off |
 | 📈 **`/gains`** `[player]` `[period]` | Who gained the most XP, or one player skill by skill |

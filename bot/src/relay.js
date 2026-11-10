@@ -122,6 +122,7 @@ export class Relay {
             if (e.type === 'join' || e.type === 'leave') this.activity?.presence(e);
             if (e.type === 'death') this.activity?.death(e);
             if (e.type === 'kill') this.activity?.kill(e);
+            if (e.type === 'penguin') this.activity?.penguin(e);
             if (e.type === 'afk') this.activity?.afk(e);
             // Mod 0.9.0+: what a character left with, and came back with.
             if (e.type === 'leave') this.carryOver?.leave(e);

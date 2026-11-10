@@ -2,24 +2,82 @@
 
 # 🐉 RSDWServerAPI
 
-**A server mod and Discord bot for _RuneScape: Dragonwilds_ dedicated servers on Linux.**
+### Your _RuneScape: Dragonwilds_ server, alive in Discord.
 
-Live player stats, two-way chat, leaderboards, server control and alerts - all from Discord.
+**A server mod and a Discord bot for Dragonwilds dedicated servers on Linux.**<br>
+Live skills and leaderboards, two-way chat, death and quest feeds, a 🐧 **penguin hunt leaderboard**,
+raid alerts, anti-cheese checks and full server control, all from your Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.9.1-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.13.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.10.0-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.14.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Game](https://img.shields.io/badge/Dragonwilds-1.0.2-c9a227?style=for-the-badge)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
-![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
 
-[**Features**](#-features) · [**Screenshots**](#-screenshots) · [**How it works**](#-how-it-works) · [**Quick start**](#-quick-start) · [**Discord bot**](bot/README.md) · [**Full setup guide**](DEPLOY.md) · [**API reference**](#-rest-api)
+[**🐧 Penguins**](#-new-in-102-the-penguin-hunt-leaderboard) · [**Features**](#-features) · [**Screenshots**](#-screenshots) · [**How it works**](#-how-it-works) · [**Quick start**](#-quick-start) · [**Discord bot**](bot/README.md) · [**Setup guide**](DEPLOY.md) · [**API**](#-rest-api)
 
 <br>
 
 <img src="bot/docs/screenshots/status-board.png" width="49%" alt="The live status board: online, how to join, who's playing, top XP today">
-<img src="bot/docs/screenshots/levels.png" width="49%" alt="/levels: a player's skills by category with total level and XP">
+<img src="bot/docs/screenshots/me.png" width="49%" alt="/me: skills, quests, journal, playtime, kills, deaths and penguins">
 
 </div>
+
+> [!NOTE]
+> **No client mod needed.** Everything runs on the server. Players join as usual and the bot does
+> the rest. (The optional longer chest range is the one exception, and it ships with a one-click installer.)
+
+---
+
+## 🐧 New in 1.0.2: the penguin hunt leaderboard
+
+<table>
+<tr>
+<td width="52%" valign="top">
+
+Patch 1.0.2 let **over 200 Killer Gentoo Penguins** loose across Ashenfall. Spot one and interact
+with it, and it flees and leaves you a **Penguin Coin** for the new shop in Bramblemead. They come
+back in fresh spots every **7 in-game days**.
+
+**Now your server can see who's the best penguin hunter.**
+
+- 🏆 **`/leaderboard penguins`**: everyone ranked by penguins found, with this week's haul
+- 🙋 **`/me`**: your own penguin count next to your kills, deaths and playtime
+- 🔁 **Fair counting**: each penguin counts **once per character**, so re-reporting after a
+  restart or the same penguin twice never inflates a score
+- 🕰️ **Catches up**: after the mod loads, it credits penguins already found this cycle
+
+</td>
+<td width="48%" valign="top">
+
+<img src="bot/docs/screenshots/penguins.png" alt="/leaderboard penguins: the top penguin hunters with medals and this week's count">
+
+</td>
+</tr>
+</table>
+
+<details>
+<summary><b>🔍 How the penguin tracking works</b></summary>
+
+<br>
+
+The game keeps the hunt on the server. Every penguin is an actor that remembers its **spawn slot**
+and a list of the **characters that have collected it** (`CollectedByPlayerIds`). The penguin
+system also keeps the time the current cycle ends.
+
+1. Every **10 seconds** while someone is online, the mod walks the penguins on the map and reads
+   who has collected each one. It only reads memory: nothing is hooked or called on the game thread.
+2. Each new *(penguin, character)* pair goes out on the event feed as a `penguin` event. The
+   penguin's id is its **spawn slot plus the cycle**, so it stays the same across restarts and
+   changes when the penguins respawn.
+3. The bot credits the character, keeping each penguin id once per character. Repeats are ignored.
+   Counts live in the bot's history next to kills and deaths, and survive server restarts.
+
+Every field is looked up **by name** in the game's own type information, so game updates that
+move things around don't break it. `/api/diagnostics` shows how many penguins are out and how
+often they've been collected.
+
+</details>
 
 ---
 
@@ -31,16 +89,16 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 
 ### 🎮 In Discord
 
-- **`/levels`, `/level`** - any player's skills, live or from the last time they were seen
-- **`/leaderboard`** - total level, any skill, quests done or kills, 🥇🥈🥉
-- **`/kills`** - creatures killed, and which ones most
-- **`/me`** - everything about your own character: skills, quests, journal, playtime
-- **`/quests`** - quests still to do, by region, from the wiki's list · **`/perks`** - active skill perks
-- **🔗 One-click account linking** - press a button, type a short code in game
-- **`/gains`** - who gained the most XP today, this week or this month
-- **`/playtime`, `/deaths`** - most played, most deaths
-- **`/status`** - is it up, who is on, the world and the time in game
-- **`/item`** - any item with its wiki summary, picture and stats
+- **`/levels`**: any player's skills, live or from when they were last seen
+- **`/leaderboard`**: total level, any skill, quests, kills or 🐧 penguins, with 🥇🥈🥉
+- **`/me`**: your character's skills, quests, journal, playtime, kills, deaths and penguins
+- **`/quests`**: what's **left** on the wiki's quest list, by region, plus your next main quest
+- **`/kills`**: creatures killed, and which ones most · **`/perks`**: active skill perks
+- **`/gains`**: who gained the most XP today, this week or this month
+- **`/playtime`, `/deaths`**: most played, most deaths
+- **`/status`**: is it up, who's on, and the world
+- **`/item`**: any item with its wiki summary, picture and stats
+- **🔗 One-click account linking**: press a button, type a short code in game
 - Player and skill names **auto-fill** as you type
 
 </td>
@@ -48,15 +106,15 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 
 ### 💬 Live in your channels
 
-- **Two-way chat** - game chat in Discord, Discord messages in game
-- **Level-ups** 🎉, ⭐ 99 celebrations and 📜 completed quests
-- **Joins, leaves and deaths**, with what killed them - "killed by a Giant Rat"
-- **Server notices** - online, offline, restarting, backups
-- **Raid and hunt alerts** ⚔️ - by DM to linked players who turn them on
-- **Weekly recap** every Sunday: top gainers, new 99s, most played
-- **Live status board** - one self-updating message with how to join, who's on and the world
-- **A tidy commands channel** - cleared every few minutes, so the pinned command list is always in view
-- **Game update watcher** - warns when Steam has a new server build, then backs up, updates and restarts by itself
+- **Two-way chat**: game chat in Discord, Discord messages in game
+- **Deaths with the cause**: *"killed by the boss Elder Garou"*, *"fell out of the world"*
+- **Level-ups** 🎉, ⭐ **99 celebrations** and 📜 **completed quests**
+- **Joins and leaves**, with how long they played
+- **Raid and hunt alerts** ⚔️, sent by DM to linked players who turn them on
+- **Weekly recap** every Sunday: top gainers, new 99s, most played, most deaths
+- **Live status board**: one self-updating message with how to join, who's on and top XP today
+- **Server notices**: restart warnings, back online, backups
+- **Game update watcher**: spots a new Steam build, then backs up, updates and restarts by itself
 - The bot's status shows `🟢 3/16 players online`
 
 </td>
@@ -66,16 +124,16 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 
 ### 🛡️ For admins
 
-- **`/server`** start, stop, restart (with player warnings), back up, list and restore backups
-- **`/admin`** kick, ban, unban, give items, announce
-- **Leaderboard cleanup** - remove a player and their stats
-- **Private alerts** for crashes, high CPU / RAM / disk, and mod problems after a game update
-- **`/admin performance`** - tick rate, stalls and their causes, CPU per thread and pings, measured on the spot
+- **🧳 Carry-over alerts**: a private DM when a character comes back from another world with
+  items, XP or quests it didn't get here, past thresholds lag can't explain
+- **📈 `/admin performance`**: tick rate, stalls and their causes, CPU per thread, memory and
+  pings, measured on the spot
+- **`/server`**: start, stop, restart (with player warnings), back up, list and restore backups
+- **`/admin`**: kick, ban, unban, give items, announce, remove a player from the boards
+- **Private alerts** for crashes, high CPU, RAM or disk, and anything a game update broke
+- **📦 Longer linked-chest range** (3× by default), plus a one-click Windows installer for the
+  matching client mod, pinned in Discord
 - **AFK kick** with a warning first, optionally only when the server is full
-- **Carry-over alerts** 🧳 - a DM when a character comes back with items, XP or quests it didn't
-  get here (characters travel between worlds), past thresholds that lag can't explain
-- **Longer linked-chest range** - the server side of client mods like ChestLink, plus a
-  one-click installer for players pinned in Discord
 - In-game `/kick`, `/ban`, `/give` for the game's own admins
 
 </td>
@@ -83,13 +141,17 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 
 ### ⚙️ Under the hood
 
+- **Update-resistant**: fields are found by name in the game's own type information, with
+  scanning fallbacks, so a patch that moves things around rarely needs a new build
+- **Self-checking**: `/api/diagnostics` says exactly what a game update broke instead of
+  serving nonsense, and the bot DMs admins about it
+- **Light on the server**: the mod uses about **3% of one core**, and reads memory instead of
+  running code on the game thread
+- **Events the moment they happen**: chat, joins, deaths, kills and penguins reach Discord instantly
 - **REST API** and optional **Source RCON**, each with its own auth, IP whitelist and rate limits
-- **Self-checking** - every offset is validated at runtime, and `/api/diagnostics` reports
-  what a game update broke instead of serving nonsense
-- **Saves the world before every backup**, so a backup is never a half-written file
-- **Events pushed the moment they happen** - chat, joins and deaths reach Discord instantly
+- **Saves the world before every backup**, so a backup is never half-written
 - **Bans that survive restarts**, offline players by SteamID64
-- **One-command updates** from your PC - the bot updates without touching the server
+- **One-command updates** from your PC; the bot updates without touching the server
 
 </td>
 </tr>
@@ -103,14 +165,30 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**🏆 Leaderboards** · by total level, any skill or quests, online players marked
+**🏆 Leaderboards**: total level, any skill, quests, kills, penguins
 
 <img src="bot/docs/screenshots/leaderboard.png" alt="/leaderboard: top players by total level with medals">
 
 </td>
 <td width="50%" valign="top">
 
-**🎉 Live activity** · joins, leaves, AFK kicks, level-ups and 99s as they happen
+**📊 `/levels`**: every skill by category, with progress to the next level
+
+<img src="bot/docs/screenshots/levels.png" alt="/levels: a player's skills by category with total level and XP">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**💀 Deaths and 📜 quests**: what killed them, and every quest finished
+
+<img src="bot/docs/screenshots/deaths-quests.png" alt="Death messages with their cause, and quest-complete messages">
+
+</td>
+<td width="50%" valign="top">
+
+**🎉 Live activity**: joins, leaves, AFK kicks, level-ups and 99s as they happen
 
 <img src="bot/docs/screenshots/activity.png" alt="Join, level-up, level 99, leave and AFK kick messages">
 
@@ -119,46 +197,46 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**🐉 `/status`** · who is on and the world
+**📜 `/quests`**: what's left, by region, and where to start next
 
-<img src="bot/docs/screenshots/status.png" alt="/status: online, players and the world">
-
-</td>
-<td width="50%" valign="top">
-
-**⏱️ Playtime and gains** · who played most, who gained most
-
-<img src="bot/docs/screenshots/stats.png" alt="/playtime and /gains">
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**📅 Weekly recap** · every Sunday evening
-
-<img src="bot/docs/screenshots/weekly-recap.png" alt="The weekly recap: top XP gainers, new 99s, most played, deaths">
+<img src="bot/docs/screenshots/quests.png" alt="/quests: quests left by region and the next main quest">
 
 </td>
 <td width="50%" valign="top">
 
-**🎒 Item lookup** · straight from the wiki
+**⚔️ Kills**: the kill board, and each player's favourite prey
 
-<img src="bot/docs/screenshots/item.png" alt="/item: an item's wiki summary, picture and stats">
+<img src="bot/docs/screenshots/kills.png" alt="/leaderboard kills and /kills">
 
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 
-**🙋 `/me`** · your linked character: skills, quests, journal, playtime
+**🧳 Carry-over alert** (admins only): who came back from another world richer
 
-<img src="bot/docs/screenshots/me.png" alt="/me: skills, quests done and in progress, journal, playtime and deaths">
+<img src="bot/docs/screenshots/carry-over.png" alt="A carry-over DM: items, skills and quests gained on another server">
 
 </td>
 <td width="50%" valign="top">
 
-**🔗 One-click linking** · a button, a short code typed in game, done
+**📈 `/admin performance`**: is the server keeping up, and if not, why
+
+<img src="bot/docs/screenshots/performance.png" alt="/admin performance: ticks, stalls, CPU, VPS and players">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**⚔️ Raid and hunt alerts**: by DM, for players who turn them on
+
+<img src="bot/docs/screenshots/raid-alerts.png" alt="Raid and hunted alerts with pings, and the raid-over update">
+
+</td>
+<td width="50%" valign="top">
+
+**🔗 One-click linking**: a button, a short code typed in game, done
 
 <img src="bot/docs/screenshots/link.png" alt="The link card with buttons, the private code and the confirmation">
 
@@ -167,41 +245,57 @@ Live player stats, two-way chat, leaderboards, server control and alerts - all f
 <tr>
 <td width="50%" valign="top">
 
-**⚔️ Raid and hunt alerts** · by DM, for players who turn them on
+**⏱️ Playtime and gains**: who played most, who gained most
 
-<img src="bot/docs/screenshots/raid-alerts.png" alt="Raid and hunted alerts with pings, and the raid-over update">
+<img src="bot/docs/screenshots/stats.png" alt="/playtime and /gains">
 
 </td>
 <td width="50%" valign="top">
 
-**📜 Quests, ⚔️ kills and ✨ perks** · quests, the quest and kill boards, skill perks
+**📅 Weekly recap**: every Sunday evening
 
-<img src="bot/docs/screenshots/quests.png" alt="/quests">
-<img src="bot/docs/screenshots/quest-leaderboard.png" alt="/leaderboard quests">
-<img src="bot/docs/screenshots/kills.png" alt="/leaderboard kills and /kills">
-<img src="bot/docs/screenshots/perks.png" alt="/perks">
+<img src="bot/docs/screenshots/weekly-recap.png" alt="The weekly recap: top XP gainers, new 99s, most played, deaths">
 
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 
-**🔄 Server notices** · players warned before restarts, told when it's back
+**📦 Longer chest range**: the how-to card, with the installer attached
 
-<img src="bot/docs/screenshots/notices.png" alt="Restart warning and back-online notices">
+<img src="bot/docs/screenshots/chest-range.png" alt="The chest range card: download, install, play, remove">
 
 </td>
 <td width="50%" valign="top">
 
-**📖 Every command** · in `/help`, pinned in your chat channel
+**🐉 `/status`** and **🎒 `/item`**: who's on, and any item from the wiki
 
+<img src="bot/docs/screenshots/status.png" alt="/status: online, players and the world">
+<img src="bot/docs/screenshots/item.png" alt="/item: an item's wiki summary, picture and stats">
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**🏅 Quest board** and **✨ `/perks`**
+
+<img src="bot/docs/screenshots/quest-leaderboard.png" alt="/leaderboard quests">
+<img src="bot/docs/screenshots/perks.png" alt="/perks">
+
+</td>
+<td width="50%" valign="top">
+
+**🔄 Server notices** and **📖 `/help`**
+
+<img src="bot/docs/screenshots/notices.png" alt="Restart warning and back-online notices">
 <img src="bot/docs/screenshots/help.png" alt="/help: the command list">
 
 </td>
 </tr>
 </table>
 
-<sub>Sample players. Rendered from the bot's own embed code by <a href="bot/docs/screenshots/generate.mjs"><code>bot/docs/screenshots/generate.mjs</code></a>, so they stay true to what the bot posts.</sub>
+<sub>Sample players. Rendered from the bot's own embed code by <a href="bot/docs/screenshots/generate.mjs"><code>bot/docs/screenshots/generate.mjs</code></a>, so they match what the bot posts.</sub>
 
 ---
 
@@ -223,10 +317,10 @@ flowchart LR
 
 | Part | What it is |
 | ---- | ---------- |
-| **The mod** · `librsdwapi.so` | Loaded into the game server with `LD_PRELOAD`. Reads players straight from the game's memory and serves them over a local REST API, plus a chat, death, join and leave feed. |
-| **The bot** · [`bot/`](bot/) | Runs next to the server as its own service and talks to the API. Keeps running when the server is down, and keeps everyone's last known stats. |
+| **The mod** · `librsdwapi.so` | Loaded into the game server with `LD_PRELOAD`. Reads players, quests, kills and penguins straight from the game's memory and serves them over a local REST API, plus a live event feed (chat, joins, leaves, deaths, kills, penguins). |
+| **The bot** · [`bot/`](bot/) | Runs next to the server as its own service and talks to the API. Keeps running while the server is down, and remembers everyone's last known stats. |
 
-Updating the bot never needs a server restart. A new mod build is picked up at the next server start.
+Updating the bot never needs a server restart. A new mod build loads at the next server start.
 
 ---
 
@@ -274,7 +368,7 @@ npm start
 
 ## 🧪 Compatibility
 
-Built against the Dragonwilds **Patch 1.0** Linux dedicated server. The mod reads the game's
+Built against the Dragonwilds **Patch 1.0.2** Linux dedicated server (and working since 1.0). The mod reads the game's
 memory, so a game update can move things it depends on. When that happens it says so instead of
 guessing: affected endpoints answer `503`, the log names what failed, `/api/diagnostics` (and the
 bot's private alert to admins) lists the broken checks, and some lookups fall back to scanning
@@ -522,7 +616,7 @@ Health and max health come from the character's attributes component, not from
 
 <br/>
 
-In-game chat, player deaths, joins, leaves and AFK kicks, oldest first. Pass the last `id` you have
+In-game chat, player deaths, joins, leaves, AFK kicks, creature kills and penguins collected, oldest first. Pass the last `id` you have
 seen as `?since=` to get only newer events; `?limit=` caps the count (default 100, max 500). The
 last 500 events are kept in memory. With `?wait=N` (up to 25) the request is held open until an
 event arrives or N seconds pass, so a reader hears about it at once instead of polling.
@@ -538,13 +632,20 @@ event arrives or N seconds pass, so a reader hears about it at once instead of p
       "characterGuid": "", "playerId": 0, "message": "", "location": "10360, 186410, -3070",
       "cause": "", "players": -1 },
     { "id": 43, "time": 1793042799000, "type": "join", "name": "Adventurer", "netId": "7656...",
-      "characterGuid": "", "playerId": 0, "message": "", "location": "", "cause": "", "players": 3 }
+      "characterGuid": "", "playerId": 0, "message": "", "location": "", "cause": "", "players": 3 },
+    { "id": 44, "time": 1793042860000, "type": "penguin", "name": "Adventurer", "netId": "7656...",
+      "characterGuid": "52AA01E4...", "playerId": 256, "message": "9F3C21A0...-638991360000000000",
+      "location": "", "cause": "BP_Penguin_C", "players": -1 }
   ]
 }
 ```
 
-`cause` on a death is the game's own event tag when the death came from one (empty when it was
-spotted from the player's health). `players` on a join or leave is how many are online after it.
+`cause` on a death says what killed them (`creature`, `player`, `self` or `other`, with the
+creature's class or the player's name in `message`). A `kill` has the creature's class in `cause`.
+A `penguin` (mod 0.10.0+) is one character collecting one penguin: `characterGuid` is the
+character, `message` the penguin's id (its spawn slot and the cycle, the same across restarts) and
+`cause` its class. The first scan after a start reports every collection still on the map, so
+count each penguin id once per character. `players` on a join or leave is how many are online after it.
 Ids restart at 1 when the server restarts; `bootId` changes at the same time, so a reader knows
 to start over from `since=0`.
 

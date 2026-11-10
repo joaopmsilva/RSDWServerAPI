@@ -20,13 +20,14 @@ export const PERIODS = {
 //   playtime  { key: { total, days: { day: seconds } } }
 //   deaths    { key: { total, days: { day: count } } }
 //   kills     { key: { total, days: { day: count }, creatures: { name: count } } }
+//   penguins  { key: { total, days: { day: count }, ids: { penguin id: ms } } } - each penguin counted once
 //   milestones [{ key, skill, level, at }]      - 99s, for the weekly recap
 //   names     { key: display name }
 // Kept in data/history.json; day entries older than five weeks are dropped.
 export class History {
     constructor(dir) {
         this.file = path.join(dir, 'history.json');
-        this.data = { version: 1, xp: {}, playtime: {}, deaths: {}, kills: {}, milestones: [], names: {}, hidden: [], lastSummary: '' };
+        this.data = { version: 1, xp: {}, playtime: {}, deaths: {}, kills: {}, penguins: {}, milestones: [], names: {}, hidden: [], lastSummary: '' };
         this.dirty = false;
         try {
             Object.assign(this.data, JSON.parse(fs.readFileSync(this.file, 'utf8')));
@@ -91,6 +92,25 @@ export class History {
         this.dirty = true;
     }
 
+    // A penguin collected (1.0.2's penguin hunting). Each penguin counts once
+    // per character, so the mod can report the same one again after a restart.
+    // false when it was already counted.
+    addPenguin(key, id, at = Date.now()) {
+        const entry = (this.data.penguins[key] ||= { total: 0, days: {}, ids: {} });
+        if (id && entry.ids[id]) return false;
+        if (id) entry.ids[id] = at;
+        const day = dayKey(at);
+        entry.total += 1;
+        entry.days[day] = (entry.days[day] || 0) + 1;
+        this.dirty = true;
+        return true;
+    }
+
+    penguins(key) {
+        const e = this.data.penguins[key];
+        return { today: History.within(e, 1), week: History.within(e, 7), total: e?.total || 0 };
+    }
+
     addMilestone(key, skill, level) {
         this.data.milestones.push({ key, skill, level, at: Date.now() });
         this.dirty = true;
@@ -124,7 +144,7 @@ export class History {
     // Moves everything kept under `from` onto `to`, adding up playtime, deaths and kills.
     merge(from, to) {
         const d = this.data;
-        for (const group of [d.playtime, d.deaths, d.kills]) {
+        for (const group of [d.playtime, d.deaths, d.kills, d.penguins]) {
             const src = group[from];
             if (!src) continue;
             const dst = (group[to] ||= { total: 0, days: {} });
@@ -134,6 +154,7 @@ export class History {
                 dst.creatures ||= {};
                 for (const [name, n] of Object.entries(src.creatures)) dst.creatures[name] = (dst.creatures[name] || 0) + n;
             }
+            if (src.ids) dst.ids = { ...src.ids, ...dst.ids };
             delete group[from];
         }
         for (const day of Object.values(d.xp)) {
@@ -157,6 +178,7 @@ export class History {
             ...Object.keys(d.playtime),
             ...Object.keys(d.deaths),
             ...Object.keys(d.kills),
+            ...Object.keys(d.penguins),
             ...Object.keys(d.names),
             ...Object.values(d.xp).flatMap(Object.keys),
             ...d.milestones.map(m => m.key),
@@ -171,6 +193,7 @@ export class History {
         delete this.data.playtime[key];
         delete this.data.deaths[key];
         delete this.data.kills[key];
+        delete this.data.penguins[key];
         this.data.milestones = this.data.milestones.filter(m => m.key !== key);
         if (!this.data.hidden.includes(key)) this.data.hidden.push(key);
         this.dirty = true;
@@ -188,12 +211,16 @@ export class History {
     prune() {
         const oldest = daysAgo(KEEP_DAYS);
         for (const day of Object.keys(this.data.xp)) if (day < oldest) delete this.data.xp[day];
-        for (const group of [this.data.playtime, this.data.deaths, this.data.kills]) {
+        for (const group of [this.data.playtime, this.data.deaths, this.data.kills, this.data.penguins]) {
             for (const entry of Object.values(group)) {
                 for (const day of Object.keys(entry.days)) if (day < oldest) delete entry.days[day];
             }
         }
         const cutoff = Date.now() - KEEP_DAYS * 86400000;
+        // Penguins respawn every 7 in-game days; an id is long gone after five weeks.
+        for (const entry of Object.values(this.data.penguins)) {
+            for (const [id, at] of Object.entries(entry.ids || {})) if (at < cutoff) delete entry.ids[id];
+        }
         this.data.milestones = this.data.milestones.filter(m => m.at >= cutoff);
     }
 

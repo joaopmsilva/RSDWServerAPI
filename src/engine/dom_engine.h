@@ -138,8 +138,9 @@ constexpr uintptr_t MovementComp_Velocity      = 0xD8;
 constexpr uintptr_t CharMove_MovementMode      = 0x241;
 
 // pointers - Source: RSDWSDK/CppSDK/Assertions.inl. These are real pointers,
-constexpr uintptr_t DomPlayerChar_AttributesComponent = 0x1448; // UDominionAttributesComponent*
-constexpr uintptr_t DomPlayerChar_HealthComponent = 0x1458; // UPlayerHealthComponent*
+// Fallbacks only - looked up by name first (game 1.0.2 moved both by 0x50).
+constexpr uintptr_t DomPlayerChar_AttributesComponent = 0x1498; // UDominionAttributesComponent*
+constexpr uintptr_t DomPlayerChar_HealthComponent = 0x14A8; // UPlayerHealthComponent*
 constexpr uintptr_t DomPlayerController_SkillComponent = 0x820; // USkillComponent*
 
 // UDominionAttributesComponent - Source: RSDWSDK/CppSDK/Assertions.inl.

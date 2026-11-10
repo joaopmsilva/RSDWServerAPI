@@ -4,6 +4,7 @@
 #include "engine/bans.h"
 #include "engine/chat.h"
 #include "engine/kills.h"
+#include "engine/penguins.h"
 #include "engine/dom_engine.h"
 #include "engine/game_settings.h"
 #include "engine/native_call.h"
@@ -370,6 +371,7 @@ void InitThread() {
             DomChat::Poll(players);
             DomGameSettings::Apply();
             DomKills::Scan(players);
+            DomPenguins::Scan(players);
 
             if (std::chrono::steady_clock::now() >= nextHeartbeat) {
                 nextHeartbeat += std::chrono::minutes(10);

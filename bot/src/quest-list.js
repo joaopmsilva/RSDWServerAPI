@@ -8,7 +8,7 @@ import { logger } from './log.js';
 const log = logger('quest-list');
 const PAGE = 'https://dragonwilds.runescape.wiki/api.php?action=parse&page=Quests&prop=wikitext&format=json&formatversion=2';
 
-// [title, primary?, tutorial?, region, where to start] - the wiki page on 2026-11-01.
+// [title, primary?, tutorial?, region, where to start] - the wiki page on 2026-11-10.
 const BUILT_IN = [
     ['First Steps', true, true, 'Temple Woods', 'Automatically started with new character.'],
     ['Getting Started', true, true, 'Temple Woods', 'Speak to Doric just outside of the temple.'],
@@ -47,6 +47,7 @@ const BUILT_IN = [
     ['Brink of Extinction', false, false, 'Umbral Sands', 'Speak to Zi at The Burning Spire, south of the Sinking Pyramid.'],
     ['Mapping The Sands I', false, false, 'Umbral Sands', 'Speak to Anamcara in Alcarrid Camp.'],
     ['Mapping The Sands II', false, false, 'Umbral Sands', 'Speak to Anamcara in Alcarrid Camp.'],
+    ['A Reel Downer', false, false, 'Umbral Sands', 'Located in the Manafem Camp.'], // 1.0.2
 ].map(([title, primary, tutorial, region, start]) => ({ title, primary, tutorial, region, start }));
 
 let quests = BUILT_IN;

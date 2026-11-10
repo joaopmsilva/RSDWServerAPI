@@ -313,6 +313,16 @@ export class Activity {
         this.history.addKill(key, creatureName(event.message, event.cause));
     }
 
+    // From the relay (mod 0.10.0+): a penguin collected. message is the
+    // penguin's id, so one reported twice (a restart, a rescan) counts once.
+    penguin(event) {
+        const key = this.keyOf(event);
+        if (!this.history.data.names[key] && event.name) this.history.name(key, event.name);
+        if (this.history.addPenguin(key, event.message, event.time || Date.now())) {
+            log.info(`penguin: ${event.name || key} collected ${event.message || 'one'}`);
+        }
+    }
+
     // Sundays from 20:00 VPS time, once.
     async checkSummary() {
         if (!config.weeklySummary || !config.summaryChannelId) return;

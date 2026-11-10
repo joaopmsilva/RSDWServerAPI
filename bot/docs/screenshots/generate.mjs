@@ -29,6 +29,8 @@ const E = await import('../../src/embeds.js');
 const { describeSkills } = await import('../../src/skills.js');
 const { levelInfo } = await import('../../src/levels.js');
 const { wikiInfo } = await import('../../src/wiki.js');
+const { carryOverEmbed } = await import('../../src/carryover.js');
+const { EmbedBuilder } = await import('discord.js');
 
 // ---- sample data ----------------------------------------------------------
 
@@ -169,7 +171,20 @@ const shots = [
         ],
     ],
     ['perks', [['/perks player:Mira', [E.perksEmbed({ ...profile('Mira'), player: { ...player('Mira'), perks } })]]]],
-    ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 } })]]]],
+    ['me', [['/me', [E.renderPlayerPage(profile('Mira'), 'overview'), E.progressEmbed(profile('Mira'), { playtime: { week: 21.5 * H, total: 129 * H }, deaths: { week: 2, total: 31 }, kills: { week: 160, total: 1520 }, penguins: { week: 9, total: 37 } })]]]],
+    ['penguins', [['/leaderboard penguins', [E.penguinBoardEmbed([['Elske', 52, 14], ['Mira', 37, 9], ['Kit', 29, 11], ['Thorne', 21, 3], ['Rowan', 12, 0], ['Bram', 4, 4]].map(([name, total, recent]) => ({ name, total, recent })))]]]],
+    [
+        'deaths-quests',
+        [
+            [null, [deathEmbed('Thorne', 'killed by the boss Elder Garou')]],
+            [null, [deathEmbed('Kit', 'fell out of the world')]],
+            [null, [E.questDoneEmbed({ name: 'Elske', quest: { id: 'Quest_Ums_SQ_ReelDowner', name: 'A Reel Downer', kind: 'side' } })]],
+            [null, [E.questDoneEmbed({ name: 'Mira', quest: { id: 'Quest_DR_MainQuest', name: "Black Knight's Fortress", kind: 'main' } })]],
+        ],
+    ],
+    ['carry-over', [[null, [carryOverEmbed({ name: 'Bram', at: Date.now(), awaySince: Date.now() - 26 * H * 1000, items: [{ id: 'Item_Rune_Nature', had: 12, now: 640 }, { id: 'Item_Bar_Runite', had: 0, now: 48 }, { id: 'Item_UmS_GarouChit', had: 0, now: 10045 }], skills: [{ skill: 'SKILL_Mining', from: 33, to: 61, xpFrom: xpFor(33), xpTo: xpFor(61) }, { skill: 'SKILL_Magic', from: 22, to: 40, xpFrom: xpFor(22), xpTo: xpFor(40) }], quests: ['Quest_DR_MainQuest'], itemsChecked: true }, { source: 'leave' })]]]],
+    ['performance', [['/admin performance', [E.performanceEmbed(performanceSample())], null, true]]],
+    ['chest-range', [[null, [E.chestRangeEmbed()]]]],
     ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira'), E.alertsEmbed({ alerts: { raid: true, hunted: false } })], E.alertButtons({ alerts: { raid: true, hunted: false } }), true]]],
     [
         'raid-alerts',
@@ -181,6 +196,27 @@ const shots = [
     ],
     ['status', [['/status', [E.statusEmbed({ status: 'online', players: online, health, world })]]]],
 ];
+
+// The death message the relay posts, with what killed them.
+function deathEmbed(name, cause) {
+    return new EmbedBuilder().setColor(0x8b0000).setDescription(`💀 **${name}** has died · ${cause}`).setTimestamp();
+}
+
+function performanceSample() {
+    const at = s => Date.now() - s * 60000;
+    return {
+        targetTickRate: 30,
+        sampleSeconds: 5,
+        cores: 8,
+        load: [1.42, 1.38, 1.31],
+        residentMb: 9840,
+        availableMb: 18200,
+        modVersion: '0.10.0',
+        cpu: { main: 61, mod: 3, workers: 22, other: 4, machineBusy: 19, steal: 0.4 },
+        ticks: { minutes: 30, tickRate: 29.8, stalls: 6, longest: [{ at: at(4), seconds: 0.41, cause: 'world autosave' }, { at: at(17), seconds: 0.22, cause: 'player respawn' }, { at: at(25), seconds: 0.14, cause: 'level streaming' }], causes: { 'world autosave': 3, 'player respawn': 2, 'level streaming': 1 } },
+        players: [{ name: 'Mira', ping: 38 }, { name: 'Elske', ping: 52 }, { name: 'Kit', ping: 117 }],
+    };
+}
 
 function gainsSample() {
     const skills = describeSkills(raw(PLAYERS.Elske));

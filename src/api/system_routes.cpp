@@ -5,6 +5,7 @@
 #include "../config/config.h"
 #include "../engine/game_settings.h"
 #include "../engine/kills.h"
+#include "../engine/penguins.h"
 #include "../engine/reflection.h"
 #include "../engine/world.h"
 #include "../engine/world_save.h"
@@ -164,6 +165,7 @@ void RegisterSystem(HttpServer& server) {
 
             add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
             add("kills", 1, DomKills::Status());
+            add("penguins", 1, DomPenguins::Status());
             add("gameSettings", g_Config.game.linkedStorageRadius > 0 ? 1 : -1, DomGameSettings::Status());
             DomWorld::State world = DomWorld::Read();
             add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,

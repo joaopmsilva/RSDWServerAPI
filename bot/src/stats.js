@@ -71,6 +71,15 @@ export function killBoard(ctx, days = 7) {
         .sort((a, b) => b.total - a.total || b.recent - a.recent);
 }
 
+// Most penguins collected first.
+export function penguinBoard(ctx, days = 7) {
+    return Object.entries(ctx.history.data.penguins || {})
+        .filter(shown(ctx))
+        .map(([key, e]) => ({ key, name: nameOf(ctx, key), recent: History.within(e, days), total: e.total }))
+        .filter(r => r.total > 0)
+        .sort((a, b) => b.total - a.total || b.recent - a.recent);
+}
+
 export function recentMilestones(ctx, days = 7) {
     const cutoff = Date.now() - days * 86400000;
     return ctx.history.data.milestones.filter(m => m.at >= cutoff && !ctx.history.isHidden(m.key)).map(m => ({ ...m, name: nameOf(ctx, m.key) }));

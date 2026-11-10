@@ -122,6 +122,8 @@ const QUEST_IDS = {
     Quest_UmS_MainQuest: "Icthlarin's Little Helper",
     Quest_UMS_MappingTheSands: 'Mapping The Sands I',
     Quest_UMS_MappingTheSands2: 'Mapping The Sands II',
+    Quest_Ums_SQ_ReelDowner: 'A Reel Downer', // 1.0.2
+    Quest_PenguinHunting: 'Penguin Hunting', // 1.0.2's penguin hunt - an activity, not on the wiki's quest list
     Quest_ElderGarou: 'A Room With A Garou',
     Quest_AMelodyRemebered: 'A Melody Remembered',
     Quest_GreatBodyRobbery: 'The Great Body Robbery',
@@ -144,6 +146,14 @@ export function questChecklist(player, list) {
     const state = new Map();
     for (const q of player?.quests || []) state.set(squash(questName(q)), q.complete ? 'done' : 'active');
     return list.map(q => ({ ...q, state: state.get(squash(q.title)) || 'todo' }));
+}
+
+// Quests done out of the wiki's quest list - the count /quests shows. The
+// game's own total also counts tutorial steps, tribe tasks and activities.
+export function wikiQuestCount(player) {
+    const all = questChecklist(player, questList());
+    const done = all.filter(q => q.state === 'done');
+    return { done: done.length, total: all.length, main: done.filter(q => q.primary).length, side: done.filter(q => !q.primary).length };
 }
 // "BP_AI_Goblin_Melee_C" -> "Goblin Melee"
 // A killed creature's name: the wiki's title for it when one matches - the

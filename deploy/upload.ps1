@@ -35,7 +35,7 @@ $archive = Join-Path $env:TEMP 'rsdw.tgz'
 
 Write-Host "Packing $repo" -ForegroundColor Cyan
 tar -czf $archive -C $parent `
-    --exclude=node_modules --exclude=.git --exclude=bot/data --exclude=bot/.env `
+    --exclude=node_modules --exclude=.git --exclude=bot/data --exclude=bot/.env --exclude=RSDWSDK `
     --exclude=dist --exclude=build --exclude='*.o' $name
 if ($LASTEXITCODE -ne 0) { throw 'tar failed' }
 
