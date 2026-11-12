@@ -82,6 +82,19 @@ export function carryOverEmbed(flag, before) {
 // they've loaded in); anything gained in between - more than lag explains -
 // is DMed to the admins.
 //
+// A restart puts characters back as they were at the last save (every 5
+// minutes), so a player can come back holding what they had a few minutes
+// before leaving: ore they'd since stored, food they'd eaten. Each snapshot
+// keeps the most of each item held over this long, and that is what a return
+// is compared with.
+const ROLLBACK_MS = 15 * 60 * 1000;
+function remember(held, items, at) {
+    const out = {};
+    for (const [id, h] of Object.entries(held || {})) if (at - h.at < ROLLBACK_MS) out[id] = h;
+    for (const [id, count] of Object.entries(items || {})) if (!out[id] || count >= out[id].count) out[id] = { count, at };
+    return out;
+}
+
 // Each character's snapshot (data/carryover.json) is replaced by the leave
 // event, or while they play by the polls, so a server crash still leaves one -
 // marked less certain, as it can be up to a poll old.
@@ -134,7 +147,9 @@ export class CarryOver {
         const key = this.keyOf(event);
         const before = this.data.snapshots[key];
         if (event.data) {
-            this.data.snapshots[key] = { name: event.name, at: event.time || Date.now(), source: 'leave', skills: event.data.skills || {}, items: itemsOf(event.data), quests: event.data.questsDone || null, online: false };
+            const at = event.time || Date.now();
+            const items = itemsOf(event.data);
+            this.data.snapshots[key] = { name: event.name, at, source: 'leave', skills: event.data.skills || {}, items, held: remember(before?.held, items, at), quests: event.data.questsDone || null, online: false };
         } else if (before) {
             before.online = false;
         }
@@ -146,7 +161,9 @@ export class CarryOver {
         if (!this.enabled || !event.data) return;
         const key = this.keyOf(event);
         const before = this.data.snapshots[key];
-        const after = { name: event.name, at: event.time || Date.now(), source: 'arrive', skills: event.data.skills || {}, items: itemsOf(event.data), quests: event.data.questsDone || null, online: true };
+        const at = event.time || Date.now();
+        const items = itemsOf(event.data);
+        const after = { name: event.name, at, source: 'arrive', skills: event.data.skills || {}, items, held: remember(null, items, at), quests: event.data.questsDone || null, online: true };
         this.data.snapshots[key] = after;
         this.dirty = true;
         this.save(true);
@@ -177,12 +194,15 @@ export class CarryOver {
             const snapshot = this.data.snapshots[key];
             // Only after they've arrived: before that the snapshot is what they left with.
             if (!snapshot?.online) continue;
+            const at = Date.now();
+            const items = itemsOf({ inventory: p.inventory, personalChest: p.personalChest });
             this.data.snapshots[key] = {
                 name: p.characterName || p.name,
-                at: Date.now(),
+                at,
                 source: 'poll',
                 skills: skillsOf(p.skills),
-                items: itemsOf({ inventory: p.inventory, personalChest: p.personalChest }),
+                items,
+                held: remember(snapshot.held, items, at),
                 quests: questsOf(p.quests) || snapshot.quests || null,
                 online: true,
             };
@@ -198,7 +218,10 @@ export class CarryOver {
         const items = [];
         if (before.items && after.items) {
             for (const [id, count] of Object.entries(after.items)) {
-                const had = before.items[id] || 0;
+                // The most they held in the minutes before leaving: a restart can
+                // hand back what the last save had (see ROLLBACK_MS).
+                const recent = before.held?.[id];
+                const had = Math.max(before.items[id] || 0, recent && before.at - recent.at < ROLLBACK_MS ? recent.count : 0);
                 const gain = count - had;
                 if (gain > 0 && (had === 0 || gain >= config.carryoverMinItems)) items.push({ id, had, now: count });
             }

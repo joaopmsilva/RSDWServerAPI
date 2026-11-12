@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } from 'discord.js';
 import { api } from './api.js';
 import { config } from './config.js';
+import { contactButton } from './developer.js';
 import { logger } from './log.js';
 
 const log = logger('self-update');
@@ -187,6 +188,7 @@ export class SelfUpdate {
             new ButtonBuilder().setCustomId(`selfupdate:apply:${s.release.tag}`).setLabel('Update now').setEmoji('⬆️').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`selfupdate:skip:${s.release.tag}`).setLabel('Skip this version').setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setURL(s.release.url).setLabel('Release notes').setStyle(ButtonStyle.Link),
+            contactButton(),
         );
         return { embeds: [embed], components: [buttons] };
     }

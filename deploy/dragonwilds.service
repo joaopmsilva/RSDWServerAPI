@@ -1,4 +1,5 @@
-# Example systemd unit for the game server with the mod loaded. /server in
+# Example systemd unit for the game server with the mod loaded (install.sh writes
+# this for you). /server in
 # Discord and the cron scripts start and stop it through this service.
 #
 #   sudo cp deploy/dragonwilds.service /etc/systemd/system/
@@ -17,6 +18,8 @@ Type=simple
 User=dragonwilds
 WorkingDirectory=/home/dragonwilds/rs_server
 Environment=LD_PRELOAD=/home/dragonwilds/rs_server/librsdwapi.so
+# Where the mod keeps settings.ini, logs and bans.
+Environment=RSDWAPI_DIR=/home/dragonwilds/rs_server/rsdwapi
 ExecStart=/home/dragonwilds/rs_server/RSDragonwildsServer.sh -log -port=7777
 # One line per run with how it ended (time, result, exited/killed/dumped, code or
 # signal). The Discord bot reads it to explain unplanned restarts.

@@ -1,7 +1,8 @@
 // Renders the bot's embeds as Discord-style screenshots for the README, using
 // the real embed code with made-up players. Needs Edge or Chrome:
 //
-//   node docs/screenshots/generate.mjs
+//   node docs/screenshots/generate.mjs          every screenshot
+//   node docs/screenshots/generate.mjs help     just the ones named
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -337,7 +338,9 @@ const browser = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
 if (!browser) throw new Error('needs Edge or Chrome');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'rsdw-html-'));
 
+const only = process.argv.slice(2);
 for (const [name, messages] of shots) {
+    if (only.length && !only.includes(name)) continue;
     const html = `<!doctype html><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>${CSS}</style>
 <div id="shot">${messages.map((m, i) => messageHtml(m, i === 0)).join('')}</div>
 <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js"></script>

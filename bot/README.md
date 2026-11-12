@@ -6,9 +6,9 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.15.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.16.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
-![Node](https://img.shields.io/badge/node-18.17%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Node](https://img.shields.io/badge/node-20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
 [**Commands**](#-commands) · [**Status board**](#-status-board) · [**Chat**](#-two-way-chat) · [**Activity**](#-player-activity) · [**Notices**](#-server-notices) · [**Admins**](#%EF%B8%8F-for-admins) · [**Setup**](../DEPLOY.md)
 
@@ -18,8 +18,8 @@ Stats, leaderboards and two-way chat for players · server control and alerts fo
 
 Runs on its own next to the game server and talks to the [RSDWServerAPI mod](../README.md). It
 keeps going while the server is down - the status turns red, saved stats still answer, and it
-announces when the server is back. Installing and updating are step by step in
-**[DEPLOY.md](../DEPLOY.md)**.
+announces when the server is back. The [installer](../README.md#-quick-start) sets it up with
+everything else; to fit it into your own setup instead, see **[DEPLOY.md](../DEPLOY.md)**.
 
 ## 🎮 Commands
 
@@ -42,9 +42,9 @@ players first 🟢, then everyone seen before ⚫. Short skill names work too: `
 | 💀 **`/deaths`** `[player]` | Most deaths, or one player's |
 | 🐉 **`/status`** | Online / starting / offline, who is on, the world |
 | 🎒 **`/item`** `item` 🔒 | Any item: what it is and does (from the wiki), type, stack size, weight |
-| ❓ **`/help`** 🔒 | All of the above |
+| ❓ **`/help`** 🔒 | A short list of the commands (admins also see theirs) |
 
-The bot also posts this list once and pins it, so new players can find it (`COMMANDS_POST`,
+The bot also posts a short version of this list once and pins it, so new players can find it (the admin commands are left off it: each admin gets them by DM instead) (`COMMANDS_POST`,
 `COMMANDS_CHANNEL_ID` - a channel of its own for commands works well). It's edited in place when
 the commands change, and moved when the channel does. In a channel of its own, everything else
 is cleared every `COMMANDS_CLEANUP_MINUTES` (5), so the list is always what people see.
@@ -144,8 +144,8 @@ Snapshots live in `data/players.json`, history in `data/history.json` (five week
 
 ## 📌 Status board
 
-Point `STATUS_BOARD_CHANNEL_ID` at a channel (read-only for members works best) and the bot keeps
-one message there up to date by itself:
+In `#server-info` (the channel the bot makes), or the one `STATUS_BOARD_CHANNEL_ID` points at, the
+bot keeps one message up to date by itself:
 
 ```text
 🐉 The Hut
@@ -154,6 +154,7 @@ one message there up to date by itself:
 🎮 How to join
 🌐 Direct connect  203.0.113.10:7777
 …or find Ashenvale by HostName in the server list
+🎟️ Invite code  WXH9-YXDN   ← only with crossplay on, for console players
 🔑 Password  ▒▒▒▒▒▒   ← a spoiler, click to see
 
 👥 Playing now        ⏱️ Uptime 2h 1m   🧩 Mod v0.5.0   🔄 Daily restart 05:00
@@ -161,7 +162,8 @@ one message there up to date by itself:
 ```
 
 The join details come from `CONNECT_ADDRESS`, `WORLD_NAME`, `WORLD_CREATOR` and `SERVER_PASSWORD`
-in `.env` - leave out anything you don't want shown. If the message gets deleted, the bot posts a
+in `.env` - leave out anything you don't want shown. The invite code is read from the game's own
+log, and only shown when the server has crossplay on. If the message gets deleted, the bot posts a
 new one.
 
 ## 💬 Two-way chat
@@ -271,6 +273,7 @@ Administrator, and the replies are only visible to you.
 | 💥 **`/admin crashes`** | Every unplanned restart with its likely cause, and the newest full report |
 | 📈 **`/admin performance`** | How the server is coping right now: its real tick rate and stalls over the last 30 minutes (with their likely cause, e.g. the world autosave), CPU per thread - the game's main thread, the mod, the workers - VPS load, steal and memory, and players' pings. Needs the bot on the same machine as the server. |
 | ⬆️ **`/admin update`** | Whether a newer release of the bot and mod is out, with **Update now** to install it: the bot updates itself and restarts, the mod is installed for the next server start. The admins also get this as a DM whenever a release comes out ([settings](CONFIG.md#%EF%B8%8F-bot-and-mod-updates)). |
+| 💬 **`/admin contact`** | Message the developer: questions, bugs, ideas. Opens their Discord profile |
 
 ### 🔔 Private alerts
 
@@ -296,8 +299,10 @@ full example. Only these are needed to start:
 | ------- | - |
 | `DISCORD_TOKEN` | The bot's token |
 | `API_TOKEN` | `BearerToken` from the mod's `settings.ini` |
-| `CHAT_CHANNEL_ID` | Where game chat, deaths and activity go |
 | `ADMIN_USER_IDS` | Your Discord user ID, for the admin commands and alerts |
+
+Leave the channel settings empty and the bot makes its own channels when it joins your server
+([details](CONFIG.md#-channels)).
 
 <details>
 <summary><b>Logs</b></summary>

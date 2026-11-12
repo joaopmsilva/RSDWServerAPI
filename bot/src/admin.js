@@ -5,6 +5,7 @@ import { findBackup, listBackups } from './backups.js';
 import { resolvePlayer } from './commands.js';
 import { config } from './config.js';
 import { crashReportPath, listCrashReports } from './crash-report.js';
+import { contactReply } from './developer.js';
 import {
     backupChoice,
     backupsEmbed,
@@ -160,6 +161,7 @@ async function admin(i, ctx) {
         return { reply: { embeds: [crashesEmbed(entries)], files } };
     }
     if (sub === 'update') return ctx.selfUpdate.command();
+    if (sub === 'contact') return contactReply();
     if (sub === 'performance') {
         try {
             return { reply: { embeds: [performanceEmbed(await measurePerformance())] } };

@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { config } from './config.js';
 import {
     LEADERBOARD_PAGE_SIZE,
     ambiguousEmbed,
@@ -341,5 +342,5 @@ export const commands = {
         const why = itemsKnown() ? '' : '\nThe item list loads from the server the first time it is online.';
         return { reply: { embeds: [errorEmbed(`No item found matching **${query}**.${why}`)] } };
     },
-    help: () => ({ reply: { embeds: [helpEmbed()] } }),
+    help: i => ({ reply: { embeds: [helpEmbed({ admin: config.adminUserIds.includes(i.user.id) })] } }),
 };

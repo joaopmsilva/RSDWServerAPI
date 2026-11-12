@@ -30,6 +30,7 @@ function bool(name, fallback) {
 
 const id = name => (process.env[name] || '').trim();
 const chatChannelId = id('CHAT_CHANNEL_ID');
+const CHANNEL_SETTINGS = ['CHAT_CHANNEL_ID', 'DEATH_CHANNEL_ID', 'STATUS_CHANNEL_ID', 'LEVELUP_CHANNEL_ID', 'SUMMARY_CHANNEL_ID', 'STATUS_BOARD_CHANNEL_ID', 'COMMANDS_CHANNEL_ID', 'LINK_CHANNEL_ID'];
 
 export const config = {
     discordToken: required('DISCORD_TOKEN'),
@@ -105,7 +106,41 @@ export const config = {
     selfUpdateAuto: bool('BOT_UPDATE_AUTO', false),
     steamcmd: (process.env.STEAMCMD || '/home/dragonwilds/steamcmd/steamcmd.sh').trim(),
     dataDir: path.resolve(botRoot, process.env.DATA_DIR || 'data'),
+    // With no channel set in .env at all, the bot makes its own (channels.js)
+    // in GUILD_ID, or the only server it's in. Setting any channel yourself
+    // means you're choosing them, and none are made.
+    autoChannels: bool('AUTO_CHANNELS', true) && !CHANNEL_SETTINGS.some(id),
+    guildId: id('GUILD_ID'),
 };
+
+// The channels the bot makes, and the settings each one stands in for.
+export const AUTO_CHANNELS = {
+    info: [['STATUS_BOARD_CHANNEL_ID', 'statusBoardChannelId']],
+    status: [['STATUS_CHANNEL_ID', 'statusChannelId']],
+    chat: [['CHAT_CHANNEL_ID', 'chatChannelId']],
+    activity: [['LEVELUP_CHANNEL_ID', 'levelUpChannelId'], ['SUMMARY_CHANNEL_ID', 'summaryChannelId']],
+    deaths: [['DEATH_CHANNEL_ID', 'deathChannelId']],
+    commands: [['COMMANDS_CHANNEL_ID', 'commandsChannelId']],
+    link: [['LINK_CHANNEL_ID', 'linkChannelId']],
+};
+export const channelsFile = path.join(config.dataDir, 'channels.json');
+
+// Point the settings at the bot's own channels (ids: { info: '123', ... }).
+export function useChannels(ids) {
+    for (const [key, settings] of Object.entries(AUTO_CHANNELS)) {
+        if (!ids?.[key]) continue;
+        for (const [, setting] of settings) config[setting] = ids[key];
+    }
+}
+
+// Read here as well as by the bot, so the scripts (announce.js) find them too.
+if (config.autoChannels) {
+    try {
+        useChannels(JSON.parse(fs.readFileSync(channelsFile, 'utf8')).channels);
+    } catch {
+        // Not made yet: the bot makes them when it connects.
+    }
+}
 
 // The players' installer for the longer chest range (UE4SS + ChestLink), pinned
 // in the commands channel when the file is there. Not in git: put it in data/.

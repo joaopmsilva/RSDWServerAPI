@@ -1,7 +1,8 @@
 # ⚙️ Bot settings
 
 Every setting the bot reads from `bot/.env`. Copy [`.env.example`](.env.example) to `.env` to
-start; only the four marked **required** are needed, and everything else has a sensible default.
+start; only the two marked **required** are needed, and everything else has a sensible default.
+(`install.sh` writes this file for you.)
 
 After changing `.env`, restart the bot: `sudo systemctl restart rsdw-bot`.
 
@@ -39,11 +40,24 @@ role or user and pick *Copy ID*.
 
 ## 📺 Channels
 
-Anything left empty falls back to `CHAT_CHANNEL_ID`.
+**The easy way: leave every channel setting empty.** On its first start the bot makes a category named
+after `SERVER_NAME` with `#server-info` (the status board), `#server-status`, `#game-chat`,
+`#activity` (level-ups, quests, the weekly recap), `#deaths`, `#bot-commands` and
+`#link-your-character`. The info, status, activity, deaths and link channels are read-only for
+members. It remembers them in `data/channels.json` and makes any you delete again on its next
+start.
+
+| Setting | Default | What it does |
+| ------- | ------- | ------------ |
+| `AUTO_CHANNELS` | `true` | Make the channels above when no channel is set. Needs *Manage Channels* and *Manage Roles* (the [invite link](../DEPLOY.md#1-discord) asks for both). |
+| `GUILD_ID` | *(empty)* | The Discord server to make them in. Only needed when the bot is in more than one. |
+
+**Your own channels**: set any of these and the bot makes none. Anything left empty falls back to
+`CHAT_CHANNEL_ID`.
 
 | Setting | Default | What goes there |
 | ------- | ------- | --------------- |
-| `CHAT_CHANNEL_ID` | **required**\* | The game's chat both ways, plus joins, leaves and AFK kicks. Empty turns chat off in both directions. |
+| `CHAT_CHANNEL_ID` | *(made by the bot)* | The game's chat both ways, plus joins, leaves and AFK kicks. Empty (with other channels set) turns chat off in both directions. |
 | `DEATH_CHANNEL_ID` | chat channel | 💀 Player deaths. |
 | `LEVELUP_CHANNEL_ID` | chat channel | 🎉 Level-ups, ⭐ 99s and 📜 completed quests. |
 | `STATUS_CHANNEL_ID` | chat channel | 🟢🔴 Server online / offline / restarting, planned restarts and backups. |
@@ -52,7 +66,6 @@ Anything left empty falls back to `CHAT_CHANNEL_ID`.
 | `LINK_CHANNEL_ID` | *(off)* | 🔗 The pinned card with the **Link my character** button. `node src/setup-link-channel.js` makes the channel. `/link` works everywhere either way. |
 | `STATUS_BOARD_CHANNEL_ID` | *(off)* | The live status board - see [Status board](#-status-board). This one has no fallback: empty turns the board off. |
 
-\* Not strictly needed to start, but almost everything is posted there.
 
 The bot needs *View Channel*, *Send Messages*, *Embed Links* and *Read Message History* in each one.
 

@@ -5,6 +5,7 @@ import { Alerts } from './alerts.js';
 import { StatusBoard } from './board.js';
 import { Bridge } from './bridge.js';
 import { CarryOver } from './carryover.js';
+import { inviteUrl, setupChannels } from './channels.js';
 import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
@@ -61,7 +62,7 @@ const board = new StatusBoard(client, poller, ctx);
 const commandsPost = new CommandsPost(client);
 const linkPost = new CommandsPost(client, {
     id: 'link-post',
-    channelId: config.linkChannelId,
+    channelId: () => config.linkChannelId,
     enabled: true,
     embed: linkHowToEmbed,
     components: linkButtons,
@@ -93,9 +94,21 @@ notices.onNotice = (kind, details) => alerts.notice(kind, details);
 
 client.once(Events.ClientReady, async c => {
     log.info(`logged in as ${c.user.tag}, in ${c.guilds.cache.size} server(s), polling every ${config.pollSeconds}s`);
+    if (!c.guilds.cache.size && !config.autoChannels) log.warn(`not in any Discord server yet - invite the bot with ${inviteUrl(c)}`);
     for (const guild of c.guilds.cache.values()) await registerCommands(guild);
+    // Its own channels first (no CHAT_CHANNEL_ID), so everything below finds
+    // them. Not in a server yet: wait for the invite.
+    if (await setupChannels(c).catch(err => (log.error('channel setup failed:', err), true))) startAll();
+});
+
+// Everything that posts or polls, once the channels are known.
+let started = false;
+function startAll() {
+    if (started) return;
+    started = true;
     notices.start();
     alerts.start();
+    alerts.welcomeAdmins().catch(err => log.warn(`admin guide failed: ${err.message}`));
     selfUpdate.start();
     activity.start();
     carryOver.start();
@@ -113,11 +126,12 @@ client.once(Events.ClientReady, async c => {
     poller.start();
     relay.start();
     bridge.start();
-});
+}
 
-client.on(Events.GuildCreate, guild => {
+client.on(Events.GuildCreate, async guild => {
     log.info(`added to ${guild.name}`);
-    registerCommands(guild);
+    await registerCommands(guild);
+    if (!started && client.isReady() && (await setupChannels(client).catch(err => (log.error('channel setup failed:', err), true)))) startAll();
 });
 
 // Everything typed in the chat channel goes to the game. A message starting

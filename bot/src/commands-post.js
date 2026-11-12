@@ -12,9 +12,11 @@ const log = logger('commands-post');
 // respected - it isn't posted again unless data/<id>.json is removed or the
 // channel changes.
 export class CommandsPost {
-    constructor(client, { id = 'commands-post', channelId = config.commandsChannelId, enabled = config.commandsPost, embed = helpEmbed, components = () => [], files = [], what = 'the command list' } = {}) {
+    // channelId may be a function, read when used: channels the bot creates on
+    // its first start only exist after it has connected.
+    constructor(client, { id = 'commands-post', channelId = () => config.commandsChannelId, enabled = config.commandsPost, embed = helpEmbed, components = () => [], files = [], what = 'the command list' } = {}) {
         this.client = client;
-        this.channelId = channelId;
+        this.channelIdSource = channelId;
         this.enabled = enabled;
         this.embed = embed;
         this.components = components;
@@ -27,6 +29,10 @@ export class CommandsPost {
         } catch (err) {
             if (err.code !== 'ENOENT') log.warn(`could not read ${this.file}: ${err.message}`);
         }
+    }
+
+    get channelId() {
+        return typeof this.channelIdSource === 'function' ? this.channelIdSource() : this.channelIdSource;
     }
 
     async start() {

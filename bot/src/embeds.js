@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { MAX_LEVEL } from './levels.js';
 import { eventName, journalKinds, outOf, perkName, questChecklist, questName, questStats, wikiQuestCount } from './progress.js';
 import { questList } from './quest-list.js';
+import { sessionInfo } from './session-info.js';
 import { CATEGORIES, catalogSkill } from './skills.js';
 import { wikiSearchUrl } from './wiki.js';
 
@@ -676,6 +677,10 @@ export function boardEmbed({ state, gainers, vps, compact = false }) {
         const creator = config.worldCreator || state.world?.host;
         join.push(`🗺️ **Server list**  ${worldName}${creator ? ` by ${creator}` : ''}`);
     }
+    // The invite code is for crossplay (console players join with it), so it
+    // only shows when the server has crossplay on. Read from the game's log.
+    const session = sessionInfo();
+    if (session.crossplay && session.joinCode) join.push(`🎟️ **Invite code**  \`${session.joinCode}\`  (consoles and crossplay)`);
     if (config.serverPassword) join.push(`🔑 **Password**  ||${config.serverPassword}||`);
     // A blank line under each section, so the board isn't crowded.
     const gap = '\n\u200b';
@@ -933,77 +938,59 @@ export function errorEmbed(text) {
     return new EmbedBuilder().setColor(COLOR.error).setDescription(`❌ ${text}`);
 }
 
-// /help, and the card COMMANDS_POST puts in the chat channel.
-export function helpEmbed() {
+// The command list: pinned in the commands channel and the /help reply. Short
+// on purpose - every command explains its options as you type it. The admin
+// commands only show in /help for an admin (and in the admin guide DM).
+export function helpEmbed({ admin = false } = {}) {
     const embed = new EmbedBuilder()
         .setColor(COLOR.info)
         .setTitle(`🐉 ${config.serverName} · Commands`)
-        .setDescription(
-            'Type **`/`** and pick one - player, skill and item names fill in as you type. ' +
-                'Players can be looked up by character or account name, even while offline.',
-        )
+        .setDescription('Type **`/`** and pick a command. Player, skill and item names fill in as you type, and offline players work too.')
         .addFields(
-            {
-                name: '📊 Skills',
-                value: [
-                    '`/levels player` · every skill, total level and max health',
-                    '`/perks player` · their active skill perks',
-                    '`/quests [player]` · quests still to do, by region, and where the next one starts',
-                    '`/kills [player]` · creatures killed, and which',
-                ].join('\n'),
-            },
-            {
-                name: '🏆 Leaderboards',
-                value: [
-                    '`/leaderboard total` · total level, with quests done',
-                    '`/leaderboard skill mining` · any one skill',
-                    '`/leaderboard quests` · most quests done',
-                    '`/leaderboard kills` · most creatures killed',
-                    '`/leaderboard penguins` · most penguins found 🐧',
-                    '`/playtime` · `/deaths` · `/gains` · most played, most deaths, most XP',
-                ].join('\n'),
-            },
-            {
-                name: '🔗 You',
-                value: [
-                    '`/link` · link your Discord to your character',
-                    '`/me` · everything about your character',
-                    '`/alerts` · DMs when a raid starts or you’re hunted (off until you turn them on)',
-                    '`/unlink` · remove the link',
-                ].join('\n'),
-            },
-            {
-                name: '📈 Activity',
-                value: [
-                    '`/gains [player] [period]` · XP gained today, this week or this month',
-                    '`/playtime [player]` · time played',
-                    '`/deaths [player]` · deaths',
-                ].join('\n'),
-            },
-            {
-                name: '🐉 Server & more',
-                value: [
-                    '`/status` · is it up, who is on and the world',
-                    '`/item item` · what an item is and does, from the wiki',
-                    '`/help` · this list',
-                    ...(config.hasClientMod ? ['📦 **Longer chest range** · the installer is pinned in this channel'] : []),
-                ].join('\n'),
-            },
+            { name: '📊 Players', value: '`/levels` `/perks` `/quests` `/kills`' },
+            { name: '🏆 Leaderboards', value: '`/leaderboard` total · skill · quests · kills · penguins 🐧' },
+            { name: '📈 Activity', value: '`/gains` `/playtime` `/deaths`' },
+            { name: '🔗 Your character', value: '`/link` it once, then `/me` for everything and `/alerts` for raid DMs' },
+            { name: '🐉 Server', value: "`/status` who's on · `/item` what something does · `/help` this list" },
         )
-        .setFooter({ text: '[ ] = optional' });
+        .setFooter({ text: 'Enjoying the bot? ☕ buymeacoffee.com/paradoxjs' });
 
-    if (config.bridgeToGame && config.chatChannelId) {
-        embed.addFields({ name: '💬 Talk to players', value: `Messages in <#${config.chatChannelId}> show up in game chat.` });
-    }
-    if (config.adminUserIds.length) {
-        embed.addFields({
-            name: '🛡️ Admins only',
-            value:
-                '`/server` start, stop, restart, cancel, update, back up, list and restore backups\n' +
-                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics, crashes, performance, update',
-        });
-    }
+    const extras = [];
+    if (config.bridgeToGame && config.chatChannelId) extras.push(`💬 Type in <#${config.chatChannelId}> to talk to players in game.`);
+    if (config.hasClientMod) extras.push('📦 The **longer chest range** installer is pinned in this channel.');
+    if (extras.length) embed.addFields({ name: '\u200b', value: extras.join('\n') });
+    if (admin) embed.addFields(...adminCommandFields());
     return embed;
+}
+
+function adminCommandFields() {
+    return [
+        { name: '🛡️ /server', value: 'start · stop · restart · cancel · update · backup · backups · restore' },
+        { name: '🛡️ /admin', value: 'kick · ban · unban · bans · give · say · save · remove · restore\ndiagnostics · crashes · performance · update · contact' },
+    ];
+}
+
+// DMed to each admin once (and again when it changes): the commands only they
+// see, and where to get help.
+export function adminGuideEmbed() {
+    return new EmbedBuilder()
+        .setColor(COLOR.info)
+        .setTitle(`🛡️ You're an admin of ${config.serverName}`)
+        .setDescription(
+            [
+                'These commands only work for you and the other admins, and their replies are only shown to you:',
+                '',
+                '**`/server`** start, stop or restart the game server (players get a warning), `cancel` a planned one, `update` it, `backup` now, list `backups` and `restore` one.',
+                '**`/admin`** `kick`, `ban`, `unban` and `bans` · `give` items · `say` something in game · `save` the world · `remove` / `restore` someone on the leaderboards',
+                "**Checks** `/admin diagnostics` what the mod reads · `crashes` why it went down · `performance` how it's coping",
+                "**Updates** `/admin update` - you'll also get a DM with an **Update now** button when a new version is out.",
+                '',
+                "I'll also DM you about crashes, a struggling machine and players returning with things from elsewhere.",
+                '',
+                'Questions or bugs: `/admin contact` to message the developer.',
+            ].join('\n'),
+        )
+        .setFooter({ text: 'Enjoying it? ☕ buymeacoffee.com/paradoxjs' });
 }
 
 // ---- server notices -----------------------------------------------------

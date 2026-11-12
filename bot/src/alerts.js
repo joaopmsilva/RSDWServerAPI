@@ -1,9 +1,12 @@
+import fs from 'node:fs';
 import os from 'node:os';
-import { EmbedBuilder } from 'discord.js';
+import path from 'node:path';
+import { ActionRowBuilder, EmbedBuilder } from 'discord.js';
 import { api } from './api.js';
 import { config } from './config.js';
 import { buildCrashReport } from './crash-report.js';
-import { crashReportEmbed, formatDuration } from './embeds.js';
+import { contactButton } from './developer.js';
+import { adminGuideEmbed, crashReportEmbed, formatDuration } from './embeds.js';
 import { logger } from './log.js';
 import { systemStats } from './system.js';
 
@@ -56,6 +59,41 @@ export class Alerts {
 
     stop() {
         for (const t of this.timers) clearInterval(t);
+    }
+
+    // The admin commands aren't on the public command list: each admin gets
+    // them by DM once, and again when the guide changes (data/admin-guide.json).
+    async welcomeAdmins() {
+        const file = path.join(config.dataDir, 'admin-guide.json');
+        let sent = {};
+        try {
+            sent = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch {
+            // First time.
+        }
+        const embed = adminGuideEmbed();
+        const key = JSON.stringify(embed.toJSON().description);
+        let changed = false;
+        for (const id of config.adminUserIds) {
+            if (sent[id] === key) continue;
+            try {
+                const user = await this.client.users.fetch(id);
+                await user.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(contactButton())] });
+                sent[id] = key;
+                changed = true;
+                log.info(`sent the admin guide to ${user.tag}`);
+            } catch (err) {
+                log.warn(`could not send the admin guide to ${id}: ${err.message} - they need to share a server with the bot and allow DMs`);
+            }
+        }
+        if (changed) {
+            try {
+                fs.mkdirSync(config.dataDir, { recursive: true });
+                fs.writeFileSync(file, JSON.stringify(sent));
+            } catch (err) {
+                log.warn(`could not save ${file}: ${err.message}`);
+            }
+        }
     }
 
     async dm(title, text, color) {

@@ -1,4 +1,10 @@
-# Deploying on a Linux VPS
+# Setting it up by hand
+
+> [!TIP]
+> **Most people want the one-command installer instead:** `sudo bash install.sh` does every step
+> below by itself - see the [Quick start](README.md#-quick-start). This guide is for fitting the mod
+> and bot into a server you already run your own way, and for the developer's update scripts at the
+> end.
 
 How to put the mod and the Discord bot on a plain Linux VPS with a manual Steam install of
 the Dragonwilds dedicated server - no Docker, no panel.
@@ -22,15 +28,21 @@ application:
 
 1. **Bot** → under *Privileged Gateway Intents*, turn on **Message Content Intent**.
 2. **Bot** → **Reset Token** if you don't have the token saved. You'll paste it into `.env`.
-3. Make sure the bot has these permissions in the channels it should work in: *View
-   Channels*, *Send Messages*, *Embed Links*, *Add Reactions*, *Read Message History*.
-   *Manage Messages* is optional but makes the ◀️ ▶️ page arrows smoother. To re-invite with
-   the right permissions: **OAuth2 → URL Generator**, scopes `bot` **and**
-   `applications.commands` (needed for the slash commands), tick those permissions, open the
-   URL. Re-inviting over the existing bot keeps its roles.
-4. In Discord, **User Settings → Advanced → Developer Mode** on. Right-click the channel for
-   in-game chat → **Copy Channel ID**, and the same for deaths and server notices if you want
-   them in separate channels.
+3. Invite it with this link, putting your application's ID (on its **General Information** page)
+   in place of `APP_ID`:
+
+   ```
+   https://discord.com/oauth2/authorize?client_id=APP_ID&scope=bot+applications.commands&permissions=275146468432
+   ```
+
+   That asks for what the bot uses: *View Channels*, *Send Messages*, *Embed Links*, *Attach Files*,
+   *Add Reactions*, *Read Message History*, *Manage Messages* (pinning its cards, tidying the
+   commands channel), and *Manage Channels* + *Manage Roles* (making its own channels). The bot
+   also logs this link when it starts and isn't in a server yet. Re-inviting over the existing bot
+   keeps its roles.
+4. **Channels**: leave every channel setting empty in step 7 and the bot makes its own category and
+   channels the first time it starts. To use channels you already have instead: **User Settings →
+   Advanced → Developer Mode** on, then right-click each channel → **Copy Channel ID**.
 
 ## 2. Copy the project to the VPS
 
@@ -104,7 +116,7 @@ grep -E "loaded|data directory|Failed to bind|engine ready|not found|Events" /ho
 
 You should see:
 
-- `RSDWRestAPI 0.5.0 loaded`
+- `RSDWRestAPI 0.x.y loaded`
 - `RSDWRestAPI: engine ready, endpoints are live`
 - `Events: chat and death feed live at /api/events`
 
@@ -119,7 +131,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8080/api/players
 
 `health` should say `"engineReady":true`.
 
-If there is no `0.5.0 loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
+If there is no `loaded` line at all, add `RSDWAPI_FORCE=1` before `LD_PRELOAD=` in the
 start command and restart.
 
 **Run it as a service.** `/server` in Discord and the cron scripts start and stop the server
@@ -153,7 +165,7 @@ sudo systemctl restart rsdw-bot
 ## 7. Install the bot
 
 ```bash
-node --version          # needs v18.17 or newer
+node --version          # needs v20 or newer
 mv ~/RSDWServerAPI/bot /home/dragonwilds/rsdw-bot
 cd /home/dragonwilds/rsdw-bot
 npm install --omit=dev
@@ -169,9 +181,8 @@ Fill in at least:
 | `API_TOKEN` | `BearerToken` from `settings.ini` |
 | `SERVER_NAME` | your server's name, shown in `/status` and notices |
 | `MAX_PLAYERS` | your server's max players |
-| `CHAT_CHANNEL_ID` | channel ID for in-game chat |
-| `DEATH_CHANNEL_ID` | channel ID for deaths, or leave empty to use the chat channel |
-| `STATUS_CHANNEL_ID` | channel ID for online / offline / restart / backup notices, or empty for the chat channel |
+| `ADMIN_USER_IDS` | your Discord user ID (step 11) |
+| `CHAT_CHANNEL_ID` | empty: the bot makes its own channels. Or your chat channel's ID, and the other `*_CHANNEL_ID`s as you like ([CONFIG.md](bot/CONFIG.md#-channels)) |
 
 Optional: `BRIDGE_ROLE_ID` to let only one role talk into the game. Everything else in
 `.env.example` has sensible defaults.

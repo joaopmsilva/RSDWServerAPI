@@ -1,0 +1,52 @@
+# Builds the mod on an old glibc (2.28, the same the game server itself needs),
+# so the one file works on any Linux the game runs on: Debian 11+, Ubuntu 20.04+
+# and the container images game hosts use. Every push checks the build; a
+# published release gets librsdwapi.so attached, which is what the bot's
+# self-updater downloads when the machine has no compiler.
+name: Build mod
+
+on:
+  push:
+    branches: [main]
+    paths: [src/**, Makefile, .github/workflows/build-mod.yml]
+  pull_request:
+    paths: [src/**, Makefile]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          g++ --version | head -1
+          make -j"$(nproc)"
+      - name: Check what it needs
+        run: |
+          echo "Newest glibc symbol used:"
+          objdump -T dist/librsdwapi.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1
+          if objdump -T dist/librsdwapi.so | grep -q 'GLIBCXX\|CXXABI'; then echo "libstdc++ isn't linked statically"; exit 1; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: librsdwapi.so
+          path: dist/librsdwapi.so
+
+  attach:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: librsdwapi.so
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" librsdwapi.so --clobber -R "${{ github.repository }}"
