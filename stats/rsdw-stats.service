@@ -1,0 +1,24 @@
+[Unit]
+Description=RSDWServerAPI install counter
+After=network.target
+
+[Service]
+User=rsdw-stats
+Group=rsdw-stats
+WorkingDirectory=/opt/rsdw-stats
+EnvironmentFile=/etc/rsdw-stats.env
+Environment=DATA_FILE=/var/lib/rsdw-stats/installs.json
+ExecStart=/usr/bin/node /opt/rsdw-stats/server.js
+Restart=always
+RestartSec=5
+
+# It only needs to write its one data folder.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=rsdw-stats
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

@@ -9,7 +9,7 @@ Answer a few questions and get a running server with live skills and leaderboard
 a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and full control from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.10.1-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.16.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.17.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Game](https://img.shields.io/badge/Dragonwilds-1.0.2-c9a227?style=for-the-badge)
 ![Linux](https://img.shields.io/badge/Ubuntu%20%7C%20Debian-one%20command-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)

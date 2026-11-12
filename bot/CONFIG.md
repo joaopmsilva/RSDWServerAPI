@@ -174,6 +174,7 @@ What **Update now** does:
 | ------- | ------- | ------------ |
 | `DATA_DIR` | `bot/data` | Where player stats, history, the chat position, the status board and command list messages, the update watcher's state, the item list and `bot.log` are kept. A relative path is relative to `bot/`. |
 | `DEBUG` | `false` | Log extra detail: presence updates, relay batches, undelivered chat. |
+| `BOT_TELEMETRY` | `true` | Once a day, send an anonymous ping so the project knows how many servers run the bot. It sends a random id made on your machine, the bot, mod and game versions, the OS, Node's major version, `MAX_PLAYERS` and `BOT_UPDATE_AUTO`. Nothing about your server name, Discord or players, and the collector doesn't keep IP addresses ([source](../stats/server.js)). `false` turns it off. |
 
 ---
 
@@ -259,4 +260,5 @@ MOD_FILE=librsdwapi.so
 # --- Misc ---
 DATA_DIR=
 DEBUG=false
+BOT_TELEMETRY=true
 ```

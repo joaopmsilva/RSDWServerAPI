@@ -104,6 +104,10 @@ export const config = {
     selfUpdateRepo: (process.env.BOT_UPDATE_REPO || 'joaopmsilva/RSDWServerAPI').trim(),
     selfUpdateHours: Math.max(1, int('BOT_UPDATE_HOURS', 6)),
     selfUpdateAuto: bool('BOT_UPDATE_AUTO', false),
+    // A daily anonymous "still running" ping so the project knows how many
+    // servers use it (telemetry.js says exactly what's sent).
+    telemetry: bool('BOT_TELEMETRY', true),
+    telemetryUrl: (process.env.BOT_TELEMETRY_URL || 'https://rsdw.duckdns.org/v1/ping').trim(),
     steamcmd: (process.env.STEAMCMD || '/home/dragonwilds/steamcmd/steamcmd.sh').trim(),
     dataDir: path.resolve(botRoot, process.env.DATA_DIR || 'data'),
     // With no channel set in .env at all, the bot makes its own (channels.js)
