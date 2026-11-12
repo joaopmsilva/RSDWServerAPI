@@ -18,11 +18,6 @@ a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and
 
 [**🚀 Quick start**](#-quick-start) · [**✨ Features**](#-features) · [**📸 Screenshots**](#-screenshots) · [**🤖 Bot**](bot/README.md) · [**🔧 Mod & API**](MOD.md) · [**🏢 For game hosts**](HOSTING.md) · [**💬 Help**](#-help-and-support)
 
-<br>
-
-<img src="bot/docs/screenshots/status-board.png" width="49%" alt="The live status board: online, how to join, who's playing, top XP today">
-<img src="bot/docs/screenshots/me.png" width="49%" alt="/me: skills, quests, journal, playtime, kills, deaths and penguins">
-
 </div>
 
 > [!NOTE]
