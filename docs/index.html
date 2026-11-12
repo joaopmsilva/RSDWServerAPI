@@ -13,7 +13,7 @@
 <meta property="og:image" content="https://joaopmsilva.github.io/RSDWServerAPI/img/status-board.webp">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0f1015">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235865f2'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle'%3E%F0%9F%90%89%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="img/icons/lodestone.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -56,13 +56,13 @@
 .st:hover { background: #1a1c21; color: #fff; }
 .st:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
 .st-ico { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); transition: background .15s, color .15s; }
-.st-ico svg { width: 18px; height: 18px; }
+.st-ico img { width: 24px; height: 24px; display: block; }
 .st-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .st-t b { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .st-t small { font-size: 11.5px; color: #8b8f99; white-space: nowrap; }
 .st-s { display: none; }
 .st[aria-current="page"] { background: #1c1e24; color: #fff; box-shadow: inset 0 0 0 1px #2d3039; }
-.st[aria-current="page"] .st-ico { background: var(--c); color: #111; }
+.st[aria-current="page"] .st-ico { background: color-mix(in srgb, var(--c) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 65%, transparent); }
 .st[aria-current="page"]::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: -7px; height: 2px; border-radius: 2px; background: var(--c); }
 .st-q { --c: #e9a948; }
 .st-p { --c: #ff8a5c; }
@@ -72,7 +72,7 @@
   .st { flex: 1 1 0; justify-content: center; gap: 7px; padding: 6px 8px; }
   .st-t small { display: none; }
   .st-ico { width: 28px; height: 28px; border-radius: 8px; }
-  .st-ico svg { width: 16px; height: 16px; }
+  .st-ico img { width: 21px; height: 21px; }
   .st[aria-current="page"]::after { left: 10px; right: 10px; }
 }
 @media (max-width: 480px) {
@@ -84,7 +84,7 @@
 
   .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; text-decoration: none; color: var(--ink); }
-  .brand .logo { width: 34px; height: 34px; border-radius: 9px; background: #5865f2; display: grid; place-items: center; font-size: 19px; }
+  .brand .logo { width: 36px; height: 36px; flex: none; }
   .brand b { font-family: var(--font-display); font-weight: 800; font-size: 25px; letter-spacing: .01em; line-height: 1; }
   .topnav { display: flex; gap: 18px; font-size: 14px; }
   .topnav a { color: var(--ink); text-decoration: none; }
@@ -112,6 +112,7 @@
   .btn.ghost { border: 1px solid var(--line); color: var(--ink); background: var(--panel); }
   .btn.ghost:hover { border-color: var(--accent); }
   .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .pill::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
   .pill { font-size: 13px; padding: 5px 11px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
   .shot { border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: #313338; }
   .hero .shot { transform: rotate(1.2deg); }
@@ -123,7 +124,7 @@
 
   .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
   .feat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 20px 16px; box-shadow: var(--shadow); }
-  .feat .ico { font-size: 26px; }
+  .feat .ico { width: 58px; height: 58px; padding: 8px; display: block; border-radius: 14px; background: linear-gradient(145deg, var(--accent-soft), var(--sunk)); border: 1px solid var(--line); }
   .feat h3 { margin: 8px 0 8px; font-size: 19px; }
   .feat ul { margin: 0; padding-left: 1.1em; color: var(--muted); font-size: 15px; }
   .feat li { margin: 4px 0; }
@@ -157,7 +158,10 @@
   .cards2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
   .card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; text-decoration: none; color: var(--ink); box-shadow: var(--shadow); }
   a.card:hover { border-color: var(--accent); }
-  .card h3 { margin: 0 0 6px; font-size: 19px; }
+  .card h3 { margin: 0 0 6px; font-size: 19px; display: flex; align-items: center; gap: 8px; }
+  .card-ico { width: 30px; height: 30px; flex: none; }
+  .sec-title .sec-ico { width: 44px; height: 44px; vertical-align: -5px; margin-right: 4px; }
+  .coffee .cup { flex: none; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
   .card .go { display: inline-block; margin-top: 10px; font-weight: 600; color: var(--accent); font-size: 14px; }
   .coffee { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; background: #ffdd00; color: #1a1a1a; font-weight: 700; text-decoration: none; }
@@ -182,13 +186,13 @@
 <body>
 <nav class="suite" aria-label="Dragonwilds tools">
   <div class="suite-in">
-    <a class="st st-q" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="suite-quests"><span class="st-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h10a3 3 0 0 1 3 3v15H9a3 3 0 0 1-3-3z"/><path d="M10 8h5M10 12h5M10 16h3"/></svg></span><span class="st-t"><b><span class="st-l">Quest guides</span><span class="st-s">Quests</span></b><small>Every quest, step by step</small></span></a>
-    <a class="st st-p" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="suite-penguins"><span class="st-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg></span><span class="st-t"><b><span class="st-l">Penguin map</span><span class="st-s">Penguins</span></b><small>All 208 KGP spots</small></span></a>
-    <a class="st st-m" href="./" aria-current="page"><span class="st-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></svg></span><span class="st-t"><b><span class="st-l">Server mod</span><span class="st-s">Server mod</span></b><small>Discord bot for your server</small></span></a>
+    <a class="st st-q" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="suite-quests"><span class="st-ico" aria-hidden="true"><img src="img/icons/journal.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Quest guides</span><span class="st-s">Quests</span></b><small>Every quest, step by step</small></span></a>
+    <a class="st st-p" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="suite-penguins"><span class="st-ico" aria-hidden="true"><img src="img/icons/penguin-coin.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Penguin map</span><span class="st-s">Penguins</span></b><small>All 208 KGP spots</small></span></a>
+    <a class="st st-m" href="./" aria-current="page"><span class="st-ico" aria-hidden="true"><img src="img/icons/lodestone.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Server mod</span><span class="st-s">Server mod</span></b><small>Discord bot for your server</small></span></a>
   </div>
 </nav>
 <header class="topbar">
-  <a class="brand" href="./"><span class="logo" aria-hidden="true">🐉</span><b>RSDWServerAPI</b></a>
+  <a class="brand" href="./"><img class="logo" src="img/icons/lodestone.png" alt="" width="48" height="48"><b>RSDWServerAPI</b></a>
   <nav class="topnav" aria-label="On this page"><a href="#features">Features</a><a href="#setup">Setup</a><a href="#screenshots">Screenshots</a><a href="#help">Help</a></nav>
   <a class="gh" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-topbar"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
 </header>
@@ -207,7 +211,7 @@
           <a class="btn gh-btn" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-hero"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub<span class="stars" data-stars hidden></span></a>
           <a class="btn ghost" href="#screenshots">See it in Discord</a>
         </div>
-        <div class="pills"><span class="pill">🎮 Players install nothing</span><span class="pill">🔁 Updates itself</span><span class="pill">💾 Hourly backups</span><span class="pill">⚡ ~3% of one core</span></div>
+        <div class="pills"><span class="pill">Players install nothing</span><span class="pill">Updates itself</span><span class="pill">Hourly backups</span><span class="pill">~3% of one core</span></div>
       </div>
       <div class="shot"><img src="img/status-board.webp" width="1000" height="826" alt="The live status board in Discord: how to join, who's online, top XP today and server health"></div>
     </div>
@@ -218,25 +222,25 @@
       <h2 class="sec-title">What you get</h2>
       <p class="sec-lede">Everything runs on your server. Players join the way they always do.</p>
       <div class="features">
-        <div class="feat"><div class="ico" aria-hidden="true">🚀</div><h3>A server in one command</h3><ul>
+        <div class="feat"><img class="ico" src="img/icons/campfire.png" alt="" width="48" height="48" aria-hidden="true"><h3>A server in one command</h3><ul>
           <li><b>Installs everything</b>: packages, Node.js, steamcmd, the game, the mod and the bot</li>
           <li><b>Hourly backups</b>, newest 10 kept</li>
           <li><b>Daily update and restart</b>, with warnings in game and in Discord</li>
           <li><b>Updates itself</b>: a DM with an Update now button</li>
         </ul></div>
-        <div class="feat"><div class="ico" aria-hidden="true">🎮</div><h3>For players, in Discord</h3><ul>
+        <div class="feat"><img class="ico" src="img/icons/tome.png" alt="" width="48" height="48" aria-hidden="true"><h3>For players, in Discord</h3><ul>
           <li><code class="k">/levels</code> <code class="k">/quests</code> <code class="k">/kills</code> for anyone, live or last seen</li>
           <li><b>Leaderboards</b>: total level, any skill, quests, kills, penguins</li>
           <li><code class="k">/me</code>, <code class="k">/gains</code>, <code class="k">/playtime</code>, <code class="k">/item</code></li>
           <li><b>Raid and hunt alerts</b> by DM, for those who want them</li>
         </ul></div>
-        <div class="feat"><div class="ico" aria-hidden="true">💬</div><h3>Live in your channels</h3><ul>
+        <div class="feat"><img class="ico" src="img/icons/postbox.png" alt="" width="48" height="48" aria-hidden="true"><h3>Live in your channels</h3><ul>
           <li><b>Channels made for you</b> when the bot joins</li>
           <li><b>Two-way chat</b> between the game and Discord</li>
           <li><b>Deaths with the cause</b>, level-ups, 99s and quests</li>
           <li><b>Status board</b> with how to join and who's on</li>
         </ul></div>
-        <div class="feat"><div class="ico" aria-hidden="true">🛡️</div><h3>For admins</h3><ul>
+        <div class="feat"><img class="ico" src="img/icons/banner.png" alt="" width="48" height="48" aria-hidden="true"><h3>For admins</h3><ul>
           <li><code class="k">/server</code>: start, stop, restart, update, back up, restore</li>
           <li><code class="k">/admin</code>: kick, ban, give items, announce</li>
           <li><b>Private alerts</b> for crashes, high CPU, RAM or disk</li>
@@ -257,9 +261,9 @@
         <div class="step"><h3>Invite the bot</h3><p>Open the link it prints. The bot makes its channels and DMs you the admin commands. Then play.</p><span class="time">1 minute</span></div>
       </div>
       <div class="needs">
-        <div>🖥️ <b>A Linux server</b>: Ubuntu 22.04+ or Debian 12+, 2 GB RAM plus 1 GB per player, ~20 GB disk</div>
-        <div>💬 <b>A Discord server</b> where you can add bots</div>
-        <div>🎮 <b>Your Player ID</b> from the bottom of the game's Settings</div>
+        <div><b>A Linux server</b>: Ubuntu 22.04+ or Debian 12+, 2 GB RAM plus 1 GB per player, ~20 GB disk</div>
+        <div><b>A Discord server</b> where you can add bots</div>
+        <div><b>Your Player ID</b> from the bottom of the game's Settings</div>
       </div>
     </div>
   </section>
@@ -267,14 +271,14 @@
   <section id="penguins">
     <div class="wrap split">
       <div>
-        <h2 class="sec-title">🐧 Penguin hunt leaderboard</h2>
+        <h2 class="sec-title"><img class="sec-ico" src="img/icons/penguin-coin.png" alt="" width="48" height="48" aria-hidden="true"> Penguin hunt leaderboard</h2>
         <p class="sec-lede">Patch 1.0.2 let over 200 Killer Gentoo Penguins loose across Ashenfall. The bot ranks your hunters.</p>
         <ul>
           <li><b><code class="k">/leaderboard penguins</code></b>: everyone ranked, with this week's haul</li>
           <li><b>Fair</b>: each penguin counts once per character</li>
           <li><b>Catches up</b> on penguins found before the mod loaded</li>
         </ul>
-        <a class="callout" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="penguins-callout"><span aria-hidden="true">🗺️</span> Hunting? All 208 spots are on the penguin map →</a>
+        <a class="callout" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="penguins-callout">Hunting? All 208 spots are on the penguin map →</a>
       </div>
       <div class="shot"><img src="img/penguins.webp" width="1000" height="444" alt="/leaderboard penguins: the top penguin hunters with medals and this week's count" loading="lazy"></div>
     </div>
@@ -302,9 +306,9 @@
   <section id="more">
     <div class="wrap">
       <div class="cards2">
-        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/HOSTING.md" data-goatcounter-click="hosting-card"><h3>🏢 Run a hosting company?</h3><p>The mod is one file loaded with LD_PRELOAD and the bot is a small Node.js app, so both fit panel hosting like Pterodactyl and Pelican.</p><span class="go">Read the host guide →</span></a>
-        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/MOD.md"><h3>🔧 Just the mod?</h3><p>A REST API and optional RCON for players, quests, kills and penguins, with a live event feed, for your own tools.</p><span class="go">Mod and API reference →</span></a>
-        <a class="card" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="quests-card"><h3>📜 Stuck on a quest?</h3><p>Every Dragonwilds quest and activity guide in one place, with maps, pictures and a done checklist.</p><span class="go">Open the quest guides →</span></a>
+        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/HOSTING.md" data-goatcounter-click="hosting-card"><h3><img class="card-ico" src="img/icons/garou-chit.png" alt="" width="48" height="48" aria-hidden="true"> Run a hosting company?</h3><p>The mod is one file loaded with LD_PRELOAD and the bot is a small Node.js app, so both fit panel hosting like Pterodactyl and Pelican.</p><span class="go">Read the host guide →</span></a>
+        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/MOD.md"><h3><img class="card-ico" src="img/icons/fire-rune.png" alt="" width="48" height="48" aria-hidden="true"> Just the mod?</h3><p>A REST API and optional RCON for players, quests, kills and penguins, with a live event feed, for your own tools.</p><span class="go">Mod and API reference →</span></a>
+        <a class="card" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="quests-card"><h3><img class="card-ico" src="img/icons/journal.png" alt="" width="48" height="48" aria-hidden="true"> Stuck on a quest?</h3><p>Every Dragonwilds quest and activity guide in one place, with maps, pictures and a done checklist.</p><span class="go">Open the quest guides →</span></a>
       </div>
     </div>
   </section>
@@ -328,7 +332,7 @@
     <div class="wrap">
       <h2 class="sec-title">Help and support</h2>
       <p class="sec-lede">Questions, bugs or ideas: message me on Discord as <a href="https://discord.com/users/169180385501118485">joaosilvajs</a> (DMs are open), run <code class="k">/admin contact</code> in your server, or open a <a href="https://github.com/joaopmsilva/RSDWServerAPI/issues">GitHub issue</a>.</p>
-      <a class="coffee" href="https://buymeacoffee.com/paradoxjs" data-goatcounter-click="coffee-mod-page"><span aria-hidden="true">☕</span> Buy me a coffee</a>
+      <a class="coffee" href="https://buymeacoffee.com/paradoxjs" data-goatcounter-click="coffee-mod-page"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Buy me a coffee</a>
     </div>
   </section>
 </main>
