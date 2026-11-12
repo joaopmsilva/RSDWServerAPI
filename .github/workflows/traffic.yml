@@ -1,0 +1,43 @@
+# GitHub only keeps 14 days of repo traffic. This saves it every day to the
+# `traffic` branch (daily.csv plus a README with a chart), so the history stays.
+# Needs a TRAFFIC_TOKEN secret: a fine-grained token for this repo with
+# "Administration: read", the only permission that can see traffic.
+name: Save traffic stats
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: traffic
+
+jobs:
+  save:
+    if: github.repository == 'joaopmsilva/RSDWServerAPI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: main
+          sparse-checkout: .github/scripts
+      - uses: actions/checkout@v4
+        with:
+          ref: traffic
+          path: traffic
+      - name: Fetch and save
+        env:
+          REPO: ${{ github.repository }}
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node main/.github/scripts/traffic.mjs traffic
+      - name: Commit
+        working-directory: traffic
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing new"; exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -qm "Traffic $(date -u +%F)"
+          git push -q
