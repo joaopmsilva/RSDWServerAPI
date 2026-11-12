@@ -24,7 +24,6 @@ a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and
 > **Players don't install anything.** Everything runs on the server, and people join as usual.
 > (The optional longer chest range is the one exception, and the bot hands out a one-click installer for it.)
 
----
 
 ## 🚀 Quick start
 
@@ -34,6 +33,7 @@ for the game to download.
 ### 📋 What you need
 
 | | |
+| - | - |
 | 🖥️ **A Linux server** | A VPS or dedicated server with **Ubuntu 22.04 or newer** or **Debian 12+**, 64-bit. The game wants **2 GB of RAM plus 1 GB per player**, so 8 GB for a full server of 6. About 20 GB of disk. |
 | 💬 **A Discord server** | One where you can add bots (you own it or you're an admin). |
 | 🎮 **Your Dragonwilds Player ID** | In the game: **Settings**, at the very bottom (there's a copy button). It makes you the server's owner. |
