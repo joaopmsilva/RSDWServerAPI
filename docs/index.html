@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RSDWServerAPI · Dragonwilds server with a Discord bot, in one command</title>
+<meta name="description" content="Free and open source: a one-command installer, server mod and Discord bot for RuneScape: Dragonwilds dedicated servers on Linux. Two-way chat, live leaderboards, a penguin hunt leaderboard, death and quest feeds, backups, updates and admin tools. Players install nothing.">
+<link rel="canonical" href="https://joaopmsilva.github.io/RSDWServerAPI/">
+<meta property="og:title" content="RSDWServerAPI · your own Dragonwilds server, with Discord built in">
+<meta property="og:description" content="A one-command installer, server mod and Discord bot for RuneScape: Dragonwilds dedicated servers on Linux. Free and open source.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://joaopmsilva.github.io/RSDWServerAPI/">
+<meta property="og:image" content="https://joaopmsilva.github.io/RSDWServerAPI/img/status-board.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0f1015">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235865f2'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle'%3E%F0%9F%90%89%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f4f5fa; --panel: #ffffff; --sunk: #eceef6; --ink: #161824; --muted: #5d6275; --line: #dcdfeb;
+    --accent: #4752c4; --accent-2: #b8860b; --accent-soft: #e5e7fb; --code: #0f1015; --code-ink: #e7e9f3;
+    --shadow: 0 1px 2px rgba(20, 24, 50, .06), 0 10px 30px rgba(20, 24, 50, .08);
+    --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1015; --panel: #171922; --sunk: #13141b; --ink: #eceef7; --muted: #9aa0b5; --line: #272a38;
+      --accent: #8b95ff; --accent-2: #f0c94a; --accent-soft: #1d2040; --code: #090a0e; --code-ink: #e7e9f3;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1015; --panel: #171922; --sunk: #13141b; --ink: #eceef7; --muted: #9aa0b5; --line: #272a38;
+    --accent: #8b95ff; --accent-2: #f0c94a; --accent-soft: #1d2040; --code: #090a0e; --code-ink: #e7e9f3;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--font-body); }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  img { max-width: 100%; height: auto; display: block; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+
+  /* the strip shared by the three sites */
+  .suite { display: flex; align-items: center; gap: 4px 18px; flex-wrap: wrap; padding: 7px 16px; background: #0e0c09; color: #b9ad98; font-size: 13px; }
+  .suite-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8a7f6c; margin-right: 4px; }
+  .suite a { color: #e8dfcf; text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; }
+  .suite a:hover { color: #fff; border-bottom-color: #e9a948; }
+  .suite a[aria-current="page"] { color: #fff; border-bottom-color: #e9a948; font-weight: 600; }
+  @media (max-width: 560px) { .suite-label { display: none; } .suite { gap: 4px 14px; justify-content: center; } }
+
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; text-decoration: none; color: var(--ink); }
+  .brand .logo { width: 34px; height: 34px; border-radius: 9px; background: #5865f2; display: grid; place-items: center; font-size: 19px; }
+  .brand b { font-family: var(--font-display); font-weight: 800; font-size: 25px; letter-spacing: .01em; line-height: 1; }
+  .topnav { display: flex; gap: 18px; font-size: 14px; }
+  .topnav a { color: var(--ink); text-decoration: none; }
+  .topnav a:hover { color: var(--accent); }
+  .gh { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 14px; }
+  .gh svg { width: 17px; height: 17px; }
+  @media (max-width: 760px) { .topnav { display: none; } }
+
+  .hero { padding: 54px 0 40px; background: radial-gradient(900px 420px at 15% -10%, var(--accent-soft), transparent 70%), radial-gradient(700px 400px at 100% 20%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%); }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 44px; align-items: center; }
+  .eyebrow { margin: 0 0 12px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(42px, 6.4vw, 76px); line-height: .94; letter-spacing: .005em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 19px; color: var(--muted); margin: 16px 0 22px; max-width: 560px; }
+  .cmd { position: relative; display: flex; align-items: center; gap: 10px; background: var(--code); color: var(--code-ink); border-radius: 12px; padding: 14px 14px 14px 16px; font: 13.5px/1.5 var(--font-mono); box-shadow: var(--shadow); border: 1px solid #262838; }
+  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+  .cmd code::before { content: "$ "; color: #7f86a6; }
+  .copy { flex: none; border: 1px solid #3a3d52; background: #1c1e2b; color: #e7e9f3; border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font-body); cursor: pointer; }
+  .copy:hover { background: #262939; }
+  .cmd-note { font-size: 13px; color: var(--muted); margin: 8px 2px 0; }
+  .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 15px; }
+  .btn.primary { background: #5865f2; color: #fff; }
+  .btn.primary:hover { background: #4752c4; }
+  .btn.ghost { border: 1px solid var(--line); color: var(--ink); background: var(--panel); }
+  .btn.ghost:hover { border-color: var(--accent); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .pill { font-size: 13px; padding: 5px 11px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  .shot { border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: #313338; }
+  .hero .shot { transform: rotate(1.2deg); }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } .hero .shot { transform: none; max-width: 560px; } }
+
+  section { padding: 34px 0; }
+  .sec-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 4.4vw, 46px); line-height: 1; margin: 0 0 8px; }
+  .sec-lede { color: var(--muted); margin: 0 0 24px; max-width: 680px; font-size: 17px; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .feat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 20px 16px; box-shadow: var(--shadow); }
+  .feat .ico { font-size: 26px; }
+  .feat h3 { margin: 8px 0 8px; font-size: 19px; }
+  .feat ul { margin: 0; padding-left: 1.1em; color: var(--muted); font-size: 15px; }
+  .feat li { margin: 4px 0; }
+  .feat li::marker { color: var(--accent); }
+  .feat b { color: var(--ink); font-weight: 600; }
+  code.k { font: 13px var(--font-mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; color: var(--ink); }
+
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; counter-reset: step; }
+  .step { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; counter-increment: step; }
+  .step::before { content: counter(step); position: absolute; top: -14px; left: 18px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #5865f2; color: #fff; font: 700 15px var(--font-mono); }
+  .step h3 { margin: 6px 0 6px; font-size: 18px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  .step .time { display: inline-block; margin-top: 10px; font: 12px var(--font-mono); color: var(--muted); }
+  .needs { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 20px; font-size: 15px; color: var(--muted); }
+  .needs b { color: var(--ink); }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+  .split ul { padding-left: 1.1em; color: var(--muted); }
+  .split li { margin: 6px 0; }
+  .split li b { color: var(--ink); }
+  .callout { display: inline-flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, #c9431a 12%, var(--panel)); border: 1px solid color-mix(in srgb, #c9431a 35%, transparent); color: var(--ink); text-decoration: none; font-size: 15px; }
+  .callout:hover { border-color: #c9431a; }
+
+  .gallery { columns: 3 300px; column-gap: 16px; }
+  .gallery figure { break-inside: avoid; margin: 0 0 16px; }
+  .gallery figcaption { font-size: 14px; color: var(--muted); padding: 8px 2px 0; }
+  .gallery figcaption b { color: var(--ink); }
+  .gallery a { display: block; }
+
+  .cards2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; text-decoration: none; color: var(--ink); box-shadow: var(--shadow); }
+  a.card:hover { border-color: var(--accent); }
+  .card h3 { margin: 0 0 6px; font-size: 19px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .card .go { display: inline-block; margin-top: 10px; font-weight: 600; color: var(--accent); font-size: 14px; }
+  .coffee { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; background: #ffdd00; color: #1a1a1a; font-weight: 700; text-decoration: none; }
+  .coffee:hover { filter: brightness(.95); }
+
+  .foot { border-top: 1px solid var(--line); background: var(--panel); margin-top: 30px; }
+  .foot .wrap { padding-top: 22px; padding-bottom: 28px; font-size: 13px; color: var(--muted); }
+  .foot p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<nav class="suite" aria-label="Dragonwilds fan sites">
+  <span class="suite-label">Dragonwilds fan tools</span>
+  <a href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="suite-quests"><span aria-hidden="true">📜</span> Quest guides</a>
+  <a href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="suite-penguins"><span aria-hidden="true">🐧</span> Penguin map</a>
+  <a href="./" aria-current="page"><span aria-hidden="true">🐉</span> Server mod &amp; Discord bot</a>
+</nav>
+<header class="topbar">
+  <a class="brand" href="./"><span class="logo" aria-hidden="true">🐉</span><b>RSDWServerAPI</b></a>
+  <nav class="topnav" aria-label="On this page"><a href="#features">Features</a><a href="#setup">Setup</a><a href="#screenshots">Screenshots</a><a href="#help">Help</a></nav>
+  <a class="gh" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-topbar"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">RuneScape: Dragonwilds · free &amp; open source</p>
+        <h1>Your own Dragonwilds server, with <em>Discord built in</em>, in one command.</h1>
+        <p class="lede">An installer, a server mod and a Discord bot for Linux VPS and dedicated servers. Answer a few questions and get a running server with live leaderboards, two-way chat, a penguin hunt leaderboard, backups, updates and admin tools.</p>
+        <div class="cmd"><code id="cmd">curl -fsSLO https://raw.githubusercontent.com/joaopmsilva/RSDWServerAPI/main/install.sh &amp;&amp; sudo bash install.sh</code><button class="copy" type="button" id="copy" data-goatcounter-click="copy-install">Copy</button></div>
+        <p class="cmd-note">Ubuntu 22.04+ or Debian 12+, 64-bit. About 15 minutes, most of it the game downloading.</p>
+        <div class="ctas">
+          <a class="btn primary" href="https://github.com/joaopmsilva/RSDWServerAPI#-quick-start" data-goatcounter-click="quickstart-hero">Step-by-step guide →</a>
+          <a class="btn ghost" href="#screenshots">See it in Discord</a>
+        </div>
+        <div class="pills"><span class="pill">🎮 Players install nothing</span><span class="pill">🔁 Updates itself</span><span class="pill">💾 Hourly backups</span><span class="pill">⚡ ~3% of one core</span></div>
+      </div>
+      <div class="shot"><img src="img/status-board.webp" width="1000" height="826" alt="The live status board in Discord: how to join, who's online, top XP today and server health"></div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2 class="sec-title">What you get</h2>
+      <p class="sec-lede">Everything runs on your server. Players join the way they always do.</p>
+      <div class="features">
+        <div class="feat"><div class="ico" aria-hidden="true">🚀</div><h3>A server in one command</h3><ul>
+          <li><b>Installs everything</b>: packages, Node.js, steamcmd, the game, the mod and the bot</li>
+          <li><b>Hourly backups</b>, newest 10 kept</li>
+          <li><b>Daily update and restart</b>, with warnings in game and in Discord</li>
+          <li><b>Updates itself</b>: a DM with an Update now button</li>
+        </ul></div>
+        <div class="feat"><div class="ico" aria-hidden="true">🎮</div><h3>For players, in Discord</h3><ul>
+          <li><code class="k">/levels</code> <code class="k">/quests</code> <code class="k">/kills</code> for anyone, live or last seen</li>
+          <li><b>Leaderboards</b>: total level, any skill, quests, kills, penguins</li>
+          <li><code class="k">/me</code>, <code class="k">/gains</code>, <code class="k">/playtime</code>, <code class="k">/item</code></li>
+          <li><b>Raid and hunt alerts</b> by DM, for those who want them</li>
+        </ul></div>
+        <div class="feat"><div class="ico" aria-hidden="true">💬</div><h3>Live in your channels</h3><ul>
+          <li><b>Channels made for you</b> when the bot joins</li>
+          <li><b>Two-way chat</b> between the game and Discord</li>
+          <li><b>Deaths with the cause</b>, level-ups, 99s and quests</li>
+          <li><b>Status board</b> with how to join and who's on</li>
+        </ul></div>
+        <div class="feat"><div class="ico" aria-hidden="true">🛡️</div><h3>For admins</h3><ul>
+          <li><code class="k">/server</code>: start, stop, restart, update, back up, restore</li>
+          <li><code class="k">/admin</code>: kick, ban, give items, announce</li>
+          <li><b>Private alerts</b> for crashes, high CPU, RAM or disk</li>
+          <li><b>Carry-over checks</b> for characters coming back from other worlds</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="setup">
+    <div class="wrap">
+      <h2 class="sec-title">Set up in four steps</h2>
+      <p class="sec-lede">No Linux experience needed. The <a href="https://github.com/joaopmsilva/RSDWServerAPI#-quick-start">full guide</a> walks through every click.</p>
+      <div class="steps">
+        <div class="step"><h3>Make a Discord bot</h3><p>Create an application in the Discord Developer Portal, copy its token and turn on Message Content Intent.</p><span class="time">2 minutes</span></div>
+        <div class="step"><h3>Connect to your server</h3><p>Open Terminal or PowerShell and <code class="k">ssh</code> into the VPS your host gave you.</p><span class="time">1 minute</span></div>
+        <div class="step"><h3>Run the installer</h3><p>Paste the command and answer the questions: your Player ID, server name, passwords and the bot token.</p><span class="time">about 10 minutes</span></div>
+        <div class="step"><h3>Invite the bot</h3><p>Open the link it prints. The bot makes its channels and DMs you the admin commands. Then play.</p><span class="time">1 minute</span></div>
+      </div>
+      <div class="needs">
+        <div>🖥️ <b>A Linux server</b>: Ubuntu 22.04+ or Debian 12+, 2 GB RAM plus 1 GB per player, ~20 GB disk</div>
+        <div>💬 <b>A Discord server</b> where you can add bots</div>
+        <div>🎮 <b>Your Player ID</b> from the bottom of the game's Settings</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="penguins">
+    <div class="wrap split">
+      <div>
+        <h2 class="sec-title">🐧 Penguin hunt leaderboard</h2>
+        <p class="sec-lede">Patch 1.0.2 let over 200 Killer Gentoo Penguins loose across Ashenfall. The bot ranks your hunters.</p>
+        <ul>
+          <li><b><code class="k">/leaderboard penguins</code></b>: everyone ranked, with this week's haul</li>
+          <li><b>Fair</b>: each penguin counts once per character</li>
+          <li><b>Catches up</b> on penguins found before the mod loaded</li>
+        </ul>
+        <a class="callout" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="penguins-callout"><span aria-hidden="true">🗺️</span> Hunting? All 208 spots are on the penguin map →</a>
+      </div>
+      <div class="shot"><img src="img/penguins.webp" width="1000" height="444" alt="/leaderboard penguins: the top penguin hunters with medals and this week's count" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <div class="wrap">
+      <h2 class="sec-title">See it in Discord</h2>
+      <p class="sec-lede">Rendered from the bot's own code, with sample players.</p>
+      <div class="gallery">
+        <figure><a href="img/leaderboard.webp"><img class="shot" src="img/leaderboard.webp" width="1000" height="619" alt="/leaderboard: top players by total level" loading="lazy"></a><figcaption><b>Leaderboards</b>: total level, any skill, quests, kills</figcaption></figure>
+        <figure><a href="img/deaths-quests.webp"><img class="shot" src="img/deaths-quests.webp" width="1000" height="691" alt="Death messages with their cause, and quests completed" loading="lazy"></a><figcaption><b>Deaths and quests</b> as they happen</figcaption></figure>
+        <figure><a href="img/activity.webp"><img class="shot" src="img/activity.webp" width="1000" height="907" alt="Joins, level-ups, 99s, leaves and AFK kicks" loading="lazy"></a><figcaption><b>Live activity</b>: joins, level-ups and 99s</figcaption></figure>
+        <figure><a href="img/levels.webp"><img class="shot" src="img/levels.webp" width="1000" height="706" alt="/levels: every skill by category" loading="lazy"></a><figcaption><b>/levels</b>: every skill, with progress</figcaption></figure>
+        <figure><a href="img/quests.webp"><img class="shot" src="img/quests.webp" width="1000" height="934" alt="/quests: quests left by region and where to start next" loading="lazy"></a><figcaption><b>/quests</b>: what's left and where to start</figcaption></figure>
+        <figure><a href="img/raid-alerts.webp"><img class="shot" src="img/raid-alerts.webp" width="1000" height="744" alt="Raid and hunt alerts by DM" loading="lazy"></a><figcaption><b>Raid and hunt alerts</b> by DM</figcaption></figure>
+        <figure><a href="img/weekly-recap.webp"><img class="shot" src="img/weekly-recap.webp" width="1000" height="639" alt="The weekly recap" loading="lazy"></a><figcaption><b>Weekly recap</b> every Sunday</figcaption></figure>
+        <figure><a href="img/performance.webp"><img class="shot" src="img/performance.webp" width="1000" height="753" alt="/admin performance" loading="lazy"></a><figcaption><b>/admin performance</b>: is the server keeping up</figcaption></figure>
+        <figure><a href="img/carry-over.webp"><img class="shot" src="img/carry-over.webp" width="1000" height="591" alt="A carry-over alert DM" loading="lazy"></a><figcaption><b>Carry-over alerts</b> for admins</figcaption></figure>
+      </div>
+      <p><a href="https://github.com/joaopmsilva/RSDWServerAPI#-screenshots">More screenshots on GitHub →</a></p>
+    </div>
+  </section>
+
+  <section id="more">
+    <div class="wrap">
+      <div class="cards2">
+        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/HOSTING.md" data-goatcounter-click="hosting-card"><h3>🏢 Run a hosting company?</h3><p>The mod is one file loaded with LD_PRELOAD and the bot is a small Node.js app, so both fit panel hosting like Pterodactyl and Pelican.</p><span class="go">Read the host guide →</span></a>
+        <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/MOD.md"><h3>🔧 Just the mod?</h3><p>A REST API and optional RCON for players, quests, kills and penguins, with a live event feed, for your own tools.</p><span class="go">Mod and API reference →</span></a>
+        <a class="card" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="quests-card"><h3>📜 Stuck on a quest?</h3><p>Every Dragonwilds quest and activity guide in one place, with maps, pictures and a done checklist.</p><span class="go">Open the quest guides →</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="help">
+    <div class="wrap">
+      <h2 class="sec-title">Help and support</h2>
+      <p class="sec-lede">Questions, bugs or ideas: message me on Discord as <a href="https://discord.com/users/169180385501118485">joaosilvajs</a> (DMs are open), run <code class="k">/admin contact</code> in your server, or open a <a href="https://github.com/joaopmsilva/RSDWServerAPI/issues">GitHub issue</a>.</p>
+      <a class="coffee" href="https://buymeacoffee.com/paradoxjs" data-goatcounter-click="coffee-mod-page"><span aria-hidden="true">☕</span> Buy me a coffee</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>RSDWServerAPI is MIT licensed. The mod is based on <a href="https://github.com/dkoz/RSDWServerAPI">dkoz/RSDWServerAPI</a> by Kozejin; the installer, the Discord bot, the event feed and the rest were added on top.</p>
+    <p><i>RuneScape: Dragonwilds</i> is a trademark of Jagex Ltd. Not affiliated with Jagex. Visits are counted with GoatCounter: no cookies, nothing personal.</p>
+  </div>
+</footer>
+<script>
+  document.getElementById('copy').addEventListener('click', function () {
+    var b = this, t = document.getElementById('cmd').textContent;
+    var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1800); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {});
+  });
+</script>
+<script data-goatcounter="https://kgpguide.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

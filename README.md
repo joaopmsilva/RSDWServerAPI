@@ -16,7 +16,7 @@ a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/paradoxjs)
 
-[**🚀 Quick start**](#-quick-start) · [**✨ Features**](#-features) · [**📸 Screenshots**](#-screenshots) · [**🤖 Bot**](bot/README.md) · [**🔧 Mod & API**](MOD.md) · [**🏢 For game hosts**](HOSTING.md) · [**💬 Help**](#-help-and-support)
+[**🌐 Website**](https://joaopmsilva.github.io/RSDWServerAPI/) · [**🚀 Quick start**](#-quick-start) · [**✨ Features**](#-features) · [**📸 Screenshots**](#-screenshots) · [**🤖 Bot**](bot/README.md) · [**🔧 Mod & API**](MOD.md) · [**🏢 For game hosts**](HOSTING.md) · [**💬 Help**](#-help-and-support)
 
 </div>
 
@@ -446,6 +446,8 @@ small Node.js app, so both fit panel-based hosting (Pterodactyl, Pelican and oth
 | [**MOD.md**](MOD.md) | The mod: settings, REST API, RCON, in-game commands |
 | [**DEPLOY.md**](DEPLOY.md) | Setting it all up by hand, and the developer's update scripts |
 | [**HOSTING.md**](HOSTING.md) | For game server hosts |
+| [**📜 Quest guides**](https://joaopmsilva.github.io/dragonwilds-quests/) | Every Dragonwilds quest and activity guide, by the same author |
+| [**🐧 Penguin map**](https://joaopmsilva.github.io/dragonwilds-penguins/) | All 208 penguin spots on an interactive map |
 
 ## 🤝 Contributing
 
