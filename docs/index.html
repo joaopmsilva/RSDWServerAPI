@@ -99,10 +99,19 @@
   h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(42px, 6.4vw, 76px); line-height: .94; letter-spacing: .005em; text-wrap: balance; }
   h1 em { font-style: normal; color: var(--accent); }
   .lede { font-size: 19px; color: var(--muted); margin: 16px 0 22px; max-width: 560px; }
-  .cmd { position: relative; display: flex; align-items: center; gap: 10px; background: var(--code); color: var(--code-ink); border-radius: 12px; padding: 14px 14px 14px 16px; font: 13.5px/1.5 var(--font-mono); box-shadow: var(--shadow); border: 1px solid #262838; }
-  .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
-  .cmd code::before { content: "$ "; color: #7f86a6; }
-  .copy { flex: none; border: 1px solid #3a3d52; background: #1c1e2b; color: #e7e9f3; border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font-body); cursor: pointer; }
+  /* the install command, in a little terminal window; long lines wrap instead of scrolling */
+  .term { background: var(--code); color: var(--code-ink); border-radius: 12px; border: 1px solid #262838; box-shadow: var(--shadow); overflow: hidden; }
+  .term-bar { display: flex; align-items: center; gap: 7px; padding: 8px 8px 8px 14px; background: #14151d; border-bottom: 1px solid #23253a; }
+  .term-bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3d52; }
+  .term-bar i:nth-child(1) { background: #ff5f57; } .term-bar i:nth-child(2) { background: #febc2e; } .term-bar i:nth-child(3) { background: #28c840; }
+  .term-bar span { margin-left: 8px; font: 12px var(--font-mono); color: #7f86a6; }
+  .term-body { margin: 0; padding: 14px 16px 16px; font: 13.5px/1.65 var(--font-mono); white-space: pre-wrap; overflow-wrap: break-word; }
+  .term-body code::before { content: "$ "; color: #7f86a6; }
+  .term-body .kw { color: #f0c94a; }
+  .term-body .fl { color: #9aa0b5; }
+  .term-body .url { color: #7ee0c3; }
+  .term-body .op { color: #8b95ff; }
+  .copy { margin-left: auto; flex: none; border: 1px solid #3a3d52; background: #1c1e2b; color: #e7e9f3; border-radius: 7px; padding: 4px 11px; font: 600 12.5px var(--font-body); cursor: pointer; }
   .copy:hover { background: #262939; }
   .cmd-note { font-size: 13px; color: var(--muted); margin: 8px 2px 0; }
   .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
@@ -176,6 +185,23 @@
   .ghband-logo svg { width: 52px; height: 52px; }
   .ghband .sec-lede { margin-bottom: 0; }
   .ghband .ctas { margin-top: 16px; }
+  /* a little polish */
+  .hero { position: relative; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(ellipse 65% 70% at 72% 45%, #000 15%, transparent 72%); mask-image: radial-gradient(ellipse 65% 70% at 72% 45%, #000 15%, transparent 72%); }
+  .hero .wrap { position: relative; }
+  .hero .shot { box-shadow: 0 34px 90px -26px color-mix(in srgb, #5865f2 60%, transparent), var(--shadow); }
+  .kicker { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font: 600 12px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .kicker::before { content: ""; width: 22px; height: 2px; border-radius: 2px; background: currentColor; }
+  .feat, .card, .step, .ghband-in { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  .feat:hover, a.card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .gallery a img { transition: transform .25s ease, box-shadow .25s ease; }
+  .gallery a:hover img { transform: translateY(-3px); box-shadow: 0 18px 40px -18px color-mix(in srgb, #5865f2 50%, transparent), var(--shadow); }
+  @media (min-width: 1080px) {
+    .steps { position: relative; }
+    .steps::before { content: ""; position: absolute; top: 0; left: 40px; right: 40px; height: 2px; background: repeating-linear-gradient(90deg, color-mix(in srgb, #5865f2 55%, transparent) 0 8px, transparent 8px 15px); }
+    .step::before { z-index: 1; box-shadow: 0 0 0 4px var(--bg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .feat, .card, .step, .gallery a img { transition: none; } .feat:hover, a.card:hover, .gallery a:hover img { transform: none; } }
   @media (max-width: 640px) { .ghband-in { flex-direction: column; align-items: flex-start; padding: 22px; margin: 0 16px; } .ghband-logo { width: 64px; height: 64px; border-radius: 16px; } .ghband-logo svg { width: 38px; height: 38px; } }
 
   .foot { border-top: 1px solid var(--line); background: var(--panel); margin-top: 30px; }
@@ -204,10 +230,13 @@
         <p class="eyebrow">RuneScape: Dragonwilds · free &amp; open source</p>
         <h1>Your own Dragonwilds server, with <em>Discord built in</em>, in one command.</h1>
         <p class="lede">An installer, a server mod and a Discord bot for Linux VPS and dedicated servers. Answer a few questions and get a running server with live leaderboards, two-way chat, a penguin hunt leaderboard, backups, updates and admin tools.</p>
-        <div class="cmd"><code id="cmd">curl -fsSLO https://raw.githubusercontent.com/joaopmsilva/RSDWServerAPI/main/install.sh &amp;&amp; sudo bash install.sh</code><button class="copy" type="button" id="copy" data-goatcounter-click="copy-install">Copy</button></div>
+        <div class="term">
+          <div class="term-bar"><i></i><i></i><i></i><span>on your server</span><button class="copy" type="button" id="copy" data-goatcounter-click="copy-install">Copy</button></div>
+          <pre class="term-body"><code id="cmd"><span class="kw">curl</span> <span class="fl">-fsSLO</span> <span class="url">https://<wbr>raw.githubusercontent.com/<wbr>joaopmsilva/<wbr>RSDWServerAPI/<wbr>main/<wbr>install.sh</span> <span class="op">&amp;&amp;</span> <span class="kw">sudo</span> bash install.sh</code></pre>
+        </div>
         <p class="cmd-note">Ubuntu 22.04+ or Debian 12+, 64-bit. About 15 minutes, most of it the game downloading.</p>
         <div class="ctas">
-          <a class="btn primary" href="https://github.com/joaopmsilva/RSDWServerAPI#-quick-start" data-goatcounter-click="quickstart-hero">Step-by-step guide →</a>
+          <a class="btn primary" href="https://github.com/joaopmsilva/RSDWServerAPI#-quick-start" data-goatcounter-click="quickstart-hero">Step-by-step guide</a>
           <a class="btn gh-btn" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-hero"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>View on GitHub<span class="stars" data-stars hidden></span></a>
           <a class="btn ghost" href="#screenshots">See it in Discord</a>
         </div>
@@ -219,6 +248,7 @@
 
   <section id="features">
     <div class="wrap">
+      <p class="kicker">Features</p>
       <h2 class="sec-title">What you get</h2>
       <p class="sec-lede">Everything runs on your server. Players join the way they always do.</p>
       <div class="features">
@@ -252,6 +282,7 @@
 
   <section id="setup">
     <div class="wrap">
+      <p class="kicker">Setup</p>
       <h2 class="sec-title">Set up in four steps</h2>
       <p class="sec-lede">No Linux experience needed. The <a href="https://github.com/joaopmsilva/RSDWServerAPI#-quick-start">full guide</a> walks through every click.</p>
       <div class="steps">
@@ -286,6 +317,7 @@
 
   <section id="screenshots">
     <div class="wrap">
+      <p class="kicker">Screenshots</p>
       <h2 class="sec-title">See it in Discord</h2>
       <p class="sec-lede">Rendered from the bot's own code, with sample players.</p>
       <div class="gallery">
@@ -330,6 +362,7 @@
 
   <section id="help">
     <div class="wrap">
+      <p class="kicker">Support</p>
       <h2 class="sec-title">Help and support</h2>
       <p class="sec-lede">Questions, bugs or ideas: message me on Discord as <a href="https://discord.com/users/169180385501118485">joaosilvajs</a> (DMs are open), run <code class="k">/admin contact</code> in your server, or open a <a href="https://github.com/joaopmsilva/RSDWServerAPI/issues">GitHub issue</a>.</p>
       <a class="coffee" href="https://buymeacoffee.com/paradoxjs" data-goatcounter-click="coffee-mod-page"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Buy me a coffee</a>
