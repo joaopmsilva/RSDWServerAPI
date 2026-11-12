@@ -430,8 +430,13 @@ bool InstallExecPump() {
         return true;
     }
 
+    // Retried while the game finishes loading; say so once, not on every try.
+    static bool logged = false;
     g_Status = "no native server RPC available to pump from";
-    LogMessage("GameThread: " + g_Status);
+    if (!logged) {
+        logged = true;
+        LogMessage("GameThread: " + g_Status + " yet, will keep looking");
+    }
     return false;
 }
 

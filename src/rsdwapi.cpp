@@ -277,11 +277,17 @@ void InitThread() {
         NativeCall::LogImageSymbolReport();
 
         DomEngine::DiscoveryInfo discovery = DomEngine::g_Engine->GetDiscoveryInfo();
-        if (!GameThread::Initialize(discovery.moduleBase, discovery.moduleEnd) &&
-            !GameThread::InstallExecPump()) {
-            LogMessage("RSDWRestAPI: kick disabled - " + GameThread::Status());
-            return;
+        bool gameThread = GameThread::Initialize(discovery.moduleBase, discovery.moduleEnd);
+        // The engine reports ready before every class has loaded; since game build
+        // 26574459, PlayerController's functions arrive a little later. Keep looking
+        // for them for a few minutes rather than giving up on the first try.
+        for (int attempt = 0; !gameThread && !g_Shutdown && attempt < 150; attempt++) {
+            if ((gameThread = GameThread::InstallExecPump())) break;
+            for (int i = 0; i < 20 && !g_Shutdown; i++) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        // Without it only kick, give and the replicated calls are off; players,
+        // chat reading, deaths, kills and the rest still run.
+        if (!gameThread) LogMessage("RSDWRestAPI: kick disabled - " + GameThread::Status());
 
         DomChat::Initialize();
 
