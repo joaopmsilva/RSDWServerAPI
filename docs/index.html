@@ -49,56 +49,15 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
 
-/* ---- the bar shared by the three Dragonwilds sites (same in all three) ---- */
-.suite { background: #101114; border-bottom: 1px solid #24262c; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
-.suite-in { max-width: 1200px; margin: 0 auto; padding: 6px 12px; display: flex; justify-content: center; gap: 6px; }
-.st { --c: #e9a948; position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 16px 6px 6px; border-radius: 12px; color: #c9ccd4; text-decoration: none; transition: background .15s, color .15s; }
-.st:hover { background: #1a1c21; color: #fff; }
-.st:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
-.st-ico { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); transition: background .15s, color .15s; }
-.st-ico img { width: 24px; height: 24px; display: block; }
-.st-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.st-t b { font-size: 14px; font-weight: 600; white-space: nowrap; }
-.st-t small { font-size: 11.5px; color: #8b8f99; white-space: nowrap; }
-.st-s { display: none; }
-.st[aria-current="page"] { background: #1c1e24; color: #fff; box-shadow: inset 0 0 0 1px #2d3039; }
-.st[aria-current="page"] .st-ico { background: color-mix(in srgb, var(--c) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 65%, transparent); }
-.st[aria-current="page"]::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: -7px; height: 2px; border-radius: 2px; background: var(--c); }
-.st-q { --c: #e9a948; }
-.st-p { --c: #ff8a5c; }
-.st-m { --c: #8b95ff; }
-@media (max-width: 760px) {
-  .suite-in { gap: 4px; padding: 6px 8px; }
-  .st { flex: 1 1 0; justify-content: center; gap: 7px; padding: 6px 8px; }
-  .st-t small { display: none; }
-  .st-ico { width: 28px; height: 28px; border-radius: 8px; }
-  .st-ico img { width: 21px; height: 21px; }
-  .st[aria-current="page"]::after { left: 10px; right: 10px; }
-}
-@media (max-width: 480px) {
-  .st-l { display: none; }
-  .st-s { display: inline; }
-  .st-t b { font-size: 13px; }
-  .st { gap: 6px; padding: 5px 6px; }
-}
 
-  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; text-decoration: none; color: var(--ink); }
-  .brand .logo { width: 36px; height: 36px; flex: none; }
-  .brand b { font-family: var(--font-display); font-weight: 800; font-size: 25px; letter-spacing: .01em; line-height: 1; }
-  .topnav { display: flex; gap: 18px; font-size: 14px; }
-  .topnav a { color: var(--ink); text-decoration: none; }
-  .topnav a:hover { color: var(--accent); }
-  .gh { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 14px; }
-  .gh svg { width: 17px; height: 17px; }
-  @media (max-width: 760px) { .topnav { display: none; } }
-
-  .hero { padding: 54px 0 40px; background: radial-gradient(900px 420px at 15% -10%, var(--accent-soft), transparent 70%), radial-gradient(700px 400px at 100% 20%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%); }
-  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 44px; align-items: center; }
+  .coffee.corner { position: absolute; top: 16px; right: 16px; z-index: 2; }
+  @media (max-width: 640px) { .hero { padding-top: 66px !important; } }
+  .hero { padding: 36px 0 32px; background: radial-gradient(900px 420px at 15% -10%, var(--accent-soft), transparent 70%), radial-gradient(700px 400px at 100% 20%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%); }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 40px; align-items: center; }
   .eyebrow { margin: 0 0 12px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-  h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(42px, 6.4vw, 76px); line-height: .94; letter-spacing: .005em; text-wrap: balance; }
-  h1 em { font-style: normal; color: var(--accent); }
-  .lede { font-size: 19px; color: var(--muted); margin: 16px 0 22px; max-width: 560px; }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(38px, min(5.2vw, 8.6vh), 66px); line-height: .94; letter-spacing: .005em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--accent); white-space: nowrap; }
+  .lede { font-size: 18px; color: var(--muted); margin: 14px 0 18px; max-width: 600px; }
   /* the install command, in a little terminal window; long lines wrap instead of scrolling */
   .term { background: var(--code); color: var(--code-ink); border-radius: 12px; border: 1px solid #262838; box-shadow: var(--shadow); overflow: hidden; }
   .term-bar { display: flex; align-items: center; gap: 7px; padding: 8px 8px 8px 14px; background: #14151d; border-bottom: 1px solid #23253a; }
@@ -114,7 +73,7 @@
   .copy { margin-left: auto; flex: none; border: 1px solid #3a3d52; background: #1c1e2b; color: #e7e9f3; border-radius: 7px; padding: 4px 11px; font: 600 12.5px var(--font-body); cursor: pointer; }
   .copy:hover { background: #262939; }
   .cmd-note { font-size: 13px; color: var(--muted); margin: 8px 2px 0; }
-  .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
   .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 15px; }
   .btn.primary { background: #5865f2; color: #fff; }
   .btn.primary:hover { background: #4752c4; }
@@ -177,7 +136,7 @@
   .coffee { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-body); font-size: 14px; font-weight: 700; text-decoration: none; background: #ffdd00; color: #17181b; border-radius: 999px; padding: 7px 16px; box-shadow: 0 2px 0 #c9a800, 0 3px 10px rgba(255, 221, 0, .3); transition: transform .15s, box-shadow .15s; white-space: nowrap; }
   .coffee:hover { transform: translateY(-1px); box-shadow: 0 3px 0 #c9a800, 0 6px 16px rgba(255, 221, 0, .45); }
   .coffee:active { transform: translateY(1px); box-shadow: 0 1px 0 #c9a800; }
-  @media (max-width: 480px) { .coffee span { display: none; } .coffee { padding: 7px 10px; } .brand b { font-size: 21px; } }
+  @media (max-width: 480px) { .coffee span { display: none; } .coffee { padding: 7px 10px; } }
   .gh-btn { background: var(--ink); color: var(--bg); }
   .gh-btn:hover { filter: brightness(1.15); }
   .gh-btn svg { width: 18px; height: 18px; }
@@ -213,22 +172,10 @@
 </style>
 </head>
 <body>
-<nav class="suite" aria-label="Dragonwilds tools">
-  <div class="suite-in">
-    <a class="st st-q" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="suite-quests"><span class="st-ico" aria-hidden="true"><img src="img/icons/journal.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Quest guides</span><span class="st-s">Quests</span></b><small>Every quest, step by step</small></span></a>
-    <a class="st st-p" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="suite-penguins"><span class="st-ico" aria-hidden="true"><img src="img/icons/penguin-coin.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Penguin map</span><span class="st-s">Penguins</span></b><small>All 208 KGP spots</small></span></a>
-    <a class="st st-m" href="./" aria-current="page"><span class="st-ico" aria-hidden="true"><img src="img/icons/lodestone.png" alt="" width="48" height="48"></span><span class="st-t"><b><span class="st-l">Server mod</span><span class="st-s">Server mod</span></b><small>Discord bot for your server</small></span></a>
-  </div>
-</nav>
-<header class="topbar">
-  <a class="brand" href="./"><img class="logo" src="img/icons/lodestone.png" alt="" width="48" height="48"><b>RSDWServerAPI</b></a>
-  <nav class="topnav" aria-label="On this page"><a href="#features">Features</a><a href="#setup">Setup</a><a href="#screenshots">Screenshots</a><a href="#help">Help</a></nav>
-  <a class="coffee" href="https://buymeacoffee.com/paradoxjs" target="_blank" rel="noopener" aria-label="Buy me a coffee" data-goatcounter-click="coffee-topbar"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Buy me a coffee</span></a>
-  <a class="gh" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-topbar"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
-</header>
 
 <main>
   <section class="hero">
+    <a class="coffee corner" href="https://buymeacoffee.com/paradoxjs" target="_blank" rel="noopener" aria-label="Buy me a coffee" data-goatcounter-click="coffee-corner"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Buy me a coffee</span></a>
     <div class="wrap hero-grid">
       <div>
         <p class="eyebrow">RuneScape: Dragonwilds · free &amp; open source</p>
@@ -313,7 +260,6 @@
           <li><b>Fair</b>: each penguin counts once per character</li>
           <li><b>Catches up</b> on penguins found before the mod loaded</li>
         </ul>
-        <a class="callout" href="https://joaopmsilva.github.io/dragonwilds-penguins/" data-goatcounter-click="penguins-callout">Hunting? All 208 spots are on the penguin map →</a>
       </div>
       <div class="shot"><img src="img/penguins.webp" width="1000" height="444" alt="/leaderboard penguins: the top penguin hunters with medals and this week's count" loading="lazy"></div>
     </div>
@@ -344,7 +290,6 @@
       <div class="cards2">
         <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/HOSTING.md" data-goatcounter-click="hosting-card"><h3><img class="card-ico" src="img/icons/garou-chit.png" alt="" width="48" height="48" aria-hidden="true"> Run a hosting company?</h3><p>The mod is one file loaded with LD_PRELOAD and the bot is a small Node.js app, so both fit panel hosting like Pterodactyl and Pelican.</p><span class="go">Read the host guide →</span></a>
         <a class="card" href="https://github.com/joaopmsilva/RSDWServerAPI/blob/main/MOD.md"><h3><img class="card-ico" src="img/icons/fire-rune.png" alt="" width="48" height="48" aria-hidden="true"> Just the mod?</h3><p>A REST API and optional RCON for players, quests, kills and penguins, with a live event feed, for your own tools.</p><span class="go">Mod and API reference →</span></a>
-        <a class="card" href="https://joaopmsilva.github.io/dragonwilds-quests/" data-goatcounter-click="quests-card"><h3><img class="card-ico" src="img/icons/journal.png" alt="" width="48" height="48" aria-hidden="true"> Stuck on a quest?</h3><p>Every Dragonwilds quest and activity guide in one place, with maps, pictures and a done checklist.</p><span class="go">Open the quest guides →</span></a>
       </div>
     </div>
   </section>
