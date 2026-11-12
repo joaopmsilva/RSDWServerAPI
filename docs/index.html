@@ -173,8 +173,11 @@
   .coffee .cup { flex: none; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
   .card .go { display: inline-block; margin-top: 10px; font-weight: 600; color: var(--accent); font-size: 14px; }
-  .coffee { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; background: #ffdd00; color: #1a1a1a; font-weight: 700; text-decoration: none; }
-  .coffee:hover { filter: brightness(.95); }
+  /* the same coffee button as the quest guides and the penguin map */
+  .coffee { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-body); font-size: 14px; font-weight: 700; text-decoration: none; background: #ffdd00; color: #17181b; border-radius: 999px; padding: 7px 16px; box-shadow: 0 2px 0 #c9a800, 0 3px 10px rgba(255, 221, 0, .3); transition: transform .15s, box-shadow .15s; white-space: nowrap; }
+  .coffee:hover { transform: translateY(-1px); box-shadow: 0 3px 0 #c9a800, 0 6px 16px rgba(255, 221, 0, .45); }
+  .coffee:active { transform: translateY(1px); box-shadow: 0 1px 0 #c9a800; }
+  @media (max-width: 480px) { .coffee span { display: none; } .coffee { padding: 7px 10px; } .brand b { font-size: 21px; } }
   .gh-btn { background: var(--ink); color: var(--bg); }
   .gh-btn:hover { filter: brightness(1.15); }
   .gh-btn svg { width: 18px; height: 18px; }
@@ -220,6 +223,7 @@
 <header class="topbar">
   <a class="brand" href="./"><img class="logo" src="img/icons/lodestone.png" alt="" width="48" height="48"><b>RSDWServerAPI</b></a>
   <nav class="topnav" aria-label="On this page"><a href="#features">Features</a><a href="#setup">Setup</a><a href="#screenshots">Screenshots</a><a href="#help">Help</a></nav>
+  <a class="coffee" href="https://buymeacoffee.com/paradoxjs" target="_blank" rel="noopener" aria-label="Buy me a coffee" data-goatcounter-click="coffee-topbar"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Buy me a coffee</span></a>
   <a class="gh" href="https://github.com/joaopmsilva/RSDWServerAPI" data-goatcounter-click="github-topbar"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
 </header>
 
@@ -365,7 +369,6 @@
       <p class="kicker">Support</p>
       <h2 class="sec-title">Help and support</h2>
       <p class="sec-lede">Questions, bugs or ideas: message me on Discord as <a href="https://discord.com/users/169180385501118485">joaosilvajs</a> (DMs are open), run <code class="k">/admin contact</code> in your server, or open a <a href="https://github.com/joaopmsilva/RSDWServerAPI/issues">GitHub issue</a>.</p>
-      <a class="coffee" href="https://buymeacoffee.com/paradoxjs" data-goatcounter-click="coffee-mod-page"><svg class="cup" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1.5 1.5 1.5 3M12 3c0 1.5 1.5 1.5 1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Buy me a coffee</a>
     </div>
   </section>
 </main>
