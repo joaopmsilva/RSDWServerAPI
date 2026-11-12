@@ -11,7 +11,7 @@ Live skills and leaderboards, two-way chat, death and quest feeds, a 🐧 **peng
 raid alerts, anti-cheese checks and full server control, all from your Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.10.1-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.14.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.15.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Game](https://img.shields.io/badge/Dragonwilds-1.0.2-c9a227?style=for-the-badge)
 ![Linux](https://img.shields.io/badge/Linux-server-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
