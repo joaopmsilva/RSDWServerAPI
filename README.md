@@ -14,7 +14,7 @@ a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and
 ![Linux](https://img.shields.io/badge/Ubuntu%20%7C%20Debian-one%20command-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
 
-[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/paradoxjs)
+[![Support me on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/paradoxjs)
 
 [**🌐 Website**](https://joaopmsilva.github.io/RSDWServerAPI/) · [**🚀 Quick start**](#-quick-start) · [**✨ Features**](#-features) · [**📸 Screenshots**](#-screenshots) · [**🤖 Bot**](bot/README.md) · [**🔧 Mod & API**](MOD.md) · [**🏢 For game hosts**](HOSTING.md) · [**💬 Help**](#-help-and-support)
 
@@ -431,7 +431,7 @@ small Node.js app, so both fit panel-based hosting (Pterodactyl, Pelican and oth
 
 **Enjoying it? A coffee keeps the updates coming.**
 
-<a href="https://buymeacoffee.com/paradoxjs"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="50"></a>
+<a href="https://ko-fi.com/paradoxjs"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi" height="36"></a>
 
 </div>
 

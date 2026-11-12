@@ -526,6 +526,6 @@ ${G}${B}All done!${N}
     sudo bash $SELF                       update everything later (or /admin update in Discord)
 
   ${B}Need help?${N}  /admin contact in Discord, or message joaosilvajs: https://discord.com/users/169180385501118485
-  ${B}Enjoying it?${N} https://buymeacoffee.com/paradoxjs
+  ${B}Enjoying it?${N} https://ko-fi.com/paradoxjs
 
 EOF

@@ -9,7 +9,7 @@ export const DEVELOPER = {
     profile: 'https://discord.com/users/169180385501118485',
     repo: 'https://github.com/joaopmsilva/RSDWServerAPI',
     issues: 'https://github.com/joaopmsilva/RSDWServerAPI/issues',
-    coffee: 'https://buymeacoffee.com/paradoxjs',
+    coffee: 'https://ko-fi.com/paradoxjs',
 };
 
 export const contactButton = () => new ButtonBuilder().setURL(DEVELOPER.profile).setLabel('Message the developer').setEmoji('💬').setStyle(ButtonStyle.Link);
@@ -31,7 +31,7 @@ export function contactReply() {
     const buttons = new ActionRowBuilder().addComponents(
         contactButton(),
         new ButtonBuilder().setURL(DEVELOPER.issues).setLabel('GitHub issues').setStyle(ButtonStyle.Link),
-        new ButtonBuilder().setURL(DEVELOPER.coffee).setLabel('Buy me a coffee').setEmoji('☕').setStyle(ButtonStyle.Link),
+        new ButtonBuilder().setURL(DEVELOPER.coffee).setLabel('Support me on Ko-fi').setEmoji('☕').setStyle(ButtonStyle.Link),
     );
     return { reply: { embeds: [embed], components: [buttons] } };
 }

@@ -953,7 +953,7 @@ export function helpEmbed({ admin = false } = {}) {
             { name: '🔗 Your character', value: '`/link` it once, then `/me` for everything and `/alerts` for raid DMs' },
             { name: '🐉 Server', value: "`/status` who's on · `/item` what something does · `/help` this list" },
         )
-        .setFooter({ text: 'Enjoying the bot? ☕ buymeacoffee.com/paradoxjs' });
+        .setFooter({ text: 'Enjoying the bot? ☕ ko-fi.com/paradoxjs' });
 
     const extras = [];
     if (config.bridgeToGame && config.chatChannelId) extras.push(`💬 Type in <#${config.chatChannelId}> to talk to players in game.`);
@@ -990,7 +990,7 @@ export function adminGuideEmbed() {
                 'Questions or bugs: `/admin contact` to message the developer.',
             ].join('\n'),
         )
-        .setFooter({ text: 'Enjoying it? ☕ buymeacoffee.com/paradoxjs' });
+        .setFooter({ text: 'Enjoying it? ☕ ko-fi.com/paradoxjs' });
 }
 
 // ---- server notices -----------------------------------------------------
