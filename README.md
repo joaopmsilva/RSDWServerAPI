@@ -153,6 +153,9 @@ often they've been collected.
 - **REST API** and optional **Source RCON**, each with its own auth, IP whitelist and rate limits
 - **Saves the world before every backup**, so a backup is never half-written
 - **Bans that survive restarts**, offline players by SteamID64
+- **⬆️ Updates itself**: when a new release comes out, admins get a DM with **Update now**. The
+  bot installs the new version and restarts, and the new mod is ready for the next server start
+  (`/admin update` checks on demand, `BOT_UPDATE_AUTO` skips the asking)
 - **One-command updates** from your PC; the bot updates without touching the server
 
 </td>

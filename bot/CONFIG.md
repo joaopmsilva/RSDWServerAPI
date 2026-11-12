@@ -129,6 +129,32 @@ to keep it off the board.
 The latest build comes from [api.steamcmd.net](https://api.steamcmd.net), or from steamcmd itself if
 that's down.
 
+## ⬆️ Bot and mod updates
+
+When a new release of this project is published on GitHub, the admins in `ADMIN_USER_IDS` get a DM
+with what changed and two buttons: **Update now** and **Skip this version**. `/admin update` shows
+the same card on demand.
+
+What **Update now** does:
+
+- **Bot:** downloads the release, checks that every file parses, keeps the current version in
+  `data/previous-bot/`, replaces the bot's files, runs `npm install` if the packages changed, and
+  restarts. `.env` and `data/` are left alone. The bot must run under systemd (`Restart=always`, as in
+  `deploy/rsdw-bot.service`) to come back up, and it refuses to update a git checkout (`git pull`
+  that instead).
+- **Mod:** builds it from the release's source when the server has `make` and `g++`, otherwise
+  downloads the release's ready-made `librsdwapi.so`. It's swapped in safely (renamed over the old
+  one, kept as `librsdwapi.so.old`) and loads at the next server start; `/server restart` loads it now.
+- The game server is never restarted by an update.
+
+| Setting | Default | What it does |
+| ------- | ------- | ------------ |
+| `BOT_UPDATE_CHECK` | `true` | Check for new releases. `false` turns the checks and DMs off (`/admin update` still works). |
+| `BOT_UPDATE_HOURS` | `6` | How often to check (minimum `1`). The first check is two minutes after the bot starts. |
+| `BOT_UPDATE_AUTO` | `false` | Install a new release without asking, then tell the admins what was done. |
+| `BOT_UPDATE_REPO` | `joaopmsilva/RSDWServerAPI` | The GitHub repository releases come from. Point it at your own fork if you maintain one. |
+| `MOD_FILE` | `librsdwapi.so` | The mod the server preloads, relative to `SERVER_DIR` (or a full path). |
+
 ## 🧰 Misc
 
 | Setting | Default | What it does |
@@ -209,6 +235,13 @@ AUTO_UPDATE_MINUTES=20
 STEAM_APP_ID=4019830
 SERVER_DIR=/home/dragonwilds/rs_server
 STEAMCMD=/home/dragonwilds/steamcmd/steamcmd.sh
+
+# --- Bot and mod updates ---
+BOT_UPDATE_CHECK=true
+BOT_UPDATE_HOURS=6
+BOT_UPDATE_AUTO=false
+BOT_UPDATE_REPO=joaopmsilva/RSDWServerAPI
+MOD_FILE=librsdwapi.so
 
 # --- Misc ---
 DATA_DIR=

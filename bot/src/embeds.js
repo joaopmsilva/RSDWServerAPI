@@ -1000,7 +1000,7 @@ export function helpEmbed() {
             name: '🛡️ Admins only',
             value:
                 '`/server` start, stop, restart, cancel, update, back up, list and restore backups\n' +
-                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics, crashes',
+                '`/admin` kick, ban, unban, bans, give, say, save, remove / restore on leaderboards, diagnostics, crashes, performance, update',
         });
     }
     return embed;

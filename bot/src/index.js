@@ -18,6 +18,7 @@ import { Poller } from './poller.js';
 import { loadWikiNames } from './progress.js';
 import { loadQuestList } from './quest-list.js';
 import { Relay } from './relay.js';
+import { SelfUpdate } from './self-update.js';
 import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
@@ -75,6 +76,8 @@ const chestRangePost = new CommandsPost(client, {
 });
 const updates = new UpdateWatcher(client, poller, control);
 ctx.updates = updates;
+const selfUpdate = new SelfUpdate(client, alerts);
+ctx.selfUpdate = selfUpdate;
 const lastUse = new Map();
 
 poller.onPlayers = (players, health) => {
@@ -93,6 +96,7 @@ client.once(Events.ClientReady, async c => {
     for (const guild of c.guilds.cache.values()) await registerCommands(guild);
     notices.start();
     alerts.start();
+    selfUpdate.start();
     activity.start();
     carryOver.start();
     board.start();
@@ -138,6 +142,10 @@ client.on(Events.InteractionCreate, async interaction => {
         if (!link) return interaction.reply({ embeds: [errorEmbed('Link your character first with `/link`.')], flags: MessageFlags.Ephemeral }).catch(() => {});
         const embeds = interaction.message.embeds.map(e => (e.title === '🔔 Alerts by DM' ? alertsEmbed(link) : e));
         return interaction.update({ embeds, components: alertButtons(link) }).catch(err => log.warn(`could not update the alert buttons: ${err.message}`));
+    }
+    // "Update now" / "Skip this version" on the update DM and /admin update.
+    if (interaction.isButton() && interaction.customId.startsWith('selfupdate:')) {
+        return selfUpdate.button(interaction, isAdmin);
     }
     if (interaction.isButton() && interaction.customId.startsWith('link:')) {
         const action = { 'link:start': 'link', 'link:me': 'me', 'link:alerts': 'alerts', 'link:unlink': 'unlink' }[interaction.customId];

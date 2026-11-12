@@ -270,6 +270,7 @@ Administrator, and the replies are only visible to you.
 | 🩺 **`/admin diagnostics`** | The mod's self-check |
 | 💥 **`/admin crashes`** | Every unplanned restart with its likely cause, and the newest full report |
 | 📈 **`/admin performance`** | How the server is coping right now: its real tick rate and stalls over the last 30 minutes (with their likely cause, e.g. the world autosave), CPU per thread - the game's main thread, the mod, the workers - VPS load, steal and memory, and players' pings. Needs the bot on the same machine as the server. |
+| ⬆️ **`/admin update`** | Whether a newer release of the bot and mod is out, with **Update now** to install it: the bot updates itself and restarts, the mod is installed for the next server start. The admins also get this as a DM whenever a release comes out ([settings](CONFIG.md#%EF%B8%8F-bot-and-mod-updates)). |
 
 ### 🔔 Private alerts
 

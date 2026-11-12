@@ -97,6 +97,12 @@ export const config = {
     autoUpdateMinutes: Math.max(1, int('AUTO_UPDATE_MINUTES', 20)),
     steamAppId: (process.env.STEAM_APP_ID || '4019830').trim(),
     serverDir: (process.env.SERVER_DIR || '/home/dragonwilds/rs_server').trim(),
+    // New releases of this bot and mod: checked on GitHub, admins told by DM with
+    // an "Update now" button, or installed by themselves with BOT_UPDATE_AUTO.
+    selfUpdateCheck: bool('BOT_UPDATE_CHECK', true),
+    selfUpdateRepo: (process.env.BOT_UPDATE_REPO || 'joaopmsilva/RSDWServerAPI').trim(),
+    selfUpdateHours: Math.max(1, int('BOT_UPDATE_HOURS', 6)),
+    selfUpdateAuto: bool('BOT_UPDATE_AUTO', false),
     steamcmd: (process.env.STEAMCMD || '/home/dragonwilds/steamcmd/steamcmd.sh').trim(),
     dataDir: path.resolve(botRoot, process.env.DATA_DIR || 'data'),
 };
@@ -105,3 +111,5 @@ export const config = {
 // in the commands channel when the file is there. Not in git: put it in data/.
 config.clientModZip = path.resolve(config.dataDir, (process.env.CLIENT_MOD_ZIP || 'RSDW-ChestLink-3x-Installer.zip').trim());
 config.hasClientMod = fs.existsSync(config.clientModZip);
+// The mod the server preloads, which an update replaces.
+config.modFile = path.resolve(config.serverDir, (process.env.MOD_FILE || 'librsdwapi.so').trim());

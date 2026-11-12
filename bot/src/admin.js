@@ -159,6 +159,7 @@ async function admin(i, ctx) {
         const files = entries.length ? [{ attachment: crashReportPath(entries[0]), name: entries[0].file }] : [];
         return { reply: { embeds: [crashesEmbed(entries)], files } };
     }
+    if (sub === 'update') return ctx.selfUpdate.command();
     if (sub === 'performance') {
         try {
             return { reply: { embeds: [performanceEmbed(await measurePerformance())] } };
