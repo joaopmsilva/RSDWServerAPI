@@ -25,6 +25,7 @@
     --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
     --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --free: #17804a; --free-ink: #ffffff;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -32,6 +33,7 @@
       --bg: #0f1015; --panel: #171922; --sunk: #13141b; --ink: #eceef7; --muted: #9aa0b5; --line: #272a38;
       --accent: #8b95ff; --accent-2: #f0c94a; --accent-soft: #1d2040; --code: #090a0e; --code-ink: #e7e9f3;
       --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+      --free: #4cc38a; --free-ink: #08150e;
       color-scheme: dark;
     }
   }
@@ -39,6 +41,7 @@
     --bg: #0f1015; --panel: #171922; --sunk: #13141b; --ink: #eceef7; --muted: #9aa0b5; --line: #272a38;
     --accent: #8b95ff; --accent-2: #f0c94a; --accent-soft: #1d2040; --code: #090a0e; --code-ink: #e7e9f3;
     --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+    --free: #4cc38a; --free-ink: #08150e;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -82,6 +85,13 @@
   .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
   .pill::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
   .pill { font-size: 13px; padding: 5px 11px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  /* "it's free": a small note under the pills, so nobody wonders what's for sale */
+  .free-note { display: flex; align-items: center; gap: 12px; margin: 16px 0 0; max-width: 700px; padding: 10px 14px; font-size: 14px; line-height: 1.5; border-radius: 12px; background: color-mix(in srgb, var(--free) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--free) 35%, var(--line)); }
+  .free-note b { color: var(--ink); }
+  .free-badge { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--free); color: var(--free-ink); font: 600 11.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .free-badge svg { width: 13px; height: 13px; }
+  .free-note span:last-child { color: var(--muted); }
+  @media (max-width: 480px) { .free-note { flex-direction: column; align-items: flex-start; gap: 8px; } }
   .shot { border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); background: #313338; }
   .hero .shot { transform: rotate(1.2deg); }
   @media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .hero .shot { transform: none; max-width: 560px; } }
@@ -192,6 +202,7 @@
           <a class="btn ghost" href="#screenshots">See it in Discord</a>
         </div>
         <div class="pills"><span class="pill">Players install nothing</span><span class="pill">Updates itself</span><span class="pill">Hourly backups</span><span class="pill">~3% of one core</span></div>
+        <p class="free-note"><span class="free-badge"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 8a4.4 4.4 0 0 1 7.5 2.9C19.5 16.4 12 21 12 21z"/></svg>100% free</span><span><b>Nothing to buy.</b> No paid version, no premium features, no ads, no sign-up: everything here is free for everyone. The Ko-fi button is only a thank-you, never needed.</span></p>
       </div>
       <div class="shot"><img src="img/status-board.webp" width="1000" height="826" alt="The live status board in Discord: how to join, who's online, top XP today and server health"></div>
     </div>
@@ -299,7 +310,7 @@
       <div class="ghband-logo" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></div>
       <div class="ghband-text">
         <h2 class="sec-title">Free and open source</h2>
-        <p class="sec-lede">Everything is on GitHub: the installer, the mod and the Discord bot. Read the code, report a bug, suggest a feature, or leave a star so other server owners find it.</p>
+        <p class="sec-lede">Everything is on GitHub: the installer, the mod and the Discord bot, all of it free, with no paid version. Read the code, report a bug, suggest a feature, or leave a star so other server owners find it.</p>
         <div class="ctas">
           <a class="btn gh-btn" href="https://github.com/joaopmsilva/RSDWServerAPI"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>Star it on GitHub<span class="stars" data-stars hidden></span></a>
           <a class="btn ghost" href="https://github.com/joaopmsilva/RSDWServerAPI/releases">Releases</a>
