@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux_2_28_x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: |
           g++ --version | head -1
@@ -33,7 +33,7 @@ jobs:
           echo "Newest glibc symbol used:"
           objdump -T dist/librsdwapi.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1
           if objdump -T dist/librsdwapi.so | grep -q 'GLIBCXX\|CXXABI'; then echo "libstdc++ isn't linked statically"; exit 1; fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: librsdwapi.so
           path: dist/librsdwapi.so
@@ -43,7 +43,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: librsdwapi.so
       - name: Attach to the release
