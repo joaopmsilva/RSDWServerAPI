@@ -65,7 +65,7 @@ struct AfkConfig {
 };
 
 struct GameConfig {
-    float linkedStorageRadius = 0; // 0 = the game's own (3000, 30 m)
+    float linkedStorageRadius = 0; // 0 = leave the game's own value
 };
 
 struct APIConfig {
@@ -170,13 +170,13 @@ struct APIConfig {
         file << "OnlyWhenFull=" << Bool(afk.onlyWhenFull) << "\n";
         file << "MaxPlayers=" << afk.maxPlayers << "\n";
         file << "# The game's own admins are never kicked for being AFK.\n";
-        file << "ExemptAdmins=" << Bool(afk.exemptAdmins) << "\n\n";
+        file << "ExemptAdmins=" << Bool(afk.exemptAdmins) << "\n";
 
-        file << "[Game]\n";
-        file << "# How far linked chests reach for building and crafting, in centimetres.\n";
-        file << "# 0 keeps the game's own 3000 (30 m). Players need a client mod with the\n";
-        file << "# same radius (ChestLink) - the server refuses chests further than this.\n";
-        file << "LinkedStorageRadius=" << (int)game.linkedStorageRadius << "\n";
+        // Only kept when set by hand; a default file leaves the section out.
+        if (game.linkedStorageRadius > 0) {
+            file << "\n[Game]\n";
+            file << "LinkedStorageRadius=" << (int)game.linkedStorageRadius << "\n";
+        }
     }
 
     static std::string GenerateSecureToken(size_t bytes) {

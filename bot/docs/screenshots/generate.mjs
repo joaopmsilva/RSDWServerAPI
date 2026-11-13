@@ -185,7 +185,6 @@ const shots = [
     ],
     ['carry-over', [[null, [carryOverEmbed({ name: 'Bram', at: Date.now(), awaySince: Date.now() - 26 * H * 1000, items: [{ id: 'Item_Rune_Nature', had: 12, now: 640 }, { id: 'Item_Bar_Runite', had: 0, now: 48 }, { id: 'Item_UmS_GarouChit', had: 0, now: 10045 }], skills: [{ skill: 'SKILL_Mining', from: 33, to: 61, xpFrom: xpFor(33), xpTo: xpFor(61) }, { skill: 'SKILL_Magic', from: 22, to: 40, xpFrom: xpFor(22), xpTo: xpFor(40) }], quests: ['Quest_DR_MainQuest'], itemsChecked: true }, { source: 'leave' })]]]],
     ['performance', [['/admin performance', [E.performanceEmbed(performanceSample())], null, true]]],
-    ['chest-range', [[null, [E.chestRangeEmbed()]]]],
     ['link', [[null, [E.linkHowToEmbed()], E.linkButtons()], ['🔗 Link my character', [E.linkCodeEmbed('K7Q2M', 10)], null, true], ['🔗 Link my character', [E.linkedEmbed('Mira'), E.alertsEmbed({ alerts: { raid: true, hunted: false } })], E.alertButtons({ alerts: { raid: true, hunted: false } }), true]]],
     [
         'raid-alerts',

@@ -146,9 +146,24 @@ if (config.autoChannels) {
     }
 }
 
-// The players' installer for the longer chest range (UE4SS + ChestLink), pinned
-// in the commands channel when the file is there. Not in git: put it in data/.
-config.clientModZip = path.resolve(config.dataDir, (process.env.CLIENT_MOD_ZIP || 'RSDW-ChestLink-3x-Installer.zip').trim());
-config.hasClientMod = fs.existsSync(config.clientModZip);
+// An optional file pinned in the commands channel on a card of its own:
+// CLIENT_MOD_ZIP is the file and CLIENT_MOD_CARD a JSON file with the card
+// ({ title, description, fields: [{ name, value }], footer, listLine }), both
+// in data/ or full paths. Off unless both are set and readable.
+function clientCard() {
+    const zip = (process.env.CLIENT_MOD_ZIP || '').trim();
+    const card = (process.env.CLIENT_MOD_CARD || '').trim();
+    if (!zip || !card) return null;
+    const file = path.resolve(config.dataDir, zip);
+    try {
+        const text = JSON.parse(fs.readFileSync(path.resolve(config.dataDir, card), 'utf8'));
+        if (!fs.existsSync(file) || typeof text?.title !== 'string') return null;
+        return { file, text };
+    } catch (err) {
+        console.error(`CLIENT_MOD_CARD: ${err.message}`);
+        return null;
+    }
+}
+config.clientMod = clientCard();
 // The mod the server preloads, which an update replaces.
 config.modFile = path.resolve(config.serverDir, (process.env.MOD_FILE || 'librsdwapi.so').trim());

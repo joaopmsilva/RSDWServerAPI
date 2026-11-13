@@ -8,8 +8,8 @@
 Answer a few questions and get a running server with live skills and leaderboards, two-way chat,
 a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and full control from Discord.
 
-![Mod](https://img.shields.io/badge/mod-v0.10.1-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.17.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Mod](https://img.shields.io/badge/mod-v0.10.2-8b5cf6?style=for-the-badge)
+![Bot](https://img.shields.io/badge/bot-v0.17.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Game](https://img.shields.io/badge/Dragonwilds-1.0.2-c9a227?style=for-the-badge)
 ![Linux](https://img.shields.io/badge/Ubuntu%20%7C%20Debian-one%20command-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -22,7 +22,6 @@ a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and
 
 > [!NOTE]
 > **Players don't install anything.** Everything runs on the server, and people join as usual.
-> (The optional longer chest range is the one exception, and the bot hands out a one-click installer for it.)
 
 
 ## 🚀 Quick start
@@ -193,7 +192,7 @@ manual [setup guide](DEPLOY.md).
 - **Private alerts**: crashes with a full report, high CPU / RAM / disk, a game update breaking something
 - **🧳 Carry-over checks**: a DM when a character returns from another world with things it didn't get here (restart rollbacks are allowed for)
 - **📈 `/admin performance`**: tick rate, stalls and their causes
-- **AFK kick**, **longer chest range**, and in-game `/kick` `/ban` `/give`
+- **AFK kick** and in-game `/kick` `/ban` `/give`
 - **`/admin contact`**: message the developer
 
 </td>
@@ -347,21 +346,12 @@ while someone is online. Nothing is hooked on the game thread.</sub>
 <tr>
 <td width="50%" valign="top">
 
-**📦 Longer chest range**: the how-to card, with the installer attached
-
-<img src="bot/docs/screenshots/chest-range.png" alt="The chest range card: download, install, play, remove">
-
-</td>
-<td width="50%" valign="top">
-
 **🐉 `/status`** and **🎒 `/item`**: who's on, and any item from the wiki
 
 <img src="bot/docs/screenshots/status.png" alt="/status: online, players and the world">
 <img src="bot/docs/screenshots/item.png" alt="/item: an item's wiki summary, picture and stats">
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
 **🏅 Quest board** and **✨ `/perks`**
@@ -370,6 +360,8 @@ while someone is online. Nothing is hooked on the game thread.</sub>
 <img src="bot/docs/screenshots/perks.png" alt="/perks">
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
 **🔄 Server notices** and **📖 `/help`**

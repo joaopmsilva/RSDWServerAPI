@@ -9,7 +9,7 @@ import { inviteUrl, setupChannels } from './channels.js';
 import { CommandsPost } from './commands-post.js';
 import { commands } from './commands.js';
 import { config } from './config.js';
-import { alertButtons, alertsEmbed, chestRangeEmbed, errorEmbed, linkButtons, linkHowToEmbed, okEmbed } from './embeds.js';
+import { alertButtons, alertsEmbed, clientModEmbed, errorEmbed, linkButtons, linkHowToEmbed, okEmbed } from './embeds.js';
 import { History } from './history.js';
 import { Links } from './links.js';
 import { initLogFile, logger } from './log.js';
@@ -69,12 +69,12 @@ const linkPost = new CommandsPost(client, {
     components: linkButtons,
     what: 'the how-to-link card',
 });
-const chestRangePost = new CommandsPost(client, {
-    id: 'chest-range-post',
-    enabled: config.commandsPost && config.hasClientMod,
-    embed: chestRangeEmbed,
-    files: [config.clientModZip],
-    what: 'the chest range installer',
+const clientModPost = new CommandsPost(client, {
+    id: 'download-post',
+    enabled: config.commandsPost && !!config.clientMod,
+    embed: clientModEmbed,
+    files: config.clientMod ? [config.clientMod.file] : [],
+    what: 'the download card',
 });
 const updates = new UpdateWatcher(client, poller, control);
 ctx.updates = updates;
@@ -117,7 +117,7 @@ function startAll() {
     board.start();
     commandsPost.start();
     commandsPost.startSweeping(config.commandsCleanupMinutes);
-    chestRangePost.start();
+    clientModPost.start();
     linkPost.start();
     links.welcomeAll().catch(err => log.warn(`welcome DMs failed: ${err.message}`));
     loadWikiNames();

@@ -166,7 +166,7 @@ void RegisterSystem(HttpServer& server) {
             add("reflection", Reflect::Ready() ? 1 : 0, Reflect::Status());
             add("kills", 1, DomKills::Status());
             add("penguins", 1, DomPenguins::Status());
-            add("gameSettings", g_Config.game.linkedStorageRadius > 0 ? 1 : -1, DomGameSettings::Status());
+            if (g_Config.game.linkedStorageRadius > 0) add("gameSettings", 1, DomGameSettings::Status());
             DomWorld::State world = DomWorld::Read();
             add("worldInfo", world.valid && !world.worldName.empty() ? 1 : 0,
                 world.valid ? (world.worldName.empty() ? "world name unreadable" : "world " + world.worldName)

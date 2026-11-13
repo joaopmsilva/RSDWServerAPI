@@ -16,7 +16,7 @@ Two parts, both MIT licensed:
 
 | Part | What it is | Footprint |
 | ---- | ---------- | --------- |
-| **The mod** · `librsdwapi.so` | A shared library loaded into the Linux dedicated server with `LD_PRELOAD`. It reads players, skills, quests, kills, chat and more from the game's memory and serves them on a small REST API with an event feed. It adds admin features too: bans that persist, an AFK kick, item give and a longer linked-chest range. | About 3% of one core, a few MB of RAM. Nothing is hooked on the game thread. |
+| **The mod** · `librsdwapi.so` | A shared library loaded into the Linux dedicated server with `LD_PRELOAD`. It reads players, skills, quests, kills, chat and more from the game's memory and serves them on a small REST API with an event feed. It adds admin features too: bans that persist, an AFK kick and item give. | About 3% of one core, a few MB of RAM. Nothing is hooked on the game thread. |
 | **The Discord bot** · `bot/` | A Node.js 20+ app that talks to that API. It gives the customer's Discord live leaderboards, two-way chat, a status board, death and level-up feeds, raid alerts and admin commands. | About 110 MB of RAM, next to nothing in CPU. |
 
 Players install nothing. Customers get a feature their own Discord shows off every day, which is

@@ -15,8 +15,8 @@ install -o root -g root -m 644 "$HERE/server.js" /opt/rsdw-stats/server.js
 install -o root -g root -m 644 "$HERE/rsdw-stats.service" /etc/systemd/system/rsdw-stats.service
 
 if [ ! -f /etc/rsdw-stats.env ]; then
-    umask 077
-    echo "STATS_TOKEN=$(head -c 24 /dev/urandom | base64 | tr -d '/+=')" > /etc/rsdw-stats.env
+    # In a subshell, so the tight umask doesn't reach the Caddyfile below.
+    (umask 077 && echo "STATS_TOKEN=$(head -c 24 /dev/urandom | base64 | tr -d '/+=')" > /etc/rsdw-stats.env)
     chown root:rsdw-stats /etc/rsdw-stats.env
     chmod 640 /etc/rsdw-stats.env
 fi
@@ -29,12 +29,16 @@ if ! command -v caddy >/dev/null; then
     apt-get update -qq
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq caddy
 fi
-cat > /etc/caddy/Caddyfile <<EOF
+# A Caddyfile that already serves this host is left alone (it may have more in it).
+if ! grep -q "^$HOST {" /etc/caddy/Caddyfile 2>/dev/null; then
+    cat > /etc/caddy/Caddyfile <<EOF
 $HOST {
     encode gzip
     reverse_proxy 127.0.0.1:8090
 }
 EOF
+    chmod 644 /etc/caddy/Caddyfile
+fi
 systemctl enable --now caddy
 systemctl reload caddy
 
