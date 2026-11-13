@@ -71,10 +71,10 @@ It checks your system, then asks:
 | Question | What to put |
 | -------- | ----------- |
 | Your Dragonwilds Player ID | From the game, see above |
-| Server name, world name | Anything you like. Players find the world by its **exact** name |
+| Server name, world name | Anything you like. Players find the world by its **exact** name (16 characters at most) |
 | World password | Enter for none, or a password to keep it private |
 | Admin password | Press Enter to take the generated one, or pick your own |
-| Port, max players | Press Enter for 7777 and 6 |
+| Game port | Press Enter for 7777 |
 | Bot token | The token from step 1 (it's checked with Discord straight away) |
 | Your Discord user ID | From step 1. This makes you an admin of the bot |
 | Daily restart time | When to update and restart each day, like `05:00` |

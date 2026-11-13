@@ -41,6 +41,9 @@ SRC := src/rsdwapi.cpp \
 
 OBJ := $(SRC:.cpp=.o)
 OUT := dist/librsdwapi.so
+# Each object also records the headers it read (.d), so changing a header
+# rebuilds what uses it instead of linking stale objects.
+DEPFLAGS := -MMD -MP
 
 all: $(OUT)
 
@@ -49,9 +52,11 @@ $(OUT): $(OBJ)
 	$(CXX) $(OBJ) -o $@ $(LDFLAGS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(OUT)
+	rm -f $(OBJ) $(OBJ:.o=.d) $(OUT)
+
+-include $(OBJ:.o=.d)
 
 .PHONY: all clean

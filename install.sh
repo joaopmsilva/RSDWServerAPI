@@ -35,12 +35,15 @@ ANSWERS=/etc/rsdw/install.env
 BOT_PERMISSIONS=275146468432
 
 SELF="$0"
-[ -f "$SELF" ] || SELF="install.sh"
+if [ -f "$SELF" ]; then SELF="$(readlink -f "$SELF")"; else SELF="install.sh"; fi
 RECONFIGURE=false
 for arg in "$@"; do
     case "$arg" in
         --reconfigure) RECONFIGURE=true ;;
-        -h | --help) curl -fsSL "https://raw.githubusercontent.com/$REPO/main/install.sh" 2>/dev/null | sed -n '2,17p' | sed 's/^# {0,1}//' || true; [ -f "$0" ] && sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h | --help)
+            { if [ -f "$0" ]; then cat "$0"; else curl -fsSL "https://raw.githubusercontent.com/$REPO/main/install.sh"; fi; } 2>/dev/null |
+                sed -n '2,17p' | sed 's/^# \{0,1\}//' || true
+            exit 0 ;;
         *) echo "Unknown option: $arg (try --help)"; exit 1 ;;
     esac
 done
@@ -58,8 +61,9 @@ die() { echo; echo "${R}${B}✘ $*${N}" >&2; exit 1; }
 trap 'echo; echo "${R}The installer stopped at line $LINENO. Fix what it says above and run it again - finished steps are skipped.${N}" >&2' ERR
 
 # Questions are read from the terminal even when the script itself is piped in.
+# (-r isn't enough: /dev/tty is always there, but opening it fails without a terminal.)
 TTY=/dev/tty
-[ -r "$TTY" ] || TTY=/dev/stdin
+{ : <"$TTY"; } 2>/dev/null || TTY=/dev/stdin
 
 ask() { # ask VAR "Question" "default" [secret]
     local var="$1" question="$2" default="${3:-}" secret="${4:-}" reply shown
@@ -90,7 +94,7 @@ yes_no() { # yes_no "Question" Y|N
     reply="${reply:-$2}"
     [[ "$reply" =~ ^[Yy] ]]
 }
-random_secret() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-16}" || true; }
+random_secret() { tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c "${1:-16}" || true; }
 
 # Writes KEY=value into a KEY=value file (the bot's .env, the game's ini),
 # replacing the line if it's there and adding it under the first section (or
@@ -98,12 +102,15 @@ random_secret() { tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-16}" || true;
 set_key() { # set_key file key value
     local file="$1" key="$2" value="$3" tmp
     tmp=$(mktemp)
+    # Two passes over the file: the first only looks for the key.
     K="$key" V="$value" awk '
         BEGIN { k = ENVIRON["K"]; v = ENVIRON["V"]; done = 0 }
+        NR == FNR { if (index($0, k "=") == 1) found = 1; next }
         index($0, k "=") == 1 { if (!done) print k "=" v; done = 1; next }
         { print }
+        !found && !done && /^\[/ { print k "=" v; done = 1 }
         END { if (!done) print k "=" v }
-    ' "$file" >"$tmp"
+    ' "$file" "$file" >"$tmp"
     cat "$tmp" >"$file"
     rm -f "$tmp"
 }
@@ -112,7 +119,9 @@ get_key() { # get_key file key
 }
 # dotenv reads an unquoted # as the start of a comment.
 env_value() { if [[ "$1" == *"#"* || "$1" == " "* || "$1" == *" " ]]; then printf '"%s"' "$1"; else printf '%s' "$1"; fi; }
-as_game() { sudo -u "$GAME_USER" -H "$@"; }
+# From / - the folder the installer was started in (often /root) is off limits to
+# that user, and git refuses to run there.
+as_game() { (cd / && sudo -u "$GAME_USER" -H "$@"); }
 
 cat <<EOF
 
@@ -133,6 +142,8 @@ case "${ID:-}:${ID_LIKE:-}" in
     ubuntu:* | debian:* | *:*debian* | *:*ubuntu*) ok "$OS_NAME" ;;
     *) die "$OS_NAME isn't supported by this installer - it needs Ubuntu or Debian (apt). DEPLOY.md has the manual steps." ;;
 esac
+# Debian testing/sid have no VERSION_ID.
+VERSION_ID="${VERSION_ID:-99}"
 if [ "${ID}" = ubuntu ] && [ "${VERSION_ID%%.*}" -lt 22 ] 2>/dev/null; then warn "Ubuntu $VERSION_ID is old; 22.04 or newer is recommended."; fi
 if [ "${ID}" = debian ] && [ "${VERSION_ID%%.*}" -lt 12 ] 2>/dev/null; then warn "Debian $VERSION_ID is old; 12 or newer is recommended."; fi
 RAM_GB=$(awk '/MemTotal/ { printf "%d", $2 / 1024 / 1024 + 0.5 }' /proc/meminfo)
@@ -172,7 +183,7 @@ fi
 PUBLIC_IP=$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{ print $1 }')
 
 check_token() { # the HTTP status Discord gives the token
-    curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H "Authorization: Bot $1" https://discord.com/api/v10/users/@me || echo 000
+    curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H "Authorization: Bot $1" https://discord.com/api/v10/users/@me || true
 }
 
 if [ "$FIRST_INSTALL" = true ] || [ "$RECONFIGURE" = true ]; then
@@ -185,11 +196,29 @@ if [ "$FIRST_INSTALL" = true ] || [ "$RECONFIGURE" = true ]; then
 EOF
     ask_required A_OWNER_ID "Your Dragonwilds Player ID" "${A_OWNER_ID:-}"
     ask_required A_SERVER_NAME "Server name (shown in the server list)" "${A_SERVER_NAME:-My Dragonwilds Server}"
-    ask_required A_WORLD_NAME "World name (what players search for, case sensitive)" "${A_WORLD_NAME:-${A_SERVER_NAME// /}}"
-    ask A_WORLD_PASSWORD "World password (Enter for none - anyone can join)" "${A_WORLD_PASSWORD:-}"
+    # The game cuts it to 16 characters, and players search for the cut one.
+    suggestion="${A_SERVER_NAME// /}"
+    while true; do
+        ask_required A_WORLD_NAME "World name (what players search for, case sensitive, 16 characters at most)" "${A_WORLD_NAME:-${suggestion:0:16}}"
+        [ "${#A_WORLD_NAME}" -le 16 ] && break
+        echo "    That's ${#A_WORLD_NAME} characters; the game would cut it to \"${A_WORLD_NAME:0:16}\". Pick one of 16 or fewer."
+        A_WORLD_NAME=
+    done
+    if [ -n "${A_WORLD_PASSWORD:-}" ]; then
+        ask A_WORLD_PASSWORD "World password (Enter keeps it, - for none)" "$A_WORLD_PASSWORD"
+        [ "$A_WORLD_PASSWORD" = - ] && A_WORLD_PASSWORD=
+    else
+        ask A_WORLD_PASSWORD "World password (Enter for none - anyone can join)" ""
+    fi
     ask_required A_ADMIN_PASSWORD "Admin password (typed in game under Server Management)" "${A_ADMIN_PASSWORD:-$(random_secret 12)}"
-    ask_required A_PORT "Game port (UDP)" "${A_PORT:-7777}"
-    ask_required A_MAX_PLAYERS "Max players (the game allows up to 6)" "${A_MAX_PLAYERS:-6}"
+    while true; do
+        ask_required A_PORT "Game port (UDP)" "${A_PORT:-7777}"
+        [[ "$A_PORT" =~ ^[0-9]{4,5}$ ]] && [ "$A_PORT" -ge 1024 ] && [ "$A_PORT" -le 65535 ] && break
+        echo "    A number from 1024 to 65535 - 7777 unless you know you need another."
+        A_PORT=
+    done
+    # The game's limit is 6 and not a setting; this is only what the bot shows.
+    A_MAX_PLAYERS="${A_MAX_PLAYERS:-6}"
 
     cat <<EOF
 
@@ -206,7 +235,13 @@ EOF
         warn "Couldn't reach Discord to check the token (HTTP $code) - using it anyway."
         break
     done
-    ask_required A_ADMIN_IDS "Your Discord user ID (several: separate with commas)" "${A_ADMIN_IDS:-}"
+    while true; do
+        ask_required A_ADMIN_IDS "Your Discord user ID (several: separate with commas)" "${A_ADMIN_IDS:-}"
+        A_ADMIN_IDS="${A_ADMIN_IDS//[[:space:]]/}"
+        [[ "$A_ADMIN_IDS" =~ ^[0-9]{17,20}(,[0-9]{17,20})*$ ]] && break
+        echo "    That's a long number like 169180385501118485, not your name: Developer Mode on, then right-click yourself -> Copy User ID."
+        A_ADMIN_IDS=
+    done
     ask_required A_RESTART_AT "Daily update and restart time, 24h (server time is $(date +%Z))" "${A_RESTART_AT:-05:00}"
     [[ "$A_RESTART_AT" =~ ^([01]?[0-9]|2[0-3]):[0-5][0-9]$ ]] || { warn "Not a time like 05:00 - using 05:00."; A_RESTART_AT=05:00; }
     ask_required A_CONNECT "Address players connect to" "${A_CONNECT:-$PUBLIC_IP:$A_PORT}"
@@ -327,6 +362,8 @@ else
 fi
 
 step "Building the mod"
+# Objects from before the Makefile tracked headers could be stale: start over once.
+[ -n "$(find "$SRC_DIR/src" -name '*.d' -print -quit)" ] || as_game make -C "$SRC_DIR" clean >/dev/null
 as_game make -C "$SRC_DIR" -j"$CPUS" >/dev/null
 MOD="$SERVER_DIR/librsdwapi.so"
 if ! cmp -s "$SRC_DIR/dist/librsdwapi.so" "$MOD"; then
@@ -500,11 +537,15 @@ if [ -n "$APP_ID_DISCORD" ] && [ ! -f "$CHANNELS" ] && [ -z "$(get_key "$ENV_FIL
     echo "    ${C}$INVITE${N}"
     echo
     echo -n "  waiting for it to join and make its channels (Ctrl+C to skip; it finishes by itself later) "
+    # Ctrl+C only ends the wait, so the summary below still shows.
+    SKIP=false
+    trap 'SKIP=true' INT
     for _ in $(seq 1 120); do
-        [ -f "$CHANNELS" ] && break
+        [ -f "$CHANNELS" ] || [ "$SKIP" = true ] && break
         echo -n "."
-        sleep 5
+        sleep 5 || true
     done
+    trap - INT
     echo
     [ -f "$CHANNELS" ] && ok "the bot made its channels - have a look in Discord" || warn "not yet - the bot sets everything up as soon as it's invited."
 fi
@@ -523,7 +564,8 @@ ${G}${B}All done!${N}
     sudo systemctl restart dragonwilds        restart the game server
     sudo journalctl -u rsdw-bot -f            the bot's live log
     sudo nano $ENV_FILE    more bot settings (then: sudo systemctl restart rsdw-bot)
-    sudo bash $SELF                       update everything later (or /admin update in Discord)
+    sudo bash $SELF --reconfigure         change your answers
+    /admin update in Discord                  update the bot and mod (the game updates itself daily)
 
   ${B}Need help?${N}  /admin contact in Discord, or message joaosilvajs: https://discord.com/users/169180385501118485
   ${B}Enjoying it?${N} https://ko-fi.com/paradoxjs
