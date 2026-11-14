@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🐉 RSDWServerAPI
+# [🐉 RSDWServerAPI](https://joaopmsilva.github.io/RSDWServerAPI/)
 
 ### Your own _RuneScape: Dragonwilds_ server, with Discord built in, in one command.
 
