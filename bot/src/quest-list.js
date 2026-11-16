@@ -1,4 +1,5 @@
-// The game's quests as the wiki lists them (https://dragonwilds.runescape.wiki/w/Quests):
+// The game's quests as the wiki lists them (https://dragonwilds.runescape.wiki/w/Quests,
+// by the wiki's editors, CC BY-NC-SA 3.0 - this list is under that licence, not MIT):
 // primary and secondary, by region, with where each one starts. Refreshed daily
 // from the wiki by loadQuestList(); the copy below is used until then, or if
 // the wiki can't be reached.

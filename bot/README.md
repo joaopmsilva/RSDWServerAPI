@@ -6,7 +6,7 @@
 
 Stats, leaderboards and two-way chat for players · server control and alerts for admins.
 
-![Version](https://img.shields.io/badge/version-0.18.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.18.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge)
 ![Node](https://img.shields.io/badge/node-20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 
@@ -285,6 +285,23 @@ You get a DM when:
 
 Limits are `ALERT_CPU`, `ALERT_RAM` and `ALERT_DISK` (0 turns one off); `ADMIN_ALERTS=false` turns
 them all off. Discord has to allow DMs from server members.
+
+## 📜 Wiki content and credits
+
+Some of what the bot shows comes from the [RuneScape: Dragonwilds Wiki](https://dragonwilds.runescape.wiki/) and its
+editors, under [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) (not the MIT licence that covers the code). Each card that shows
+it links to the wiki page it came from:
+
+| What | From the wiki |
+| ---- | ------------- |
+| `/item` cards: description, summary, type, weight, picture | The item's own article, linked from every card ("Read more on the wiki") |
+| The quest list: `/quests`, quest progress, the quest leaderboard | [Quests](https://dragonwilds.runescape.wiki/w/Quests), linked from the `/quests` title. The built-in copy in `src/quest-list.js` is under CC BY-NC-SA 3.0 |
+| Skill icons and the skill list | [Skills](https://dragonwilds.runescape.wiki/w/Skills). Every card with a skill icon links to that skill's article |
+| The XP table | [Experience](https://dragonwilds.runescape.wiki/w/Experience) |
+| Quest, monster and item names | [Category:Quests](https://dragonwilds.runescape.wiki/w/Category:Quests), [Category:Monsters](https://dragonwilds.runescape.wiki/w/Category:Monsters), [Category:Items](https://dragonwilds.runescape.wiki/w/Category:Items) |
+| The game icon on the status board | [RuneScape Dragonwilds (Steam edition) icon](https://dragonwilds.runescape.wiki/w/File:RuneScape_Dragonwilds_%28Steam_edition%29_icon.jpg), linked from the server name |
+
+_RuneScape: Dragonwilds_ and its art © Jagex Ltd. Not affiliated with Jagex.
 
 ## ⚙️ Configuration
 

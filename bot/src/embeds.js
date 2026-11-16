@@ -100,7 +100,7 @@ function skillPage(profile, key) {
 
     const { info } = s;
     const embed = playerEmbed(profile, s.category.color).setTitle(`${s.emoji} ${s.name}`);
-    if (s.icon) embed.setThumbnail(s.icon);
+    if (s.icon) embed.setThumbnail(s.icon).setURL(s.wiki);
 
     if (info.maxed) {
         embed
@@ -173,7 +173,7 @@ export function leaderboardEmbed(rows, skill, page) {
                 '🟢 online now, others as last seen',
         })
         .setTimestamp();
-    if (skill?.icon) embed.setThumbnail(skill.icon);
+    if (skill?.icon) embed.setThumbnail(skill.icon).setURL(skill.wiki);
     return embed;
 }
 
@@ -228,7 +228,7 @@ export function perksEmbed(profile) {
 // The wiki's quest list for this player: what's left, by region, rather than
 // what's done.
 export function questsEmbed(profile) {
-    const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Quests');
+    const embed = playerEmbed(profile, 0x9b59b6).setTitle('📜 Quests').setURL('https://dragonwilds.runescape.wiki/w/Quests');
     if (!questStats(profile.player)) return embed.setDescription('No quest data yet - quests show up once they have been online with mod 0.6.0.');
 
     const all = questChecklist(profile.player, questList());
@@ -452,7 +452,7 @@ export function levelUpEmbed(u) {
         .setDescription(lines.join('\n'))
         .setFooter({ text: `Total level ${fmt(u.totalLevel)}` })
         .setTimestamp();
-    if (s.icon) embed.setThumbnail(s.icon);
+    if (s.icon) embed.setThumbnail(s.icon).setAuthor({ name: `${s.emoji} Level up!`, url: s.wiki });
     return embed;
 }
 
@@ -476,7 +476,7 @@ export function maxedEmbed(u) {
         .setDescription(`${s.emoji} The highest level there is - congratulations!\n\`${progressBar(1, 14)}\` **MAX**`)
         .setFooter({ text: `Total level ${fmt(u.totalLevel)}` })
         .setTimestamp();
-    if (s.icon) embed.setThumbnail(s.icon);
+    if (s.icon) embed.setThumbnail(s.icon).setURL(s.wiki);
     return embed;
 }
 
@@ -642,8 +642,9 @@ export function summaryEmbed({ gainers, milestones, played, deaths }) {
 
 // ---- status board -------------------------------------------------------
 
-// The game's icon, from the wiki, next to the server name.
+// The game's icon, from the wiki, next to the server name, linked to its page there.
 const ICON_URL = 'https://dragonwilds.runescape.wiki/images/RuneScape_Dragonwilds_%28Steam_edition%29_icon.jpg';
+const ICON_PAGE = 'https://dragonwilds.runescape.wiki/w/File:RuneScape_Dragonwilds_%28Steam_edition%29_icon.jpg';
 
 // The status board and /status (compact: without today's top XP).
 export function boardEmbed({ state, gainers, vps, compact = false }) {
@@ -663,7 +664,7 @@ export function boardEmbed({ state, gainers, vps, compact = false }) {
 
     const embed = new EmbedBuilder()
         .setColor(COLOR[state.status] || COLOR.info)
-        .setAuthor({ name: config.serverName, iconURL: ICON_URL })
+        .setAuthor({ name: config.serverName, iconURL: ICON_URL, url: ICON_PAGE })
         .setDescription(`## ${headline}${summary ? `\n${summary}` : ''}`)
         .setFooter({ text: `${state.health ? `Mod v${state.health.version || '?'} · ` : ''}/help for commands` })
         .setTimestamp();

@@ -9,7 +9,7 @@ Answer a few questions and get a running server with live skills and leaderboard
 a 🐧 penguin hunt leaderboard, raid alerts, automatic backups and updates, and full control from Discord.
 
 ![Mod](https://img.shields.io/badge/mod-v0.10.2-8b5cf6?style=for-the-badge)
-![Bot](https://img.shields.io/badge/bot-v0.18.0-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![Bot](https://img.shields.io/badge/bot-v0.18.1-5865F2?style=for-the-badge&logo=discord&logoColor=white)
 ![Game](https://img.shields.io/badge/Dragonwilds-1.0.2-c9a227?style=for-the-badge)
 ![Linux](https://img.shields.io/badge/Ubuntu%20%7C%20Debian-one%20command-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
@@ -455,3 +455,8 @@ The mod is based on [dkoz/RSDWServerAPI](https://github.com/dkoz/RSDWServerAPI) 
 installer, the Discord bot, the event feed and the rest were added on top. Not affiliated with
 Jagex. *RuneScape: Dragonwilds* is a trademark of Jagex Ltd. Provided as is, without warranty of
 any kind; use it at your own risk.
+
+**Content from the [RuneScape: Dragonwilds Wiki](https://dragonwilds.runescape.wiki/)**, by its editors, under
+[CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) (not MIT): the bot's item cards, quest list, skill icons, XP table and names,
+each linked to its wiki page from the bot (the full list is in the
+[bot's README](bot/README.md#-wiki-content-and-credits)), and the website's icons: [Lodestone](https://dragonwilds.runescape.wiki/w/File:Lodestone.png), [Penguin Coin](https://dragonwilds.runescape.wiki/w/File:Penguin_Coin.png), [Campfire](https://dragonwilds.runescape.wiki/w/File:Campfire.png), [Fire Rune](https://dragonwilds.runescape.wiki/w/File:Fire_Rune.png), [Garou Chit](https://dragonwilds.runescape.wiki/w/File:Garou_Chit.png), [Postbox](https://dragonwilds.runescape.wiki/w/File:Postbox.png), [Skill Tome (Standing) - Attack](https://dragonwilds.runescape.wiki/w/File:Skill_Tome_%28Standing%29_-_Attack.png), [Challenge Banner](https://dragonwilds.runescape.wiki/w/File:Challenge_Banner.png).

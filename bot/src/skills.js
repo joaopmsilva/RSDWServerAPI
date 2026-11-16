@@ -37,6 +37,10 @@ function lookup(id) {
     return CATALOG.find(d => d.key === key) || CATALOG.find(d => key.includes(d.key)) || null;
 }
 
+// The skill's article on the wiki. Cards showing a skill's icon (from the wiki)
+// link to it, as the wiki's licence asks (CC BY-NC-SA 3.0).
+const wikiPage = name => `https://dragonwilds.runescape.wiki/w/${encodeURIComponent(name.replace(/ /g, '_'))}`;
+
 function prettify(id) {
     return id.replace(/^SKILL_/i, '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 }
@@ -55,6 +59,7 @@ export function describeSkills(raw = []) {
             name: def?.name || prettify(s.skill),
             emoji: def?.emoji || '📘',
             icon: def?.icon ? `https://dragonwilds.runescape.wiki/images/${def.name}.png` : null,
+            wiki: def ? wikiPage(def.name) : null,
             category: CATEGORIES.find(c => c.id === (def?.category || 'other')),
             aliases: def?.aliases || [],
             order: def ? CATALOG.indexOf(def) : CATALOG.length,
@@ -82,6 +87,7 @@ export function catalogSkill(query) {
         name: def.name,
         emoji: def.emoji,
         icon: def.icon ? `https://dragonwilds.runescape.wiki/images/${def.name}.png` : null,
+        wiki: wikiPage(def.name),
         category: CATEGORIES.find(c => c.id === def.category),
     };
 }
