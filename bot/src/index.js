@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import { Activity } from './activity.js';
 import { ADMIN_COMMANDS, adminCommands, isAdmin } from './admin.js';
@@ -23,11 +25,15 @@ import { SelfUpdate } from './self-update.js';
 import { ServerControl } from './server-control.js';
 import { autocomplete, registerCommands } from './slash.js';
 import { PlayerStore } from './store.js';
-import { startTelemetry } from './telemetry.js';
 import { UpdateWatcher } from './update-watch.js';
 import { WorldWatch } from './world-watch.js';
 
 initLogFile(config.dataDir);
+// Bots 0.17.0-0.17.1 kept a random id here for a daily ping; 0.18.0 removed the
+// ping entirely, so the leftover file goes too.
+try {
+    fs.rmSync(path.join(config.dataDir, 'telemetry.json'), { force: true });
+} catch {}
 
 const log = logger('bot');
 const COOLDOWN_MS = 3000;
@@ -97,7 +103,6 @@ client.once(Events.ClientReady, async c => {
     log.info(`logged in as ${c.user.tag}, in ${c.guilds.cache.size} server(s), polling every ${config.pollSeconds}s`);
     if (!c.guilds.cache.size && !config.autoChannels) log.warn(`not in any Discord server yet - invite the bot with ${inviteUrl(c)}`);
     for (const guild of c.guilds.cache.values()) await registerCommands(guild);
-    startTelemetry();
     // Its own channels first (no CHAT_CHANNEL_ID), so everything below finds
     // them. Not in a server yet: wait for the invite.
     if (await setupChannels(c).catch(err => (log.error('channel setup failed:', err), true))) startAll();
